@@ -1,0 +1,125 @@
+name: Create Jira issue
+
+on:
+  issues:
+    types: [opened]
+
+# ✅ 브랜치 생성(push) + 이슈 제목/댓글 업데이트를 하려면 write 필요
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  create-issue:
+    name: Create Jira issue
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Jira 로그인
+      - name: Login to Jira
+        uses: atlassian/gajira-login@v3
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+
+
+      # ref를 지정하지 않으면 default branch(= develop)를 가져옴
+      - name: Checkout repository (default branch)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 3) Issue Form Parser (템플릿 기반 입력값 파싱)
+      # 템플릿을 실제로 쓰는 경우에만 유지
+      - name: Issue Parser (Issue Form)
+        uses: stefanbuck/github-issue-praser@v3
+        id: issue-parser
+        with:
+          template-path: .github/ISSUE_TEMPLATE/issue-form.yml
+
+      # 4) 디버그 로그 (원하면 나중에 제거)
+      - name: Log Issue Parser outputs
+        run: |
+          echo "parentKey: '${{ steps.issue-parser.outputs.issueparser_parentKey }}'"
+          echo "branch:    '${{ steps.issue-parser.outputs.issueparser_branch }}'"
+          echo "json:      '${{ steps.issue-parser.outputs.jsonString }}'"
+
+      # 5) Markdown -> Jira 문법 변환
+      - name: Convert markdown to Jira Syntax
+        uses: peter-evans/jira2md@v1
+        id: md2jira
+        with:
+          input-text: |
+            ### Github Issue Link
+            - ${{ github.event.issue.html_url }}
+
+            ${{ github.event.issue.body }}
+          mode: md2jira
+
+
+      # 6) parent가 비어있으면 Jira에서 400 터지므로, "조건부 fields"
+      - name: Build Jira fields JSON (optional parent)
+        id: fields
+        shell: bash
+        run: |
+          PARENT="${{ steps.issue-parser.outputs.issueparser_parentKey }}"
+          if [ -n "$PARENT" ]; then
+            echo 'FIELDS={"parent":{"key":"'"$PARENT"'"}}' >> $GITHUB_OUTPUT
+            echo "Using parent: $PARENT"
+          else
+            echo 'FIELDS={}' >> $GITHUB_OUTPUT
+            echo "No parent provided -> fields will be empty"
+          fi
+
+      # 7) Jira 이슈 생성
+      - name: Create Jira Issue
+        id: create
+        uses: atlassian/gajira-create@v3
+        with:
+          project: DD
+          issuetype: Task
+          summary: ${{ github.event.issue.title }}
+          description: ${{ steps.md2jira.outputs.output-text }}
+          fields: ${{ steps.fields.outputs.FIELDS }}
+
+      - name: Log created issue
+        run: |
+          echo "Jira Issue created: ${{ steps.create.outputs.issue }}"
+
+      # 8) 브랜치 생성 + push
+      - name: Create branch with Ticket number
+        shell: bash
+        run: |
+          set -e
+
+          ISSUE_NUMBER="${{ steps.create.outputs.issue }}"
+
+          BRANCH_NAME="${ISSUE_NUMBER}"
+
+          echo "Branch to create: $BRANCH_NAME"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH_NAME"
+          git push -u origin "$BRANCH_NAME"
+
+      # 9) GitHub Issue 제목에 Jira 키 붙이기
+      - name: Update issue title with Jira key
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: update-issue
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: '[${{ steps.create.outputs.issue }}] ${{ github.event.issue.title }}'
+
+      # 10) GitHub Issue에 Jira 링크 댓글 달기
+      - name: Add comment with Jira issue link
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: create-comment
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ✅ Jira Issue Created: [${{ steps.create.outputs.issue }}](${{ secrets.JIRA_BASE_URL }}/browse/${{ steps.create.outputs.issue }})
+            🌿 Branch Created: `${{ steps.create.outputs.issue }}-${{ steps.issue-parser.outputs.issueparser_branch }}`
