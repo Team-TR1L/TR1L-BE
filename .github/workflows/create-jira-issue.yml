@@ -94,6 +94,7 @@ jobs:
           set -e
 
           ISSUE_NUMBER="${{ steps.create.outputs.issue }}"
+          
           BRANCH_NAME="${ISSUE_NUMBER}"
 
           echo "Branch to create: $BRANCH_NAME"
