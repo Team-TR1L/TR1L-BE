@@ -16,19 +16,18 @@ spring:
   jackson:
     time-zone: Asia/Seoul
 
+  # ---- 공통: MongoDB (클라우드) ----
+  # dev/prod 모두 Mongo는 cloud URI 사용(환경변수로만)
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
+
 server:
   port: ${SERVER_PORT:8080}
 
 logging:
   level:
     root: INFO
-
-# ---- 공통: MongoDB (클라우드) ----
-# dev/prod 모두 Mongo는 cloud URI 사용(환경변수로만)
-spring:
-  data:
-    mongodb:
-      uri: ${MONGODB_URI}
 
 # ---- (선택) Actuator: health check, smoke test 용 ----
 management:
@@ -43,8 +42,6 @@ management:
 
 # =========================================================
 # DEV (로컬 개발용)
-# - MySQL: 로컬 PC(또는 로컬에서 docker compose로 띄운 mysql)에 localhost로 접속
-# - ddl-auto: update(개발 편의)
 # =========================================================
 ---
 spring:
@@ -61,7 +58,7 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:update}     # dev 기본 update
+      ddl-auto: ${JPA_DDL_AUTO:update}
     show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
@@ -71,7 +68,6 @@ spring:
 
 logging:
   level:
-    # dev에서만 필요시 켜기 (기본 OFF)
     org.hibernate.SQL: ${HIBERNATE_SQL_LOG:OFF}
     org.hibernate.type.descriptor.sql: ${HIBERNATE_TYPE_LOG:OFF}
 
@@ -83,9 +79,6 @@ management:
 
 # =========================================================
 # PROD (운영용)
-# - MySQL: 보통 RDS/운영DB (환경변수 MYSQL_URL로 주입)
-# - ddl-auto: validate 권장 (스키마 자동 변경 방지)
-# - show-sql: false 권장
 # =========================================================
 ---
 spring:
@@ -102,7 +95,7 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:validate}  # prod 기본 validate
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
@@ -119,5 +112,4 @@ logging:
 management:
   endpoint:
     health:
-      # 운영에서는 내부 정보 노출 방지
       show-details: never
