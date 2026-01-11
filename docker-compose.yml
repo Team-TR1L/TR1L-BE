@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: app-mysql
+    restart: unless-stopped
+
+    # 로컬 PC에서 접속할 포트
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+
+    # 최초 컨테이너 생성 시 DB/유저 생성됨 (이미 volume이 있으면 "처음 1회만" 적용)
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-app}
+      MYSQL_USER: ${MYSQL_USER:-app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-apppw}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpw}
+      TZ: Asia/Seoul
+
+    # 팀에서 문자셋/정렬/타임존 통일 (한글/이모지 이슈 예방)
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+09:00
+
+    volumes:
+      # DB 데이터 영구 보존 (컨테이너 내려도 데이터 유지)
+      - mysql-data:/var/lib/mysql
+
+    # 서비스 준비되었는지 체크 (CI나 로컬에서 안정성 ↑)
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mysql-data:
