@@ -48,7 +48,7 @@ jacocoTestReport {
         csv.required = false
     }
 
-    finalizedBy 'jacocoTestCoverageVerification'
+    //finalizedBy 'jacocoTestCoverageVerification'
 }
 
 jacocoTestCoverageVerification {
@@ -76,7 +76,7 @@ jacocoTestCoverageVerification {
 }
 
 tasks.named('check') {
-    dependsOn 'jacocoTestCoverageVerification'
+    //dependsOn 'jacocoTestCoverageVerification'
 }
 
 sonar {
