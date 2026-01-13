@@ -1,0 +1,12 @@
+tasks.named("bootJar") {
+    archiveFileName = "dispatch-server.jar"
+}
+
+dependencies {
+    implementation project(':shared')
+    implementation project(":contexts:dispatch")
+
+    implementation("org.springframework:spring-jdbc:6.2.15")
+    implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
+    implementation group: 'org.postgresql', name: 'postgresql', version: '42.7.7'
+}
