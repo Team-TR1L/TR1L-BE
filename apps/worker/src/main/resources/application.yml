@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: worker
+
+  profiles:
+    default: local
+
+  config:
+    import:
+      - postgres-main.yml
+      - mongo.yml
+
+  batch:
+    job:
+      enabled: false  # job.name으로 실행할 때만
+    jdbc:
+      initialize-schema: ${SPRING_BATCH_JDBC_INITIALIZE_SCHEMA:always} # local에서만 권장
+
+server:
+  port: 8080
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  batch:
+    jdbc:
+      initialize-schema: never
+
+logging:
+  level:
+    root: INFO
