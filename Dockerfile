@@ -1,25 +1,15 @@
-# ===== 1) Build stage =====
-FROM gradle:8.7-jdk17 AS builder
-WORKDIR /app
+ARG APP_TASK
+ARG APP_DIR
 
-# 캐시를 위해 먼저 복사 (의존성 변화가 적은 파일)
-COPY gradlew build.gradle settings.gradle ./
-COPY gradle ./gradle
-
-# 의존성 미리 받아두기(캐시 목적). 실패해도 다음 단계에서 빌드됨.
-RUN ./gradlew dependencies --no-daemon || true
-
-# 소스 복사 후 빌드
+FROM gradle:8.8-jdk17 AS build
+ARG APP_TASK
+ARG APP_DIR
+WORKDIR /home/gradle/src
 COPY . .
-RUN ./gradlew clean bootJar -x test --no-daemon
+RUN gradle ${APP_TASK} -x test --no-daemon
 
-
-# ===== 2) Runtime stage =====
 FROM eclipse-temurin:17-jre
+ARG APP_DIR
 WORKDIR /app
-
-# 빌드 결과 JAR 복사 (프로젝트에 따라 jar 이름이 달라도 되게 와일드카드)
-COPY --from=builder /app/build/libs/*.jar app.jar
-
-EXPOSE 8080
+COPY --from=build /home/gradle/src/${APP_DIR}/build/libs/*.jar /app/app.jar
 ENTRYPOINT ["java","-jar","/app/app.jar"]
