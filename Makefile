@@ -1,5 +1,3 @@
-INFRA = postgres mongo
-
 .PHONY: infra-up infra-down infra-ps \
         api dispatch batch \
         api-build dispatch-build batch-build \
@@ -7,37 +5,37 @@ INFRA = postgres mongo
         down clean
 
 # --- INFRA ---
-infra-up:
-	docker compose up -d $(INFRA)
+up:
+	docker compose up
 
-infra-down:
+down:
 	docker compose down
 
-infra-ps:
+ps:
 	docker compose ps
 
 # --- APPS ---
-api: infra-up
-	docker compose up -d api-server
+api:
+	docker compose up -d api-server postgres
 
-dispatch: infra-up
-	docker compose up -d dispatch-server kafka
+dispatch:
+	docker compose up -d dispatch-server kafka postgres_target
 
-batch: infra-up
-	docker compose up -d worker
+batch:
+	docker compose up -d worker postgres postgres_target mongo
 
 # --- BUILD + RESTART ---
-api-build: infra-up
-	docker compose build api-server
-	docker compose up -d --no-deps api-server
+api-build:
+	docker compose build api-server postgres
+	docker compose up -d --no-deps api-server postgres
 
-dispatch-build: infra-up
-	docker compose build dispatch-server
-	       docker compose up -d --no-deps dispatch-server
+dispatch-build:
+	docker compose build dispatch-server kafka postgres_target
+	       docker compose up -d --no-deps dispatch-server kafka postgres_target
 
-batch-build: infra-up
-	docker compose build worker
-	docker compose up -d --no-deps worker
+batch-build:
+	docker compose build worker postgres postgres_target mongo
+	docker compose up -d --no-deps worker postgres postgres_target mongo
 
 # --- LOGS ---
 logs-api:

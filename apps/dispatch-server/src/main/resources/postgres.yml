@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/billing}
-    username: ${SPRING_DATASOURCE_USERNAME:billing}
-    password: ${SPRING_DATASOURCE_PASSWORD:billing}
+    url: ${TARGET_DATASOURCE_URL:jdbc:postgresql://localhost:5433/billing_target}
+    username: ${TARGET_DATASOURCE_USERNAME:billing}
+    password: ${TARGET_DATASOURCE_PASSWORD:billing}
     driver-class-name: org.postgresql.Driver
 
   jpa:
