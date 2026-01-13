@@ -11,7 +11,7 @@ dependencies {
     testImplementation 'org.awaitility:awaitility'
 
     //Mongo DB
-    implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
+    implementation("org.springframework.boot:spring-boot-starter-data-mongodb:3.5.9")
 
     //PostgreSQL
     implementation group: 'org.postgresql', name: 'postgresql', version: '42.7.7'

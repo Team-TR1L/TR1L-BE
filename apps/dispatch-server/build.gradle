@@ -7,6 +7,6 @@ dependencies {
     implementation project(":contexts:dispatch")
 
     implementation("org.springframework:spring-jdbc:6.2.15")
-    implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
+    implementation("org.springframework.boot:spring-boot-starter-data-mongodb:3.5.9")
     implementation group: 'org.postgresql', name: 'postgresql', version: '42.7.7'
 }
