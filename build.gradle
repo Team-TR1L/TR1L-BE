@@ -1,7 +1,7 @@
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '3.5.9'
-	id 'io.spring.dependency-management' version '1.1.7'
+    id 'java'
+    id 'org.springframework.boot' version '3.5.9'
+    id 'io.spring.dependency-management' version '1.1.7'
     id 'jacoco'
     id 'org.sonarqube' version '7.2.2.6593'
 }
@@ -11,9 +11,9 @@ version = '0.0.1-SNAPSHOT'
 description = 'Billing & Notification Platform'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(17)
-	}
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
 }
 
 jacoco {
@@ -99,25 +99,68 @@ tasks.named("sonar") {
 }
 
 configurations {
-	compileOnly {
-		extendsFrom annotationProcessor
-	}
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
 }
 
 repositories {
-	mavenCentral()
+    mavenCentral()
 }
 
-dependencies {
-	//implementation 'org.springframework.boot:spring-boot-starter-batch'
-	//implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-web'
-	//implementation 'org.springframework.kafka:spring-kafka'
-	compileOnly 'org.projectlombok:lombok'
-	runtimeOnly 'com.mysql:mysql-connector-j'
-	annotationProcessor 'org.projectlombok:lombok'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	//testImplementation 'org.springframework.batch:spring-batch-test'
-	//testImplementation 'org.springframework.kafka:spring-kafka-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+allprojects {
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    //default : java library 취급
+    apply plugin: "java-library"
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    dependencies {
+        // Lombok
+        compileOnly 'org.projectlombok:lombok:1.18.34'
+        annotationProcessor 'org.projectlombok:lombok:1.18.34'
+        testCompileOnly 'org.projectlombok:lombok:1.18.34'
+        testAnnotationProcessor 'org.projectlombok:lombok:1.18.34'
+        testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+
+        //TSID
+        implementation 'io.hypersistence:hypersistence-utils-hibernate-60:3.5.1'
+        implementation 'com.github.f4b6a3:tsid-creator:5.2.6'
+
+        //spring Modulith
+        implementation 'org.springframework.modulith:spring-modulith-starter-core:2.0.1'
+        testImplementation 'org.springframework.modulith:spring-modulith-starter-test:2.0.1'
+    }
+}
+
+
+//app module boot 적용
+configure(subprojects.findAll { it.path.startsWith(":apps") }) {
+    apply plugin: "org.springframework.boot"
+    apply plugin: "io.spring.dependency-management"
+
+    dependencies {
+        implementation 'org.springframework.boot:spring-boot-starter'
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    }
+
+    tasks.named("jar") { enabled = false }
+    tasks.named("bootJar") { enabled = true }
+
+    tasks.named("bootJar"){
+        archiveFileName = "app.jar"
+    }
 }
