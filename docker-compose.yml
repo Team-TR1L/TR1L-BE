@@ -1,39 +1,157 @@
-version: "3.9"
-
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: app-mysql
-    restart: unless-stopped
-
-    # 로컬 PC에서 접속할 포트
-    ports:
-      - "${MYSQL_PORT:-3306}:3306"
-
-    # 최초 컨테이너 생성 시 DB/유저 생성됨 (이미 volume이 있으면 "처음 1회만" 적용)
+  postgres:
+    image: postgres:16-alpine
     environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-app}
-      MYSQL_USER: ${MYSQL_USER:-app}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-apppw}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpw}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: Asia/Seoul
-
-    # 팀에서 문자셋/정렬/타임존 통일 (한글/이모지 이슈 예방)
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --default-time-zone=+09:00
-
+    ports:
+      - "${POSTGRES_PORT}:5432"
     volumes:
-      # DB 데이터 영구 보존 (컨테이너 내려도 데이터 유지)
-      - mysql-data:/var/lib/mysql
-
-    # 서비스 준비되었는지 체크 (CI나 로컬에서 안정성 ↑)
+      - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  #Target DB
+  postgres_target:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${TARGET_POSTGRES_DB}
+      POSTGRES_USER: ${TARGET_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${TARGET_POSTGRES_PASSWORD}
+      TZ: Asia/Seoul
+    ports:
+      - "${TARGET_POSTGRES_PORT}:5432"
+    volumes:
+      - pg_target_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${TARGET_POSTGRES_USER} -d ${TARGET_POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mongo:
+    image: mongo:7
+    environment:
+      TZ: Asia/Seoul
+    ports:
+      - "${MONGO_PORT}:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.runCommand({ ping: 1 }).ok\""]
+      interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 20
+
+  kafka:
+    image: apache/kafka:latest
+    container_name: kafka
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+  api-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_TASK: ":apps:api-server:bootJar"
+        APP_DIR: "apps/api-server"
+        JAR_NAME: "api-server.jar"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+    ports:
+      - "8080:8080"
+
+  dispatch-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_TASK: ":apps:dispatch-server:bootJar"
+        APP_DIR: "apps/dispatch-server"
+        JAR_NAME: "dispatch-server.jar"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+
+      # JPA (RDB)
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+
+      # Mongo
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+
+      # Kafka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP}
+    ports:
+      - "8081:8080"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_TASK: ":apps:worker:bootJar"
+        APP_DIR: "apps/worker"
+        JAR_NAME: "worker.jar"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+
+      # JPA
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+
+      # target
+      TARGET_DATASOURCE_URL: ${TARGET_DATASOURCE_URL}
+      TARGET_DATASOURCE_USERNAME: ${TARGET_DATASOURCE_USERNAME}
+      TARGET_DATASOURCE_PASSWORD: ${TARGET_DATASOURCE_PASSWORD}
+
+      # Mongo
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+
+      # Batch metadata schema
+      SPRING_BATCH_JDBC_INITIALIZE_SCHEMA: ${SPRING_BATCH_JDBC_INITIALIZE_SCHEMA}
+
+    profiles: ["batch"]
+    restart: "no"
 
 volumes:
-  mysql-data:
+  pg_data:
+  mongo_data:
+  pg_target_data:
