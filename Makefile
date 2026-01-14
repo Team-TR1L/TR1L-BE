@@ -24,6 +24,9 @@ dispatch:
 batch:
 	docker compose up -d worker postgres postgres_target mongo
 
+delivery:
+	docker compose up -d delivery-server kafka postgres_target
+
 # --- BUILD + RESTART ---
 api-build:
 	docker compose build api-server postgres
@@ -37,6 +40,10 @@ batch-build:
 	docker compose build worker postgres postgres_target mongo
 	docker compose up -d --no-deps worker postgres postgres_target mongo
 
+delivery-build:
+	docker compose build delivery-server kafka postgres_target
+	       docker compose up -d --no-deps delivery-server kafka postgres_target
+
 # --- LOGS ---
 logs-api:
 	docker compose logs -f api-server
@@ -46,6 +53,9 @@ logs-dispatch:
 
 logs-batch:
 	docker compose logs -f worker
+
+logs-delivery:
+	docker compose logs -f delivery
 
 # --- STOP / CLEAN ---
 down:
