@@ -8,7 +8,6 @@ spring:
   config:
     import:
       - postgres.yml
-      - mongo.yml
       - kafka.yml
 
 server:
