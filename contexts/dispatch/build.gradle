@@ -2,6 +2,5 @@ dependencies {
     implementation project(":shared")
 
     implementation "org.springframework:spring-context:6.1.20"
-    implementation "org.springframework.boot:spring-boot-starter-data-mongodb:3.5.9"
     implementation "org.springframework.kafka:spring-kafka:3.3.11"
 }

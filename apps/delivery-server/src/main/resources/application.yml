@@ -1,6 +1,6 @@
 spring:
   application:
-    name: dispatch-server
+    name: delivery-server
 
   profiles:
     default: local
