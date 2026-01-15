@@ -1,0 +1,13 @@
+package com.tr1l.billing.domain.vo;
+
+import com.tr1l.billing.domain.exception.BillingDomainException;
+import com.tr1l.billing.error.BillingErrorCode;
+
+public record CustomerId(Long value) {
+    public CustomerId {
+        if (value == null) {
+            throw new BillingDomainException(BillingErrorCode.INVALID_CUSTOMER_ID);
+        }
+    }
+
+}
