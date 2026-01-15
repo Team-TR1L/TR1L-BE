@@ -27,7 +27,7 @@
 <img width="196" height="402" alt="image" src="https://github.com/user-attachments/assets/e952b694-3762-4b20-910d-6d71539b4807" />
 
 초기에는 하나의 애플리케이션 안에서 정산 → 발송대상 생성 → 발송까지 모두 처리하는 형태를 고려했습니다.  
-하지만 요구사항의 핵심이 **대량 처리 + 특정 시간 슬롯 집중 + 실패/재처리**에 있었기 때문에, 단일 애플리케이션 구조는 다음 한계를 가집니다.
+하지만 요구사항의 핵심이 **대용량 데이터 처리 + 특정 시간 슬롯 집중 + 실패/재처리**에 있었기 때문에, 단일 애플리케이션 구조는 다음 한계를 가집니다.
 
 - **수평 확장의 어려움**
   - API 트래픽은 적어도, 발송 워커는 순간적으로 수십 배 확장이 필요할 수 있음
@@ -356,18 +356,28 @@ DB에는 파일 자체가 아닌 **파일 위치(S3 key)** 만 저장합니다.
 ### Job1 - 정산 스냅샷 만들기 (결과 저장: MongoDB)
 이번 달 사용분을 정산하여 “청구서에 들어갈 데이터” 스냅샷을 생성합니다.
 
-<img width="621" height="582" alt="image-20260113-100255" src="https://github.com/user-attachments/assets/cd1a4f8c-6f61-4705-b907-e8ecf093a39e" />
+<img width="4310" height="7845" alt="job1" src="https://github.com/user-attachments/assets/d9906ee2-dc57-4ff0-8fea-66aff826fe83" />
 
-- **Step0: 정산 기간 고정**
-  - 정산 대상 월의 기간(시작/마감) 설정, 정산 시작 상태 변경
-  - 이미 완료된 월이면 중복 정산 방지(조기 종료)
-- **Step1: 정산 대상 선정**
-  - 약 100만 고객 대상 리스트를 선정하여 MongoDB에 저장
-- **Step2: 정산**
-  - MongoDB에서 대상 조회 → RDB(요금제/결합 등) 조회 → 청구액 산정
-  - 산정 결과(청구 항목)를 MongoDB에 스냅샷으로 저장
-- **Step3: 상태 완료 처리**
-  - 월 단위 정산 완료 상태/시간 기록 후 종료
+- **Step0: 정산 기간 고정(billing_cycle)**
+  - 정산 대상 월의 기간(cutoff_at)을 확정
+  - billing_cycle 테이블의 해당 월의 status를 조회 후 상태에 따른 종료 or 다음 스텝 실행
+  - → 정산 기간, 상태값을 통해 중복 실행을 막거나 같은 범위에 대한 배치 처리 보장
+- **Step1: 정산에 필요한 View 생성(billing_targets)**
+  - 해당 월의 **정산에 필요한 사용자(사용 중, 해지)와 정책(결합, 요금제)**를 RDB에 생성
+  - 다양한 정책을 다중 조인을 통해 한 명의 유저에 대하여 평탄화 진행
+  - → 정산 스탭에서 모든 사용자에 대한 RDB 다중 조인 재수행을 제거하여 성능 향상 
+- **Step2: 정산 작업 큐 생성(work_collection)**
+  - Reader : billing_targets를 Keyset 방식으로 조회하여 스캔
+  - Processor : row → document 형식으로 변환
+  - Writer : MongDB work 컬렉션에 저장
+  - → 사용자에 대한 상태 값을 TARGET으로 upsert 이후 상태는 다음 스텝에서 관리
+- **Step3: 정산 및 스냅샷 저장**
+  - Reader : MongDB에서 상태 값이 TARGET인 유저를 원자적으로 선점하여 chunk 단위로 PROCESSING
+  - Processor : 선점된 userID를 기반으로 도메인 객체에서 계산 수행
+  - Writer : 계산 결과를 MongDB에 저장하고 해당 사용자의 status를 CALCULATED로 업데이트
+  - → 상태 전이는 원자적으로 업데이트 되기에 실패한 건수에 대한 재선점 처리
+- **Step4: 월 정산 완료**
+  - MongDB에서 유저 마다의 상태를 확인하여 billing_cycle를 FINISHED or FAILED 업데이트
 
 ---
 
