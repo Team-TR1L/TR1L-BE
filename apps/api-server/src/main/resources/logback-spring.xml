@@ -1,52 +1,77 @@
 <configuration>
-  <property name="APP" value="${spring.application.name:-app}"/>
-  <property name="ENV" value="${spring.profiles.active:-local}"/>
-  <property name="BC"  value="${APP_BC:-UNKNOWN}"/>
-  <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
-    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
-      <providers>
+        <springProfile name="dev">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>
+                    %d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n%ex{full}
+                </pattern>
+            </encoder>
+        </appender>
 
-        <!-- 필드명 고정 -->
-        <timestamp>
-          <fieldName>ts</fieldName>
-          <timeZone>Asia/Seoul</timeZone>
-        </timestamp>
-        <logLevel>
-          <fieldName>level</fieldName>
-        </logLevel>
-        <loggerName>
-          <fieldName>logger</fieldName>
-        </loggerName>
-        <threadName>
-          <fieldName>thread</fieldName>
-        </threadName>
-        <message/>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
 
-        <!-- 필드(app/env/bc) -->
-        <globalCustomFields>
-          {"app":"${APP}","env":"${ENV}","bc":"${BC}"}
-        </globalCustomFields>
+    <property name="APP" value="${spring.application.name:-app}"/>
+    <property name="ENV" value="${spring.profiles.active:-local}"/>
+    <property name="BC" value="${APP_BC:-UNKNOWN}"/>
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
 
-        <!-- MDC를 그대로 JSON에 포함 -->
-        <mdc/>
+                <!-- 필드명 고정 -->
+                <timestamp>
+                    <fieldName>ts</fieldName>
+                    <timeZone>Asia/Seoul</timeZone>
+                </timestamp>
+                <logLevel>
+                    <fieldName>level</fieldName>
+                </logLevel>
+                <loggerName>
+                    <fieldName>logger</fieldName>
+                </loggerName>
+                <threadName>
+                    <fieldName>thread</fieldName>
+                </threadName>
+                <message/>
 
-        <!-- 예외 -->
-        <stackTrace>
-          <fieldName>error.stacktrace</fieldName>
-        </stackTrace>
-      </providers>
-    </encoder>
-  </appender>
+                <!-- 필드(app/env/bc) -->
+                <globalCustomFields>
+                    {"app":"${APP}","env":"${ENV}","bc":"${BC}"}
+                </globalCustomFields>
+
+                <!-- MDC를 그대로 JSON에 포함 -->
+                <mdc/>
+
+                <!-- 예외 -->
+                <stackTrace>
+                    <fieldName>error.stacktrace</fieldName>
+                </stackTrace>
+            </providers>
+        </encoder>
+    </appender>
 
 
-  <appender name="ASYNC_JSON" class="ch.qos.logback.classic.AsyncAppender">
-    <queueSize>8192</queueSize>
-    <discardingThreshold>0</discardingThreshold>
-    <neverBlock>true</neverBlock>
-    <appender-ref ref="CONSOLE_JSON"/>
-  </appender>
+    <appender name="ASYNC_JSON" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>8192</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="CONSOLE_JSON"/>
+    </appender>
 
-  <root level="INFO">
-    <appender-ref ref="ASYNC_JSON"/>
-  </root>
+    <root level="INFO">
+        <appender-ref ref="ASYNC_JSON"/>
+    </root>
+
+    <!--SQL Query-->
+    <springProfile name="dev">
+        <logger name="org.hibernate.SQL" level="DEBUG"/>
+        <logger name="org.hibernate.orm.jdbc.bind" level="TRACE"/>
+    </springProfile>
+
+    <springProfile name="prod">
+        <logger name="org.hibernate.SQL" level="OFF"/>
+        <logger name="org.hibernate.orm.jdbc.bind" level="OFF"/>
+    </springProfile>
 </configuration>
