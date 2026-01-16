@@ -1,10 +1,11 @@
-package com.tr1l.dispatch.adapter.out.persistence;
+package com.tr1l.dispatch.infra.persistence;
 
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import com.tr1l.dispatch.domain.model.enums.ChannelType;
 import com.tr1l.dispatch.domain.model.vo.ChannelRoutingPolicy;
 import com.tr1l.dispatch.domain.model.vo.ChannelSequence;
 import com.tr1l.dispatch.error.DispatchErrorCode;
+import com.tr1l.dispatch.infra.converter.ChannelRoutingPolicyJsonConverter;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
