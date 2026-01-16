@@ -2,7 +2,9 @@ package com.tr1l.dispatch.domain.model.vo;
 
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import com.tr1l.dispatch.error.DispatchErrorCode;
+import lombok.Getter;
 
+@Getter
 public final class ChannelRoutingPolicy {
 
     private final ChannelSequence primaryOrder;
