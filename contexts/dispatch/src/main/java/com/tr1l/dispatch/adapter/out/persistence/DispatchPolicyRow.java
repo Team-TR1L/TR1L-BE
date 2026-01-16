@@ -7,6 +7,7 @@ import java.time.Instant;
 
 @AllArgsConstructor
 @Getter
+
 public class DispatchPolicyRow {
     public long id;
     public long adminId;
