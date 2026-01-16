@@ -99,8 +99,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      mongo:
-        condition: service_healthy
       kafka:
         condition: service_started
     environment:
@@ -110,9 +108,6 @@ services:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
-
-      # Mongo
-      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
 
       # Kafka
       SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP}
@@ -153,6 +148,32 @@ services:
 
     profiles: ["batch"]
     restart: "no"
+
+  delivery-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_TASK: ":apps:delivery-server:bootJar"
+        APP_DIR: "apps/delivery-server"
+        JAR_NAME: "delivery-server.jar"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+
+      # JPA (RDB)
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+
+      # Kafka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP}
+    ports:
+      - "8082:8080"
 
 volumes:
   pg_data:
