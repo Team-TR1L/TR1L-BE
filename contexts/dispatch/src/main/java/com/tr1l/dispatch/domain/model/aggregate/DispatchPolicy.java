@@ -7,66 +7,103 @@ import com.tr1l.dispatch.domain.model.vo.DispatchPolicyId;
 import com.tr1l.dispatch.domain.model.vo.PolicyVersion;
 import com.tr1l.dispatch.error.DispatchErrorCode;
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
+import lombok.Getter;
 
 import java.time.Instant;
 
+@Getter
 public class DispatchPolicy {
-    // 식별자
-    private DispatchPolicyId dispatchPolicyId;
 
+    // === 불변 식별자 ===
+    private final DispatchPolicyId dispatchPolicyId;
+    private final Instant createdAt;
+
+    // === 가변 상태 ===
     private AdminId adminId;
     private PolicyStatus status;
     private PolicyVersion version;
 
-    private final Instant createdAt;
     private Instant activatedAt;
     private Instant retiredAt;
 
     private ChannelRoutingPolicy routingPolicy;
 
-    public DispatchPolicy(AdminId adminId) {
+    // === 신규 생성 전용 생성자 ===
+    public DispatchPolicy(
+            DispatchPolicyId dispatchPolicyId,
+            AdminId adminId
+    ) {
+        this.dispatchPolicyId = dispatchPolicyId;
         this.adminId = adminId;
         this.status = PolicyStatus.DRAFT;
         this.version = PolicyVersion.of(1);
         this.createdAt = Instant.now();
     }
 
-    // === 도메인 행위 ===
+    // === 영속성 전용 복원 생성자 ===
+    public DispatchPolicy(
+            DispatchPolicyId dispatchPolicyId,
+            AdminId adminId,
+            Instant createdAt
+    ) {
+        this.dispatchPolicyId = dispatchPolicyId;
+        this.adminId = adminId;
+        this.createdAt = createdAt;
+    }
+
+    // === 영속성 전용 상태 복원 ===
+    public void restore(
+            PolicyStatus status,
+            PolicyVersion version,
+            ChannelRoutingPolicy routingPolicy,
+            Instant activatedAt,
+            Instant retiredAt
+    ) {
+        this.status = status;
+        this.version = version;
+        this.routingPolicy = routingPolicy;
+        this.activatedAt = activatedAt;
+        this.retiredAt = retiredAt;
+    }
+
+    // ==================================================
+    // 도메인 행위
+    // ==================================================
 
     public void changeRoutingPolicy(
             ChannelRoutingPolicy newRoutingPolicy,
             AdminId actor
     ) {
-        if (this.status == PolicyStatus.RETIRED)
-            throw new DispatchDomainException(DispatchErrorCode.POLICY_ALREADY_RETIRED);
+        if (this.status == PolicyStatus.RETIRED) {
+            throw new DispatchDomainException(
+                    DispatchErrorCode.POLICY_ALREADY_RETIRED
+            );
+        }
 
         this.routingPolicy = newRoutingPolicy;
         this.adminId = actor;
         this.version = this.version.next();
     }
 
-    //정책 활성화
     public void activate() {
         if (this.status != PolicyStatus.DRAFT) {
-            throw new DispatchDomainException(DispatchErrorCode.POLICY_CANNOT_ACTIVATE);
+            throw new DispatchDomainException(
+                    DispatchErrorCode.POLICY_CANNOT_ACTIVATE
+            );
         }
 
         this.status = PolicyStatus.ACTIVE;
         this.activatedAt = Instant.now();
     }
 
-    //정책 폐기
     public void retire() {
         if (this.status == PolicyStatus.RETIRED) {
-            throw new DispatchDomainException(DispatchErrorCode.POLICY_ALREADY_RETIRED);
+            throw new DispatchDomainException(
+                    DispatchErrorCode.POLICY_ALREADY_RETIRED
+            );
         }
 
         this.status = PolicyStatus.RETIRED;
         this.retiredAt = Instant.now();
-    }
-
-    // === 식별자 세터 (영속화 시점) ===
-    public void assignId(Long id) {
-        this.dispatchPolicyId = DispatchPolicyId.of(id);
     }
 }
