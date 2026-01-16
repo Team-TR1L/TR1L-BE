@@ -26,8 +26,8 @@ batch:
 
 # --- BUILD + RESTART ---
 api-build:
-	docker compose build api-server postgres
-	docker compose up -d --no-deps api-server postgres
+	docker compose build api-server
+	docker compose up -d --no-deps api-server
 
 dispatch-build:
 	docker compose build dispatch-server kafka postgres_target
