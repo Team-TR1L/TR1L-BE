@@ -10,6 +10,10 @@
 
 <br/>
 
+## 🎫 Jira Ticket
+- Jira Ticket: TR1L-
+
+<br/>
 
 ## #️⃣관련 이슈
 
