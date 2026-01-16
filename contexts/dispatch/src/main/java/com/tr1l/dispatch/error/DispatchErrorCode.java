@@ -28,9 +28,9 @@ public enum DispatchErrorCode implements ErrorCode {
     // APP - Application
     // =====================================================================
 
-    // =====================================================================
-    // ADA - Adapter
-    // =====================================================================
+    ROUTING_POLICY_SERIALIZATION_FAILED("DSP-APP-001", ErrorCategory.ADA, "RoutingPolicy 직렬화에 실패했습니다."),
+
+    ROUTING_POLICY_DESERIALIZATION_FAILED("DSP-APP-002", ErrorCategory.ADA, "RoutingPolicy 역직렬화에 실패했습니다.")
     ;
 
     private final String code;
