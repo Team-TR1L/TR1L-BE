@@ -16,12 +16,15 @@ public final class DispatchPolicyMapper {
     // Domain → Row
     // ==================================================
     public static DispatchPolicyRow toRow(DispatchPolicy policy) {
+        ChannelRoutingPolicy routingPolicy = policy.getRoutingPolicy();
+
         return new DispatchPolicyRow(
                 policy.getDispatchPolicyId().value(),
                 policy.getAdminId().value(),
                 policy.getStatus().name(),
                 policy.getVersion().value(),
-                serialize(policy.getRoutingPolicy()),
+                ChannelRoutingPolicyJsonConverter.serialize(routingPolicy),
+                routingPolicy.maxAttemptCount(), // 여기서 계산
                 policy.getCreatedAt(),
                 policy.getActivatedAt(),
                 policy.getRetiredAt()

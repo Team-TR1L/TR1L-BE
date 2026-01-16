@@ -14,6 +14,7 @@ public class DispatchPolicyRow {
     public int version;
 
     public String routingPolicyJson;
+    public int maxAttemptCount;
 
     public Instant createdAt;
     public Instant activatedAt;

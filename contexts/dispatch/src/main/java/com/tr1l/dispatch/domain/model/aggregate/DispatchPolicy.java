@@ -75,9 +75,7 @@ public class DispatchPolicy {
             AdminId actor
     ) {
         if (this.status == PolicyStatus.RETIRED) {
-            throw new DispatchDomainException(
-                    DispatchErrorCode.POLICY_ALREADY_RETIRED
-            );
+            throw new DispatchDomainException(DispatchErrorCode.POLICY_ALREADY_RETIRED);
         }
 
         this.routingPolicy = newRoutingPolicy;
@@ -87,9 +85,7 @@ public class DispatchPolicy {
 
     public void activate() {
         if (this.status != PolicyStatus.DRAFT) {
-            throw new DispatchDomainException(
-                    DispatchErrorCode.POLICY_CANNOT_ACTIVATE
-            );
+            throw new DispatchDomainException(DispatchErrorCode.POLICY_CANNOT_ACTIVATE);
         }
 
         this.status = PolicyStatus.ACTIVE;
@@ -98,9 +94,7 @@ public class DispatchPolicy {
 
     public void retire() {
         if (this.status == PolicyStatus.RETIRED) {
-            throw new DispatchDomainException(
-                    DispatchErrorCode.POLICY_ALREADY_RETIRED
-            );
+            throw new DispatchDomainException(DispatchErrorCode.POLICY_ALREADY_RETIRED);
         }
 
         this.status = PolicyStatus.RETIRED;
