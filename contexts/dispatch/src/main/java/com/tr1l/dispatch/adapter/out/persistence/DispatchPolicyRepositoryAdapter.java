@@ -21,9 +21,9 @@ public class DispatchPolicyRepositoryAdapter
 
         jdbc.update("""
             INSERT INTO dispatch_policy
-            (id, admin_id, status, version, routing_policy,
+            (id, admin_id, status, version, routing_policy, max_attempt_count,
              created_at, activated_at, retired_at)
-            VALUES (:id, :adminId, :status, :version, :routingPolicy,
+            VALUES (:id, :adminId, :status, :version, :routingPolicy, :maxAttemptCount,
                     :createdAt, :activatedAt, :retiredAt)
         """, Map.of(
                 "id", row.id,
@@ -31,6 +31,7 @@ public class DispatchPolicyRepositoryAdapter
                 "status", row.status,
                 "version", row.version,
                 "routingPolicy", row.routingPolicyJson,
+                "maxAttemptCount", row.maxAttemptCount,
                 "createdAt", row.createdAt,
                 "activatedAt", row.activatedAt,
                 "retiredAt", row.retiredAt

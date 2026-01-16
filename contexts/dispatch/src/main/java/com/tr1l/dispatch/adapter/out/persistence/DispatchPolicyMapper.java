@@ -24,7 +24,7 @@ public final class DispatchPolicyMapper {
                 policy.getStatus().name(),
                 policy.getVersion().value(),
                 ChannelRoutingPolicyJsonConverter.serialize(routingPolicy),
-                routingPolicy.maxAttemptCount(), // 여기서 계산
+                routingPolicy.maxAttemptCount(), // maxAttemptCount 계산
                 policy.getCreatedAt(),
                 policy.getActivatedAt(),
                 policy.getRetiredAt()
@@ -66,9 +66,7 @@ public final class DispatchPolicyMapper {
     }
 
     private static ChannelRoutingPolicy deserialize(String json) {
-        if (json == null) {
-            return null;
-        }
+        if (json == null) return null;
         return ChannelRoutingPolicyJsonConverter.deserialize(json);
     }
 }

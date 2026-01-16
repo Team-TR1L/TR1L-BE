@@ -20,10 +20,7 @@ public final class ChannelRoutingPolicyJsonConverter {
         try {
             return objectMapper.writeValueAsString(policy);
         } catch (JsonProcessingException e) {
-            throw new DispatchDomainException(
-                    DispatchErrorCode.ROUTING_POLICY_SERIALIZATION_FAILED,
-                    e
-            );
+            throw new DispatchDomainException(DispatchErrorCode.ROUTING_POLICY_SERIALIZATION_FAILED, e);
         }
     }
 
@@ -32,15 +29,9 @@ public final class ChannelRoutingPolicyJsonConverter {
     // ==================================================
     public static ChannelRoutingPolicy deserialize(String json) {
         try {
-            return objectMapper.readValue(
-                    json,
-                    ChannelRoutingPolicy.class
-            );
+            return objectMapper.readValue(json, ChannelRoutingPolicy.class);
         } catch (Exception e) {
-            throw new DispatchDomainException(
-                    DispatchErrorCode.ROUTING_POLICY_DESERIALIZATION_FAILED,
-                    e
-            );
+            throw new DispatchDomainException(DispatchErrorCode.ROUTING_POLICY_DESERIALIZATION_FAILED, e);
         }
     }
 }
