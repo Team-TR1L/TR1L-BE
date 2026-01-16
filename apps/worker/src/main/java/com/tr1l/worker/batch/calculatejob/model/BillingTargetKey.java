@@ -1,16 +1,8 @@
 package com.tr1l.worker.batch.calculatejob.model;
 
 /**
- *
- ==========================
- *$method$
- *
- * @parm $parm$
- * @return $type
- * @author $user
- * @version 1.0.0
- * @date $date
+ step2 리더단계에서 필요한 targetKey
  * ========================== */
-public record Step2BillingTargetKey(String billingMonth, long userId) {
+public record BillingTargetKey(String billingMonth, long userId) {
 
 }

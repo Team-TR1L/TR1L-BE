@@ -1,6 +1,6 @@
 package com.tr1l.worker.batch.calculatejob.step.step2;
 
-import com.tr1l.worker.batch.calculatejob.model.Step2BillingTargetKey;
+import com.tr1l.worker.batch.calculatejob.model.BillingTargetKey;
 import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.Order;
 import org.springframework.batch.item.database.PagingQueryProvider;
@@ -11,9 +11,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 
-public class Step2Reader extends JdbcPagingItemReader<Step2BillingTargetKey> {
+public class BillingTargetReader extends JdbcPagingItemReader<BillingTargetKey> {
 
-    public Step2Reader(DataSource dataSource, String viewName, String billingMonth, int pageSize) throws Exception{
+    public BillingTargetReader(DataSource dataSource, String viewName, String billingMonth, int pageSize) throws Exception{
 
         /**x
          * 쿼리를 이용해 Step1 에서 생성된 물리적 테이블 뷰에서 사용자 id 값과 billingMonth를 갖고 옵니다.
@@ -39,7 +39,7 @@ public class Step2Reader extends JdbcPagingItemReader<Step2BillingTargetKey> {
         setParameterValues(Map.of("billingMonth",billingMonth));
         setPageSize(pageSize);
         setRowMapper((rs,rowNum)->
-                new Step2BillingTargetKey(rs.getString("billing_month"), rs.getLong("user_id")));
+                new BillingTargetKey(rs.getString("billing_month"), rs.getLong("user_id")));
 
         afterPropertiesSet();
 
