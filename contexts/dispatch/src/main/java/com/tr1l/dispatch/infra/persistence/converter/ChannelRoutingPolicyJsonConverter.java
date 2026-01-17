@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import com.tr1l.dispatch.domain.model.vo.ChannelRoutingPolicy;
-import com.tr1l.dispatch.error.DispatchErrorCode;
+import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 
 public final class ChannelRoutingPolicyJsonConverter {
 

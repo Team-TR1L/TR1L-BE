@@ -1,4 +1,4 @@
-package com.tr1l.dispatch.infra.persistence.kafka;
+package com.tr1l.dispatch.infra.kafka;
 
 public interface DispatchEventPublisher {
 

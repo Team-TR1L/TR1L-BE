@@ -1,7 +1,7 @@
 package com.tr1l.dispatch.domain.model.vo;
 
 import com.tr1l.dispatch.domain.model.enums.ChannelType;
-import com.tr1l.dispatch.error.DispatchErrorCode;
+import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
 
 import java.util.List;

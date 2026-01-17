@@ -5,7 +5,7 @@ import com.tr1l.dispatch.domain.model.vo.AdminId;
 import com.tr1l.dispatch.domain.model.vo.ChannelRoutingPolicy;
 import com.tr1l.dispatch.domain.model.vo.DispatchPolicyId;
 import com.tr1l.dispatch.domain.model.vo.PolicyVersion;
-import com.tr1l.dispatch.error.DispatchErrorCode;
+import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

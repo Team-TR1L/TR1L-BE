@@ -2,7 +2,7 @@ package com.tr1l.dispatch.application.command;
 
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import com.tr1l.dispatch.domain.model.vo.ChannelRoutingPolicy;
-import com.tr1l.dispatch.error.DispatchErrorCode;
+import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 
 public record CreateDispatchPolicyCommand(Long adminId, ChannelRoutingPolicy channelRoutingPolicy) {
     public CreateDispatchPolicyCommand {

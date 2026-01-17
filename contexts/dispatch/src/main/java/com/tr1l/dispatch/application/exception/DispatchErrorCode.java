@@ -1,4 +1,4 @@
-package com.tr1l.dispatch.error;
+package com.tr1l.dispatch.application.exception;
 
 import com.tr1l.error.ErrorCategory;
 import com.tr1l.error.ErrorCode;

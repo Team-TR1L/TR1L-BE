@@ -3,10 +3,9 @@ package com.tr1l.dispatch.infra.persistence.entity;
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import com.tr1l.dispatch.domain.model.enums.ChannelType;
 import com.tr1l.dispatch.domain.model.enums.MessageStatus;
-import com.tr1l.dispatch.error.DispatchErrorCode;
+import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 import jakarta.persistence.*;
 import lombok.Getter;
-import org.hibernate.sql.results.DomainResultCreationException;
 
 import java.time.Instant;
 
