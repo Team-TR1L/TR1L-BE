@@ -40,7 +40,7 @@ public class MongoWorkDocUpsertAdapter implements WorkDocUpsertPort {
                     .setOnInsert("userId", cmd.userId())
                     .setOnInsert("status", cmd.status())
                     .setOnInsert("attemptCount", cmd.attemptCount())
-                    .setOnInsert("createdAt", now)
+                    .setOnInsert("createdAt", cmd.createdAt())
                     .set("updatedAt", now);
 
             bulk.upsert(query, update);

@@ -11,6 +11,7 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,8 +20,13 @@ import org.springframework.transaction.PlatformTransactionManager;
 import javax.sql.DataSource;
 
 /**
- * step 2  config
- */
+ ==========================
+ *$method$
+ * STEP 2 전체 Config
+ * @author $user
+ * @version 1.0.0
+ * @date $date
+ * ========================== */
 @Configuration
 public class BillingTargetConfig {
 
@@ -28,7 +34,7 @@ public class BillingTargetConfig {
     @Bean
     public Step step2ProduceWorkStep(
             JobRepository jobRepository,
-            PlatformTransactionManager transactionManager,
+            @Qualifier("TX-target") PlatformTransactionManager transactionManager,
             BillingTargetReader reader,
             BillingTargetProcessor processor,
             BillingTargetWriter writer,
@@ -46,11 +52,11 @@ public class BillingTargetConfig {
      * ${app. .....: (기본 설정할 값) } 이렇게 되어있으면 yml 파일에 설정된 값을가져오고 없으면 기본 설정한 값으로 주입
      */
 
-    // 뷰 테이블 이름, 집계 날짜, 페이지사이즈 파라미터값으로 넘겨준다. 리더단계
+    // 뷰 테이블 이름, 집계 날짜, 페이지사이즈 파라미터값으로 넘겨준다.
     @Bean
     @StepScope
     public BillingTargetReader step2Reader(
-            DataSource dataSource,
+            @Qualifier("targetDataSource") DataSource dataSource,
             @Value("${app.billing.targets-view-name:billing_targets_mv}") String viewName,
             @Value("#{jobParameters['billingMonth']}") String billingMonth,
             @Value("${app.billing.step2.page-size:1000}") int pageSize
