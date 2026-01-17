@@ -45,11 +45,45 @@ public enum BillingErrorCode implements ErrorCode {
     // =====================================================================
 
     INVALID_BILLING_AMOUNT("BIL-VAL-001", ErrorCategory.VAL, "합계가 올바르지 않습니다."),
+    INVALID_BILLING_ID("BIL-VAL-002", ErrorCategory.VAL, "billingId 값이 올바르지 않습니다."),
+    INVALID_CUSTOMER_ID("BIL-VAL-003", ErrorCategory.VAL, "customerId 값이 올바르지 않습니다."),
+    INVALID_LINE_ID("BIL-VAL-004", ErrorCategory.VAL, "lineId 값이 올바르지 않습니다."),
+    INVALID_IDEMPOTENCY_KEY("BIL-VAL-005", ErrorCategory.VAL, "idempotencyKey 값이 올바르지 않습니다."),
+    INVALID_RECIPIENT("BIL-VAL-006", ErrorCategory.VAL, "recipient 값이 올바르지 않습니다."),
+    INVALID_ENCRYPTED_EMAIL("BIL-VAL-007", ErrorCategory.VAL, "encryptedEmail 값이 올바르지 않습니다."),
+    INVALID_ENCRYPTED_PHONE("BIL-VAL-008", ErrorCategory.VAL, "encryptedPhone 값이 올바르지 않습니다."),
+    INVALID_MONEY("BIL-VAL-009", ErrorCategory.VAL, "금액 값이 올바르지 않습니다."),
+    INVALID_QUANTITY("BIL-VAL-010", ErrorCategory.VAL, "수량 값이 올바르지 않습니다."),
+    INVALID_PRICING_SNAPSHOT("BIL-VAL-011", ErrorCategory.VAL, "가격 스냅샷 값이 올바르지 않습니다."),
+    INVALID_BILLING_PERIOD("BIL-VAL-012", ErrorCategory.VAL, "기간이 올바르지 않습니다."),
+    INVALID_SOURCE_REF("BIL-VAL-013", ErrorCategory.VAL, "sourceRef 값이 올바르지 않습니다."),
+    INVALID_RATE("BIL-VAL-014", ErrorCategory.VAL, "rate 값이 올바르지 않습니다."),
+    INVALID_DISCOUNT_CAP("BIL-VAL-015", ErrorCategory.VAL, "discountCap 값이 올바르지 않습니다."),
+    INVALID_DISPLAY_NAME("BIL-VAL-016", ErrorCategory.VAL, "displayName 값이 올바르지 않습니다."),
+    INVALID_CHARGE_TYPE("BIL-VAL-017", ErrorCategory.VAL, "chargeType 값이 올바르지 않습니다."),
+    INVALID_DISCOUNT_TYPE("BIL-VAL-018", ErrorCategory.VAL, "discountType 값이 올바르지 않습니다."),
+    INVALID_DISCOUNT_BASIS("BIL-VAL-019", ErrorCategory.VAL, "discountBasis 값이 올바르지 않습니다."),
+    INVALID_DISCOUNT_AMOUNT("BIL-VAL-020", ErrorCategory.VAL, "discountAmount 값이 올바르지 않습니다."),
+    INVALID_CHARGE_LINE("BIL-VAL-021", ErrorCategory.VAL, "chargeLine 값이 올바르지 않습니다."),
+    INVALID_DISCOUNT_LINE("BIL-VAL-022", ErrorCategory.VAL, "discountLine 값이 올바르지 않습니다."),
+    INVALID_ISSUED_AT("BIL-VAL-023", ErrorCategory.VAL, "issuedAt 값이 올바르지 않습니다."),
+    INVALID_WELFARE("BIL-VAL-024", ErrorCategory.VAL, "welfare 값이 올바르지 않습니다."),
+    INVALID_ADDON("BIL-VAL-025", ErrorCategory.VAL, "addon 값이 올바르지 않습니다."),
+    INVALID_USER_NAME("BIL-VAL-026", ErrorCategory.VAL, "고객 이름 값이 올바르지 않습니다."),
+    INVALID_USER_BIRTH_DATE("BIL-VAL-027", ErrorCategory.VAL, "고객 생년월일 값이 올바르지 않습니다."),
+    INVALID_DATA_BILLING_TYPE("BIL-VAL-028", ErrorCategory.VAL, "데이터 과금 타입 값이 올바르지 않습니다."),
+    INVALID_INCLUDED_DATA("BIL-VAL-029", ErrorCategory.VAL, "기본 제공 데이터 값이 올바르지 않습니다."),
+    INVALID_EXCESS_CHARGE_PER_MB("BIL-VAL-030", ErrorCategory.VAL, "초과 데이터 과금 단가 값이 올바르지 않습니다."),
 
 
     // =====================================================================
     // DOM - Domain
     // =====================================================================
+    DISCOUNT_CAP_EXCEEDED("BIL-DOM-001", ErrorCategory.DOM, "할인 상한을 초과했습니다."),
+    INVALID_DISCOUNT_METHOD("BIL-DOM-002", ErrorCategory.DOM , "할인 정책이 올바르지 않습니다."),
+    RATE_NOT_ALLOWED_FOR_AMOUNT_DISCOUNT("BIL-DOM-003", ErrorCategory.DOM , "할인 정책에 따른 할인 method가 올바르지 않습니다." ),
+    MISSING_RECIPIENT_CONTACT("BIL-DOM-004", ErrorCategory.DOM, "발행 시점에 수신자 연락처가 필요합니다."),
+    BILLING_NOT_MUTABLE("BIL-DOM-005", ErrorCategory.DOM, "발행 이후 청구서는 수정할 수 없습니다."),
 
     // =====================================================================
     // APP - Application
