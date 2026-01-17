@@ -9,4 +9,8 @@ public record Quantity(int value) {
             throw new BillingDomainException(BillingErrorCode.INVALID_QUANTITY);
         }
     }
+
+    public static Quantity one() {
+        return new Quantity(1);
+    }
 }
