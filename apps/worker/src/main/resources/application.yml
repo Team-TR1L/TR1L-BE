@@ -7,8 +7,9 @@ spring:
 
   config:
     import:
-      - postgres-main.yml
-      - mongo.yml
+      - optional:classpath:postgres.main.yml
+      - optional:classpath:postgres.target.yml
+      - optional:classpath:mongo.yml
 
   batch:
     job:
@@ -16,10 +17,30 @@ spring:
     jdbc:
       initialize-schema: ${SPRING_BATCH_JDBC_INITIALIZE_SCHEMA:always} # local에서만 권장
 
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+
+  # Table Setup
+  flyway:
+    enabled: true
+    url: ${TARGET_DATASOURCE_URL:jdbc:postgresql://postgresql_target:5433/billing_target}
+    user: ${TARGET_DATASOURCE_USERNAME:billing}
+    password: ${TARGET_DATASOURCE_PASSWORD:billing}
+    locations: classpath:db/migration/target
+    default-schema: public
+    baseline-on-migrate: true
+    clean-disabled: true
 server:
   port: 8080
 
 ---
+
 spring:
   config:
     activate:
@@ -29,6 +50,8 @@ spring:
     jdbc:
       initialize-schema: never
 
+
 logging:
   level:
     root: INFO
+

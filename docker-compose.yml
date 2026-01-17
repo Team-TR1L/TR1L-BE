@@ -127,6 +127,8 @@ services:
         condition: service_healthy
       mongo:
         condition: service_healthy
+      postgres_target:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
 
@@ -158,7 +160,7 @@ services:
         APP_DIR: "apps/delivery-server"
         JAR_NAME: "delivery-server.jar"
     depends_on:
-      postgres:
+      postgres_target:
         condition: service_healthy
       kafka:
         condition: service_started
