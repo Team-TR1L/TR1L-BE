@@ -12,6 +12,7 @@ dependencies {
     implementation "org.springframework:spring-tx:6.1.20"
 
     testRuntimeOnly "com.h2database:h2:2.2.224"
+    testImplementation "org.springframework.boot:spring-boot-test:3.2.6"
 }
 
 tasks.named('test') {
