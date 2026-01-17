@@ -1,4 +1,4 @@
-package com.tr1l.dispatch.adapter.out.persistence;
+package com.tr1l.dispatch.infra.persistence.converter;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

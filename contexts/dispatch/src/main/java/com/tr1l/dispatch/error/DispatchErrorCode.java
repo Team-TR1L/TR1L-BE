@@ -16,14 +16,16 @@ public enum DispatchErrorCode implements ErrorCode {
     POLICY_VERSION_NULL("DSP-VAL-004", ErrorCategory.VAL, "PolicyVersion은 null일 수 없습니다."),
     POLICY_VERSION_INVALID("DSP-VAL-005", ErrorCategory.VAL, "PolicyVersion은 1 이상이어야 합니다."),
     POLICY_VERSION_OVERFLOW("DSP-DOM-006", ErrorCategory.DOM, "PolicyVersion이 허용 범위를 초과했습니다."),
+    ROUTING_POLICY_NULL("DSP-VAL-006", ErrorCategory.VAL, "RoutingPolicy는 null일 수 없습니다."),
+
 
     // =====================================================================
     // DOM - Domain
     // =====================================================================
     POLICY_ALREADY_RETIRED("DSP-DOM-001", ErrorCategory.DOM, "이미 폐기된 정책입니다."),
     POLICY_CANNOT_ACTIVATE("DSP-DOM-002", ErrorCategory.DOM, "현재 상태에서는 정책을 활성화할 수 없습니다."),
-
-
+    ACTIVE_POLICY_NOT_FOUND("DSP-DOM-003", ErrorCategory.DOM, "현재 활성화 중인 정책이 없습니다."),
+    POLICY_NOT_FOUND("DSP-DOM-004", ErrorCategory.DOM, "해당 정책을 찾을 수 없습니다."),
     // =====================================================================
     // APP - Application
     // =====================================================================

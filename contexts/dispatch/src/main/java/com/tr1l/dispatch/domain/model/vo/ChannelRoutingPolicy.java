@@ -18,12 +18,4 @@ public final class ChannelRoutingPolicy {
         this.primaryOrder = primaryOrder;
         this.maxAttemptCount = primaryOrder.size();
     }
-
-    public ChannelSequence primaryOrder() {
-        return primaryOrder;
-    }
-
-    public int maxAttemptCount() {
-        return maxAttemptCount;
-    }
 }
