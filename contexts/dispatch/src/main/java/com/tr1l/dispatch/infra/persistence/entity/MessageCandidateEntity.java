@@ -14,7 +14,7 @@ import java.time.Instant;
         }
 )
 
-public class DispatchMessageCandidateEntity {
+public class MessageCandidateEntity {
     @Id
     private Long userId;
 
@@ -26,7 +26,7 @@ public class DispatchMessageCandidateEntity {
     @Enumerated(EnumType.STRING)
     private ChannelType channel;
 
-    private Long policyVersion;
+    private Long policyVersion; //참조할 policy의 식별자
 
     private Integer attemptCount;
 
