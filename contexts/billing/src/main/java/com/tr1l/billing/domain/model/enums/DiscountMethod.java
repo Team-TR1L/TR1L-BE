@@ -1,4 +1,4 @@
-package com.tr1l.billing.domain.enums;
+package com.tr1l.billing.domain.model.enums;
 
 public enum DiscountMethod {
     PERCENT, // %할인
