@@ -7,9 +7,9 @@ import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
 import com.tr1l.dispatch.domain.model.vo.AdminId;
 import com.tr1l.dispatch.domain.model.vo.DispatchPolicyId;
 import com.tr1l.dispatch.error.DispatchErrorCode;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -30,10 +30,12 @@ public class DispatchPolicyService {
         return saved.getDispatchPolicyId().value();
     }
 
+    @Transactional(readOnly = true)
     public List<DispatchPolicy> findPolicies() {
         return repository.findAll();
     }
 
+    @Transactional(readOnly = true)
     public DispatchPolicy findPolicy(Long policyId) {
         return repository.findById(policyId)
                 .orElseThrow(() -> new DispatchDomainException(DispatchErrorCode.POLICY_NOT_FOUND));
@@ -45,6 +47,7 @@ public class DispatchPolicyService {
         repository.save(policy);
     }
 
+    @Transactional(readOnly = true)
     public DispatchPolicy findCurrentActivePolicy(){
         return repository.findCurrentPolicy()
                 .orElseThrow(() -> new DispatchDomainException(DispatchErrorCode.ACTIVE_POLICY_NOT_FOUND));

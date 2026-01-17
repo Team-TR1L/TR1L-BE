@@ -16,23 +16,16 @@ public final class DispatchPolicyMapper {
     // Entity → Domain
     // ===============================
     public static DispatchPolicy toDomain(DispatchPolicyEntity entity) {
-
-        DispatchPolicy policy = new DispatchPolicy(
+        return DispatchPolicy.restore(
                 DispatchPolicyId.of(entity.getId()),
                 AdminId.of(entity.getAdminId()),
-                entity.getCreatedAt()
-        );
-
-        DispatchPolicy.restore(
-                DispatchPolicyId.of(entity.getId()),
+                entity.getCreatedAt(),
                 PolicyStatus.valueOf(entity.getStatus()),
                 PolicyVersion.of(entity.getVersion()),
                 ChannelRoutingPolicyJsonConverter.deserialize(entity.getRoutingPolicyJson()),
                 entity.getActivatedAt(),
                 entity.getRetiredAt()
         );
-
-        return policy;
     }
 
     // ===============================

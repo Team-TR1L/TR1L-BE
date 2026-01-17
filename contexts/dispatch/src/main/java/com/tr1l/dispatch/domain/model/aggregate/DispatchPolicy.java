@@ -55,6 +55,8 @@ public class DispatchPolicy {
     // === 영속성 전용 상태 복원 ===
     public static DispatchPolicy restore(
             DispatchPolicyId id,
+            AdminId adminId,
+            Instant createdAt,
             PolicyStatus status,
             PolicyVersion version,
             ChannelRoutingPolicy routingPolicy,
@@ -63,6 +65,8 @@ public class DispatchPolicy {
     ) {
         DispatchPolicy policy = new DispatchPolicy();
         policy.dispatchPolicyId = id;
+        policy.adminId = adminId;
+        policy.createdAt = createdAt;
         policy.status = status;
         policy.version = version;
         policy.routingPolicy = routingPolicy;
@@ -89,25 +93,6 @@ public class DispatchPolicy {
         policy.createdAt = Instant.now();
         return policy;
     }
-
-    // ==================================================
-    // 초기화 전용 (생성 시 1회)
-    // ==================================================
-
-    private void initialize(
-            AdminId adminId,
-            ChannelRoutingPolicy routingPolicy
-    ) {
-        this.adminId = adminId;
-        this.routingPolicy = routingPolicy;
-
-        this.status = PolicyStatus.DRAFT;
-        this.version = PolicyVersion.of(1);
-
-        this.activatedAt = null;
-        this.retiredAt = null;
-    }
-
 
 
     // ==================================================

@@ -42,10 +42,12 @@ class DispatchPolicyServiceTest {
         DispatchPolicy savedPolicy =
                 DispatchPolicy.restore(
                         DispatchPolicyId.of(1L),
+                        AdminId.of(1L),
+                        Instant.now(),
                         PolicyStatus.DRAFT,
                         PolicyVersion.of(1),
                         routingPolicy,
-                        Instant.now(),
+                        null,
                         null
                 );
 
@@ -108,10 +110,12 @@ class DispatchPolicyServiceTest {
         DispatchPolicy policy =
                 DispatchPolicy.restore(
                         DispatchPolicyId.of(1L),
+                        AdminId.of(1L),
+                        Instant.now(),
                         PolicyStatus.DRAFT,
                         PolicyVersion.of(1),
                         routingPolicy,
-                        Instant.now(),
+                        null,
                         null
                 );
 

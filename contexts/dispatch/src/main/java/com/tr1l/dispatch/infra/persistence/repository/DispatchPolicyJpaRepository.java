@@ -12,7 +12,7 @@ public interface DispatchPolicyJpaRepository
     @Query("""
         select p
         from DispatchPolicyEntity p
-        where p.status = com.tr1l.dispatch.domain.model.PolicyStatus.ACTIVE
+        where p.status = 'ACTIVE'
           and p.retiredAt is null
     """)
     Optional<DispatchPolicyEntity> findCurrentPolicy();
