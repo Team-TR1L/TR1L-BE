@@ -10,16 +10,10 @@ import com.tr1l.billing.domain.model.vo.*;
 import com.tr1l.billing.error.BillingErrorCode;
 
 import java.time.Instant;
-import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 public final class Billing {
 
@@ -146,9 +140,6 @@ public final class Billing {
         }
 
         Money total = subtotal.minusNonNegative(discountTotal);
-        if (total.amount() < 0) {
-            throw new BillingDomainException(BillingErrorCode.INVALID_BILLING_AMOUNT);
-        }
 
         this.subtotalAmount = subtotal;
         this.discountTotalAmount = discountTotal;
