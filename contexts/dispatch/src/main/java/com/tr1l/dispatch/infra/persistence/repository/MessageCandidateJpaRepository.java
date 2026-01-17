@@ -3,11 +3,12 @@ package com.tr1l.dispatch.infra.persistence.repository;
 import com.tr1l.dispatch.infra.persistence.entity.MessageCandidateEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.List;
 
-@Deprecated
+@Repository
 public interface MessageCandidateJpaRepository extends JpaRepository<MessageCandidateEntity, Long> {
     @Query("""
         select c
