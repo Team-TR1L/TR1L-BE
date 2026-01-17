@@ -1,12 +1,17 @@
 package com.tr1l.dispatch.infra.persistence.entity;
 
+import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import com.tr1l.dispatch.domain.model.enums.ChannelType;
 import com.tr1l.dispatch.domain.model.enums.MessageStatus;
+import com.tr1l.dispatch.error.DispatchErrorCode;
 import jakarta.persistence.*;
+import lombok.Getter;
+import org.hibernate.sql.results.DomainResultCreationException;
 
 import java.time.Instant;
 
 @Entity
+@Getter
 @Table(
         name = "dispatch_message_candidate",
         indexes = {
@@ -32,4 +37,9 @@ public class MessageCandidateEntity {
 
     private String encryptedS3Url;
     private String encryptedDestination; // 이메일 주소, 전화 번호 등
+
+    public void markProcessing(){
+        if (this.status != MessageStatus.PROCESSING)
+            throw new DispatchDomainException(DispatchErrorCode.MESSAGE_STATUS_ALREADY_PROCESSING);
+    }
 }

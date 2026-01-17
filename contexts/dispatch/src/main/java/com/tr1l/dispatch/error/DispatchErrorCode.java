@@ -31,10 +31,11 @@ public enum DispatchErrorCode implements ErrorCode {
     // =====================================================================
 
     ROUTING_POLICY_SERIALIZATION_FAILED("DSP-APP-001", ErrorCategory.ADA, "RoutingPolicy 직렬화에 실패했습니다."),
-
-    ROUTING_POLICY_DESERIALIZATION_FAILED("DSP-APP-002", ErrorCategory.ADA, "RoutingPolicy 역직렬화에 실패했습니다.")
+    ROUTING_POLICY_DESERIALIZATION_FAILED("DSP-APP-002", ErrorCategory.ADA, "RoutingPolicy 역직렬화에 실패했습니다."),
+    MESSAGE_STATUS_ALREADY_PROCESSING("DSP-APP-003",ErrorCategory.ADA, "메시지 상태가 이미 PROCESSING입니다."),
+    POLICY_NOT_EQUAL("DSP-APP-004",ErrorCategory.ADA, "발송 정책의 전송 매체와 메시지의 전송 매체가 다릅니다."),
+    NO_MORE_RETRY("DSP-APP-005", ErrorCategory.ADA, "발송 정책의 maxAttemptCount보다 높은 attemptCount입니다.")
     ;
-
     private final String code;
     private final ErrorCategory category;
     private final String message;
