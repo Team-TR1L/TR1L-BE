@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface DispatchPolicyRepository {
-    void save(DispatchPolicy policy);
+    DispatchPolicy save(DispatchPolicy policy);
 
     Optional<DispatchPolicy> findById(Long id);
 

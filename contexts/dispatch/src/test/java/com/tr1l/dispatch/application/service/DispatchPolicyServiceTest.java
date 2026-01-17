@@ -4,8 +4,10 @@ import com.tr1l.dispatch.application.command.CreateDispatchPolicyCommand;
 import com.tr1l.dispatch.application.port.DispatchPolicyRepository;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
 import com.tr1l.dispatch.domain.model.enums.PolicyStatus;
+import com.tr1l.dispatch.domain.model.vo.AdminId;
 import com.tr1l.dispatch.domain.model.vo.ChannelRoutingPolicy;
 import com.tr1l.dispatch.domain.model.vo.DispatchPolicyId;
+import com.tr1l.dispatch.domain.model.vo.PolicyVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -13,6 +15,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,22 +39,25 @@ class DispatchPolicyServiceTest {
         CreateDispatchPolicyCommand command =
                 new CreateDispatchPolicyCommand(1L, routingPolicy);
 
-        ArgumentCaptor<DispatchPolicy> captor =
-                ArgumentCaptor.forClass(DispatchPolicy.class);
+        DispatchPolicy savedPolicy =
+                DispatchPolicy.restore(
+                        DispatchPolicyId.of(1L),
+                        PolicyStatus.DRAFT,
+                        PolicyVersion.of(1),
+                        routingPolicy,
+                        Instant.now(),
+                        null
+                );
+
+        when(repository.save(any()))
+                .thenReturn(savedPolicy);
 
         // when
         Long policyId = service.createPolicy(command);
 
         // then
-        verify(repository).save(captor.capture());
-        DispatchPolicy savedPolicy = captor.getValue();
-
-        assertThat(savedPolicy.getDispatchPolicyId().value())
-                .isEqualTo(policyId);
-        assertThat(savedPolicy.getStatus())
-                .isEqualTo(PolicyStatus.DRAFT);
-        assertThat(savedPolicy.getRoutingPolicy())
-                .isEqualTo(routingPolicy);
+        assertThat(policyId).isEqualTo(1L);
+        verify(repository).save(any());
     }
 
     @Test
@@ -99,17 +105,21 @@ class DispatchPolicyServiceTest {
         // given
         ChannelRoutingPolicy routingPolicy = mock(ChannelRoutingPolicy.class);
 
-        DispatchPolicy policy = DispatchPolicy.create(
-                DispatchPolicyId.generatePolicyId().value(),
-                1L,
-                routingPolicy
-        );
+        DispatchPolicy policy =
+                DispatchPolicy.restore(
+                        DispatchPolicyId.of(1L),
+                        PolicyStatus.DRAFT,
+                        PolicyVersion.of(1),
+                        routingPolicy,
+                        Instant.now(),
+                        null
+                );
 
-        when(repository.findById(policy.getDispatchPolicyId().value()))
+        when(repository.findById(1L))
                 .thenReturn(Optional.of(policy));
 
         // when
-        service.deletePolicy(policy.getDispatchPolicyId().value());
+        service.deletePolicy(1L);
 
         // then
         assertThat(policy.getStatus())

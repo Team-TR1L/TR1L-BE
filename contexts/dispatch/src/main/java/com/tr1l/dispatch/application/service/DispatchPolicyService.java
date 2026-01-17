@@ -4,6 +4,7 @@ import com.tr1l.dispatch.application.command.CreateDispatchPolicyCommand;
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import com.tr1l.dispatch.application.port.DispatchPolicyRepository;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
+import com.tr1l.dispatch.domain.model.vo.AdminId;
 import com.tr1l.dispatch.domain.model.vo.DispatchPolicyId;
 import com.tr1l.dispatch.error.DispatchErrorCode;
 import jakarta.transaction.Transactional;
@@ -21,13 +22,12 @@ public class DispatchPolicyService {
 
     public Long createPolicy(CreateDispatchPolicyCommand command) {
         DispatchPolicy policy = DispatchPolicy.create(
-                DispatchPolicyId.generatePolicyId().value(),
-                command.adminId(),
+                AdminId.of(command.adminId()),
                 command.channelRoutingPolicy()
         );
 
-        repository.save(policy);
-        return policy.getDispatchPolicyId().value();
+        DispatchPolicy saved = repository.save(policy);
+        return saved.getDispatchPolicyId().value();
     }
 
     public List<DispatchPolicy> findPolicies() {
@@ -36,7 +36,7 @@ public class DispatchPolicyService {
 
     public DispatchPolicy findPolicy(Long policyId) {
         return repository.findById(policyId)
-                .orElseThrow(() -> new RuntimeException(String.valueOf(policyId)));
+                .orElseThrow(() -> new DispatchDomainException(DispatchErrorCode.POLICY_NOT_FOUND));
     }
 
     public void deletePolicy(Long policyId) {

@@ -23,7 +23,8 @@ public final class DispatchPolicyMapper {
                 entity.getCreatedAt()
         );
 
-        policy.restore(
+        DispatchPolicy.restore(
+                DispatchPolicyId.of(entity.getId()),
                 PolicyStatus.valueOf(entity.getStatus()),
                 PolicyVersion.of(entity.getVersion()),
                 ChannelRoutingPolicyJsonConverter.deserialize(entity.getRoutingPolicyJson()),

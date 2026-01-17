@@ -8,14 +8,15 @@ import com.tr1l.dispatch.domain.model.vo.PolicyVersion;
 import com.tr1l.dispatch.error.DispatchErrorCode;
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
 @Getter
+@NoArgsConstructor
 public class DispatchPolicy {
 
-    // === 불변 식별자 ===
-    private final DispatchPolicyId dispatchPolicyId;
+    private DispatchPolicyId dispatchPolicyId;
     private Instant createdAt;
 
     // === 가변 상태 ===
@@ -51,46 +52,41 @@ public class DispatchPolicy {
         this.createdAt = createdAt;
     }
 
-
     // === 영속성 전용 상태 복원 ===
-    public void restore(
+    public static DispatchPolicy restore(
+            DispatchPolicyId id,
             PolicyStatus status,
             PolicyVersion version,
             ChannelRoutingPolicy routingPolicy,
             Instant activatedAt,
             Instant retiredAt
     ) {
-        this.status = status;
-        this.version = version;
-        this.routingPolicy = routingPolicy;
-        this.activatedAt = activatedAt;
-        this.retiredAt = retiredAt;
+        DispatchPolicy policy = new DispatchPolicy();
+        policy.dispatchPolicyId = id;
+        policy.status = status;
+        policy.version = version;
+        policy.routingPolicy = routingPolicy;
+        policy.activatedAt = activatedAt;
+        policy.retiredAt = retiredAt;
+        return policy;
     }
 
+    // === 신규 생성 ===
     public static DispatchPolicy create(
-            Long dispatchPolicyId,
-            Long adminId,
+            AdminId adminId,
             ChannelRoutingPolicy routingPolicy
     ) {
-        if (dispatchPolicyId == null)
-            throw new DispatchDomainException(DispatchErrorCode.DISPATCH_POLICY_ID_NULL);
-
         if (adminId == null)
             throw new DispatchDomainException(DispatchErrorCode.ADMIN_ID_NULL);
 
         if (routingPolicy == null)
             throw new DispatchDomainException(DispatchErrorCode.ROUTING_POLICY_NULL);
 
-        DispatchPolicy policy = new DispatchPolicy(
-                DispatchPolicyId.of(dispatchPolicyId),
-                AdminId.of(adminId)
-        );
-
-        policy.initialize(
-                new AdminId(adminId),
-                routingPolicy
-        );
-
+        DispatchPolicy policy = new DispatchPolicy(DispatchPolicyId.generatePolicyId(), adminId);
+        policy.routingPolicy = routingPolicy;
+        policy.status = PolicyStatus.DRAFT;
+        policy.version = PolicyVersion.of(1);
+        policy.createdAt = Instant.now();
         return policy;
     }
 

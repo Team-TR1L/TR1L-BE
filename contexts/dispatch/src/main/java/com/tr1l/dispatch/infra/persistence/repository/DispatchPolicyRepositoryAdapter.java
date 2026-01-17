@@ -20,9 +20,15 @@ public class DispatchPolicyRepositoryAdapter
     private final DispatchPolicyJpaRepository jpaRepository;
 
     @Override
-    public void save(DispatchPolicy policy) {
-        DispatchPolicyEntity entity = DispatchPolicyMapper.toEntity(policy);
-        jpaRepository.save(entity);
+    public DispatchPolicy save(DispatchPolicy policy) {
+
+        DispatchPolicyEntity entity =
+                DispatchPolicyMapper.toEntity(policy);
+
+        DispatchPolicyEntity saved =
+                jpaRepository.save(entity);
+
+        return DispatchPolicyMapper.toDomain(saved);
     }
 
     @Override
