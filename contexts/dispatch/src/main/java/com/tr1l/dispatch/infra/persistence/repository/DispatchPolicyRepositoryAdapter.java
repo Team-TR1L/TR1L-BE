@@ -1,7 +1,9 @@
 package com.tr1l.dispatch.infra.persistence.repository;
 
+import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import com.tr1l.dispatch.application.port.DispatchPolicyRepository;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
+import com.tr1l.dispatch.error.DispatchErrorCode;
 import com.tr1l.dispatch.infra.persistence.mapper.DispatchPolicyMapper;
 import com.tr1l.dispatch.infra.persistence.entity.DispatchPolicyEntity;
 import lombok.RequiredArgsConstructor;
@@ -34,5 +36,11 @@ public class DispatchPolicyRepositoryAdapter
         return jpaRepository.findAll()
                 .stream().map(DispatchPolicyMapper::toDomain)
                 .toList();
+    }
+
+    @Override
+    public Optional<DispatchPolicy> findCurrentPolicy() {
+        return jpaRepository.findCurrentPolicy()
+                .map(DispatchPolicyMapper::toDomain);
     }
 }

@@ -24,7 +24,7 @@ public enum DispatchErrorCode implements ErrorCode {
     // =====================================================================
     POLICY_ALREADY_RETIRED("DSP-DOM-001", ErrorCategory.DOM, "이미 폐기된 정책입니다."),
     POLICY_CANNOT_ACTIVATE("DSP-DOM-002", ErrorCategory.DOM, "현재 상태에서는 정책을 활성화할 수 없습니다."),
-
+    ACTIVE_POLICY_NOT_FOUND("DSP-DOM-003", ErrorCategory.DOM, "현재 활성화 중인 정책이 없습니다."),
 
     // =====================================================================
     // APP - Application

@@ -1,9 +1,11 @@
 package com.tr1l.dispatch.application.service;
 
 import com.tr1l.dispatch.application.command.CreateDispatchPolicyCommand;
+import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import com.tr1l.dispatch.application.port.DispatchPolicyRepository;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
 import com.tr1l.dispatch.domain.model.vo.DispatchPolicyId;
+import com.tr1l.dispatch.error.DispatchErrorCode;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -41,5 +43,10 @@ public class DispatchPolicyService {
         DispatchPolicy policy = findPolicy(policyId);
         policy.retire();          // ← 도메인 규칙
         repository.save(policy);
+    }
+
+    public DispatchPolicy findCurrentActivePolicy(){
+        return repository.findCurrentPolicy()
+                .orElseThrow(() -> new DispatchDomainException(DispatchErrorCode.ACTIVE_POLICY_NOT_FOUND));
     }
 }
