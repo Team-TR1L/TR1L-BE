@@ -44,7 +44,7 @@ public enum BillingErrorCode implements ErrorCode {
     // VAL - Validation
     // =====================================================================
 
-    INVALID_BILLING_AMOUNT("BIL-VAL-001", ErrorCategory.VAL, "합계가 올바르지 않습니다.");
+    INVALID_BILLING_AMOUNT("BIL-VAL-001", ErrorCategory.VAL, "합계가 올바르지 않습니다."),
 
 
     // =====================================================================
@@ -54,7 +54,7 @@ public enum BillingErrorCode implements ErrorCode {
     // =====================================================================
     // APP - Application
     // =====================================================================
-
+    MISSING_REQUIRED_VALUE_COMMAND("BIL-APP-001",ErrorCategory.VAL,"command의 필수 값이 null 입니다.");
     // =====================================================================
     // ADA - Adapter
     // =====================================================================
