@@ -5,7 +5,7 @@ import com.tr1l.dispatch.domain.model.enums.PolicyStatus;
 import com.tr1l.dispatch.domain.model.vo.AdminId;
 import com.tr1l.dispatch.domain.model.vo.DispatchPolicyId;
 import com.tr1l.dispatch.domain.model.vo.PolicyVersion;
-import com.tr1l.dispatch.infra.converter.ChannelRoutingPolicyJsonConverter;
+import com.tr1l.dispatch.infra.persistence.converter.ChannelRoutingPolicyJsonConverter;
 import com.tr1l.dispatch.infra.persistence.entity.DispatchPolicyEntity;
 
 public final class DispatchPolicyMapper {

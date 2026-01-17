@@ -5,7 +5,7 @@ import com.tr1l.dispatch.domain.model.enums.ChannelType;
 import com.tr1l.dispatch.domain.model.vo.ChannelRoutingPolicy;
 import com.tr1l.dispatch.domain.model.vo.ChannelSequence;
 import com.tr1l.dispatch.error.DispatchErrorCode;
-import com.tr1l.dispatch.infra.converter.ChannelRoutingPolicyJsonConverter;
+import com.tr1l.dispatch.infra.persistence.converter.ChannelRoutingPolicyJsonConverter;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

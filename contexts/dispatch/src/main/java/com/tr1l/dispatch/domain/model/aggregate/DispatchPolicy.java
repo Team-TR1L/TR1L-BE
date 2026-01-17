@@ -16,7 +16,7 @@ public class DispatchPolicy {
 
     // === 불변 식별자 ===
     private final DispatchPolicyId dispatchPolicyId;
-    private final Instant createdAt;
+    private Instant createdAt;
 
     // === 가변 상태 ===
     private AdminId adminId;
@@ -51,6 +51,7 @@ public class DispatchPolicy {
         this.createdAt = createdAt;
     }
 
+
     // === 영속성 전용 상태 복원 ===
     public void restore(
             PolicyStatus status,
@@ -65,6 +66,53 @@ public class DispatchPolicy {
         this.activatedAt = activatedAt;
         this.retiredAt = retiredAt;
     }
+
+    public static DispatchPolicy create(
+            Long dispatchPolicyId,
+            Long adminId,
+            ChannelRoutingPolicy routingPolicy
+    ) {
+        if (dispatchPolicyId == null)
+            throw new DispatchDomainException(DispatchErrorCode.DISPATCH_POLICY_ID_NULL);
+
+        if (adminId == null)
+            throw new DispatchDomainException(DispatchErrorCode.ADMIN_ID_NULL);
+
+        if (routingPolicy == null)
+            throw new DispatchDomainException(DispatchErrorCode.ROUTING_POLICY_NULL);
+
+        DispatchPolicy policy = new DispatchPolicy(
+                DispatchPolicyId.of(dispatchPolicyId),
+                AdminId.of(adminId)
+        );
+
+        policy.initialize(
+                new AdminId(adminId),
+                routingPolicy
+        );
+
+        return policy;
+    }
+
+    // ==================================================
+    // 초기화 전용 (생성 시 1회)
+    // ==================================================
+
+    private void initialize(
+            AdminId adminId,
+            ChannelRoutingPolicy routingPolicy
+    ) {
+        this.adminId = adminId;
+        this.routingPolicy = routingPolicy;
+
+        this.status = PolicyStatus.DRAFT;
+        this.version = PolicyVersion.of(1);
+
+        this.activatedAt = null;
+        this.retiredAt = null;
+    }
+
+
 
     // ==================================================
     // 도메인 행위

@@ -7,6 +7,7 @@ import com.tr1l.dispatch.infra.persistence.entity.DispatchPolicyEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -26,5 +27,12 @@ public class DispatchPolicyRepositoryAdapter
     public Optional<DispatchPolicy> findById(Long id) {
         return jpaRepository.findById(id)
                 .map(DispatchPolicyMapper::toDomain);
+    }
+
+    @Override
+    public List<DispatchPolicy> findAll() {
+        return jpaRepository.findAll()
+                .stream().map(DispatchPolicyMapper::toDomain)
+                .toList();
     }
 }
