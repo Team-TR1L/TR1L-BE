@@ -1,13 +1,20 @@
 package com.tr1l.billing.domain.model.aggregate;
 
-import com.tr1l.billing.api.event.BillingIssuedEvent;
+import com.tr1l.billing.domain.event.BillingIssuedEvent;
+import com.tr1l.billing.domain.event.DomainEvent;
 import com.tr1l.billing.domain.model.enums.BillingStatus;
 import com.tr1l.billing.domain.exception.BillingDomainException;
 import com.tr1l.billing.domain.model.entity.ChargeLine;
 import com.tr1l.billing.domain.model.entity.DiscountLine;
 import com.tr1l.billing.domain.model.vo.*;
 import com.tr1l.billing.error.BillingErrorCode;
-import com.tr1l.event.DomainEvent;
+
+import java.time.Instant;
+import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -34,7 +41,7 @@ public final class Billing {
 
     private Instant issuedAt; // ISSUED에서만 존재
 
-    /** 추가 생성(MVP용)*/
+
     private final CustomerName customerName;
     private final CustomerBirthDate customerBirthDate;
 
