@@ -82,6 +82,9 @@ services:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
+      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: ${SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL}
+      SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL}
     ports:
       - "8080:8080"
 
@@ -124,6 +127,8 @@ services:
         condition: service_healthy
       mongo:
         condition: service_healthy
+      postgres_target:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
 
@@ -155,7 +160,7 @@ services:
         APP_DIR: "apps/delivery-server"
         JAR_NAME: "delivery-server.jar"
     depends_on:
-      postgres:
+      postgres_target:
         condition: service_healthy
       kafka:
         condition: service_started

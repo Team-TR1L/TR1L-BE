@@ -83,12 +83,12 @@ public enum BillingErrorCode implements ErrorCode {
     INVALID_DISCOUNT_METHOD("BIL-DOM-002", ErrorCategory.DOM , "할인 정책이 올바르지 않습니다."),
     RATE_NOT_ALLOWED_FOR_AMOUNT_DISCOUNT("BIL-DOM-003", ErrorCategory.DOM , "할인 정책에 따른 할인 method가 올바르지 않습니다." ),
     MISSING_RECIPIENT_CONTACT("BIL-DOM-004", ErrorCategory.DOM, "발행 시점에 수신자 연락처가 필요합니다."),
-    BILLING_NOT_MUTABLE("BIL-DOM-005", ErrorCategory.DOM, "발행 이후 청구서는 수정할 수 없습니다.");
+    BILLING_NOT_MUTABLE("BIL-DOM-005", ErrorCategory.DOM, "발행 이후 청구서는 수정할 수 없습니다."),
 
     // =====================================================================
     // APP - Application
     // =====================================================================
-
+    MISSING_REQUIRED_VALUE_COMMAND("BIL-APP-001",ErrorCategory.VAL,"command의 필수 값이 null 입니다.");
     // =====================================================================
     // ADA - Adapter
     // =====================================================================
