@@ -5,7 +5,7 @@ import com.tr1l.billing.error.BillingErrorCode;
 
 public record CustomerId(Long value) {
     public CustomerId {
-        if (value == null) {
+        if (value == null || value <= 0) {
             throw new BillingDomainException(BillingErrorCode.INVALID_CUSTOMER_ID);
         }
     }

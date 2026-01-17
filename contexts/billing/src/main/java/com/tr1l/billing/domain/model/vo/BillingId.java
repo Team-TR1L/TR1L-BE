@@ -5,7 +5,7 @@ import com.tr1l.billing.error.BillingErrorCode;
 
 public record BillingId(Long value) {
     public BillingId {
-        if (value == null) {
+        if (value == null || value <= 0) {
             throw new BillingDomainException(BillingErrorCode.INVALID_BILLING_ID);
         }
     }
