@@ -34,7 +34,7 @@ api-build:
 
 dispatch-build:
 	docker compose build dispatch-server kafka postgres_target
-	       docker compose up -d --no-deps dispatch-server kafka postgres_target
+	docker compose up -d --no-deps dispatch-server kafka postgres_target
 
 batch-build:
 	docker compose build worker postgres postgres_target mongo

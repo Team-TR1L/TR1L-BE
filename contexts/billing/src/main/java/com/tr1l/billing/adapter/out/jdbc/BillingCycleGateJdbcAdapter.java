@@ -1,7 +1,6 @@
-package com.tr1l.billing.adapter.out.persistence;
+package com.tr1l.billing.adapter.out.jdbc;
 
 import com.tr1l.billing.application.port.out.BillingCycleGatePort;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Component;
@@ -21,7 +20,7 @@ import java.time.*;
  *==========================*/
 @Component
 public class BillingCycleGateJdbcAdapter implements BillingCycleGatePort {
-    private NamedParameterJdbcTemplate jdbcTemplate;
+    private final NamedParameterJdbcTemplate jdbcTemplate;
 
     public BillingCycleGateJdbcAdapter(@Qualifier("targetNamedJdbcTemplate") NamedParameterJdbcTemplate template) {
         this.jdbcTemplate = template;

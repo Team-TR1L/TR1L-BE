@@ -1,4 +1,4 @@
-package com.tr1l.worker.batch.calculatejob.step;
+package com.tr1l.worker.batch.calculatejob.step.step0;
 
 import com.tr1l.billing.api.usecase.GateBillingCycleUseCase;
 import lombok.RequiredArgsConstructor;
@@ -8,7 +8,6 @@ import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.repeat.RepeatStatus;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -36,7 +35,7 @@ public class BillingGateTasklet implements Tasklet {
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
         var jobParams = chunkContext.getStepContext().getStepExecution().getJobParameters();
 
-        //정산 대상 월
+        //정산 대상 월 TODO:이거 삭제하고 cutoff로 통일 후 내부에서 Month 처리
         String billingMonthParam=jobParams.getString("billingYearMonth");
         //cutoff 기준
         String cutoffIso=jobParams.getString("cutoff");

@@ -54,7 +54,8 @@ public enum BillingErrorCode implements ErrorCode {
     // =====================================================================
     // APP - Application
     // =====================================================================
-    MISSING_REQUIRED_VALUE_COMMAND("BIL-APP-001",ErrorCategory.VAL,"command의 필수 값이 null 입니다.");
+    MISSING_REQUIRED_VALUE_COMMAND("BIL-APP-001",ErrorCategory.VAL,"command의 필수 값이 null 입니다."),
+    JSON_PARSING_ERROR("BIL-APP-002",ErrorCategory.ADA,"json으로 변환에 실패했습니다.");
     // =====================================================================
     // ADA - Adapter
     // =====================================================================
