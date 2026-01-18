@@ -32,12 +32,9 @@ public class BillingCycleFinalizeJdbcAdapter implements BillingCycleFinalizedJdb
     }
 
     @Override
-    public int markFinishedIfRunning(YearMonth billingMonth) {
-        LocalDate bm = billingMonth.atDay(1);
-
+    public int markFinishedIfRunning(LocalDate billingMonthDay) {
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("billingMonth", java.sql.Date.valueOf(bm)); // DATE로 바인딩
-
+                .addValue("billingMonth", java.sql.Date.valueOf(billingMonthDay));
         String sql = """
         UPDATE billing_cycle
         SET status = 'FINISHED'
