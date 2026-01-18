@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
+import java.time.YearMonth;
 
 /**
  ==========================
@@ -58,7 +59,7 @@ public class BillingTargetConfig {
     public BillingTargetReader step2Reader(
             @Qualifier("targetDataSource") DataSource dataSource,
             @Value("${app.billing.targets-view-name:billing_targets_mv}") String viewName,
-            @Value("#{jobParameters['billingMonth']}") String billingMonth,
+            @Value("#{jobParameters['billingMonth']}") YearMonth billingMonth,
             @Value("${app.billing.step2.page-size:1000}") int pageSize
     ) throws Exception {
         return new BillingTargetReader(dataSource, viewName, billingMonth,pageSize);

@@ -17,7 +17,7 @@ import org.springframework.data.mongodb.core.index.Index;
  *  목적: Work 컬렉션을 '작업 큐'처럼 조회할 때 가장 자주 쓰는 조건을 한 방에 커버한다.
  *
  *  1) 이번 달 대상만 빠르게 조회
- *     - 예) find({ billingMonth: "2026-01", status: "TARGET" })
+ *     - 예) find({ billingMonth: "2026-01-01", status: "TARGET" })
  *     - billingMonth가 선두라서 "이번 달" 범위를 먼저 좁힌 뒤 status로 더 좁힌다.
  *
  *  2) 상태별 집계/재시도 대상 조회 최적화
@@ -33,6 +33,26 @@ import org.springframework.data.mongodb.core.index.Index;
  *  - 우리 쿼리는 대부분 billingMonth(이번달) + status(대상/처리중/실패...)로 필터링하므로
  *    이 두 개를 앞에 두는 게 가장 이득.
  *  - userId는 정렬/안정적 처리 순서(혹은 워커 분산) 때문에 3번째에 둔다.
+ *  -
+ *  [추후 Step3 - lease(임대/락) 도입 시]
+ *  * - 작업자가 WorkDoc을 가져가 처리할 때 "누가/언제까지" 처리권을 가졌는지 기록하면
+ *  *   중복 처리 방지 + 워커 장애 시 회수가 가능해짐.
+ *  *
+ *  *   추천 필드(예시):
+ *  *   - leaseUntil : Instant  (임대 만료 시각)
+ *  *   - leaseOwner : String   (워커 식별자)
+ *  *   - leaseToken : String   (요청 단위 토큰/재진입 방지용)
+ *  *
+ *  *   자주 생기는 쿼리 패턴:
+ *  *   1) 만료된 PROCESSING 회수
+ *  *      find({ billingMonth: X, status: "PROCESSING", leaseUntil: { $lt: now } })
+ *  *
+ *  *   2) 처리 대상(TARGET) 가져오기(임대 안 잡힌 것 위주)
+ *  *      find({ billingMonth: X, status: "TARGET" }).sort({ userId: 1 }).limit(N)
+ *  *
+ *  *   그래서 아래 인덱스를 추가하면 좋음:
+ *  *   - idx_bm_status_lease_until : (billingMonth, status, leaseUntil)
+ *  *     => "PROCESSING + leaseUntil < now" 회수 쿼리 최적화
  */
 @Configuration
 @ConditionalOnBean(MongoTemplate.class)
@@ -41,7 +61,7 @@ public class BillingWorkIndexConfig {
     @Bean
     public ApplicationRunner billingWorkIndexes(
             MongoTemplate mongoTemplate,
-            @Value("${app.billing.step2.work-collection:billing_work}") String collectionName
+            @Value("${app.billing.work-collection:billing_work}") String collectionName
     ) {
 
         return args -> {
@@ -56,6 +76,19 @@ public class BillingWorkIndexConfig {
                             .on("userId", Sort.Direction.ASC)
                             .named("idx_bm_status_user")
             );
+
+            // ==========================
+            // [추후 Step3 lease 도입 시 주석 해제]
+            // ==========================
+            // 회수/재시도 최적화: PROCESSING 중 lease 만료된 건을 빠르게 찾기
+            //
+            // mongoTemplate.indexOps(collectionName).createIndex(
+            //         new Index()
+            //                 .on("billingMonth", Sort.Direction.ASC)
+            //                 .on("status", Sort.Direction.ASC)
+            //                 .on("leaseUntil", Sort.Direction.ASC)
+            //                 .named("idx_bm_status_lease_until")
+            // );
         };
     }
 }

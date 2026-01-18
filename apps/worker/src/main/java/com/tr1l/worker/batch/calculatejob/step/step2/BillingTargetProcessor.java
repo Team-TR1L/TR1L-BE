@@ -18,10 +18,10 @@ public class BillingTargetProcessor implements ItemProcessor<BillingTargetKey, W
         Instant now = Instant.now();
 
 
-        String id = item.billingMonth() + ":" + item.userId();
+        String id = item.billingMonthDay().toString() + ":" + item.userId();
         return new WorkDoc(
                 id,
-                item.billingMonth(),
+                item.billingMonthDay(),
                 item.userId(),
                 "TARGET",
                 0,

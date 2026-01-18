@@ -7,13 +7,15 @@ import org.springframework.batch.item.database.PagingQueryProvider;
 import org.springframework.batch.item.database.support.SqlPagingQueryProviderFactoryBean;
 
 import javax.sql.DataSource;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 
 public class BillingTargetReader extends JdbcPagingItemReader<BillingTargetKey> {
 
-    public BillingTargetReader(DataSource dataSource, String viewName, String billingMonth, int pageSize) throws Exception{
+    public BillingTargetReader(DataSource dataSource, String viewName, YearMonth billingMonth, int pageSize) throws Exception{
 
         /**x
          * 쿼리를 이용해 Step1 에서 생성된 물리적 테이블 뷰에서 사용자 id 값과 billingMonth를 갖고 옵니다.
@@ -31,15 +33,15 @@ public class BillingTargetReader extends JdbcPagingItemReader<BillingTargetKey> 
         /**
          * 결과를 매핑해서 processor 에게 넘겨준다.
          */
-
+        LocalDate billingMonthDay = billingMonth.atDay(1);
         PagingQueryProvider queryProvider = queryProviderFactory.getObject();
         setName("step2Reader");
         setDataSource(dataSource);
         setQueryProvider(queryProvider);
-        setParameterValues(Map.of("billingMonth",billingMonth));
+        setParameterValues(Map.of("billingMonth",billingMonthDay));
         setPageSize(pageSize);
         setRowMapper((rs,rowNum)->
-                new BillingTargetKey(rs.getString("billing_month"), rs.getLong("user_id")));
+                new BillingTargetKey(rs.getDate("billing_month").toLocalDate(), rs.getLong("user_id")));
 
         afterPropertiesSet();
 
