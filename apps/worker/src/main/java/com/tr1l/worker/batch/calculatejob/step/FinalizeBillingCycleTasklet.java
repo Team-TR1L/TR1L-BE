@@ -37,7 +37,7 @@ public class FinalizeBillingCycleTasklet implements Tasklet {
         var jobParams = chunkContext.getStepContext().getStepExecution().getJobParameters();
 
         // 문자열을 YearMonth로 변환 (필수 파라미터)
-        YearMonth billingMonth = YearMonth.parse(Objects.requireNonNull(jobParams.getString("billingMonth")));
+        YearMonth billingMonth = YearMonth.parse(Objects.requireNonNull(jobParams.getString("billingYearMonth")));
 
         // RUNNING 상태일 때만 FINISHED로 전환
         int updated = port.markFinishedIfRunning(billingMonth.atDay(1));

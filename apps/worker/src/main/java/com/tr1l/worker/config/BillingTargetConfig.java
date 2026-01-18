@@ -33,7 +33,7 @@ public class BillingTargetConfig {
 
     // step2 각 단계(reader, processor, writer)
     @Bean
-    public Step step2ProduceWorkStep(
+    public Step billingTargetStep(
             JobRepository jobRepository,
             @Qualifier("TX-target") PlatformTransactionManager transactionManager,
             BillingTargetReader reader,
@@ -41,7 +41,7 @@ public class BillingTargetConfig {
             BillingTargetWriter writer,
             @Value("${app.billing.step2.chunk-size:1000}") int chunkSize
     ) {
-        return new StepBuilder("step2ProduceWorkStep", jobRepository)
+        return new StepBuilder("billingTargetStep", jobRepository)
                 .<BillingTargetKey, WorkDoc>chunk(chunkSize, transactionManager)
                 .reader(reader)
                 .processor(processor)
@@ -59,7 +59,7 @@ public class BillingTargetConfig {
     public BillingTargetReader step2Reader(
             @Qualifier("targetDataSource") DataSource dataSource,
             @Value("${app.billing.targets-view-name:billing_targets_mv}") String viewName,
-            @Value("#{jobParameters['billingMonth']}") String billingMonth,
+            @Value("#{jobExecutionContext['billingYearMonth']}") String billingMonth,
             @Value("${app.billing.step2.page-size:1000}") int pageSize
     ) throws Exception {
         return new BillingTargetReader(dataSource, viewName, billingMonth,pageSize);
