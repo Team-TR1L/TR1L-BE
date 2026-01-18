@@ -2,7 +2,7 @@ package com.tr1l.dispatch.application.service;
 
 import com.tr1l.dispatch.application.command.CreateDispatchPolicyCommand;
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
-import com.tr1l.dispatch.application.port.DispatchPolicyRepository;
+import com.tr1l.dispatch.infra.persistence.repository.DispatchPolicyRepository;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
 import com.tr1l.dispatch.domain.model.vo.AdminId;
 import com.tr1l.dispatch.application.exception.DispatchErrorCode;

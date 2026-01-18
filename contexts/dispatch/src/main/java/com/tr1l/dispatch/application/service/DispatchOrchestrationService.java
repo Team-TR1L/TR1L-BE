@@ -1,11 +1,12 @@
 package com.tr1l.dispatch.application.service;
 
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
+import com.tr1l.dispatch.application.port.in.DispatchOrchestrationUseCase;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
 import com.tr1l.dispatch.domain.model.enums.ChannelType;
 import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 import com.tr1l.dispatch.infra.persistence.entity.MessageCandidateEntity;
-import com.tr1l.dispatch.infra.kafka.DispatchEventPublisher;
+import com.tr1l.dispatch.application.port.out.DispatchEventPublisher;
 import com.tr1l.dispatch.infra.persistence.repository.MessageCandidateJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,7 +17,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class DispatchOrchestrationService {
+public class DispatchOrchestrationService implements DispatchOrchestrationUseCase {
 
     private final MessageCandidateJpaRepository candidateRepository;
     private final DispatchPolicyService dispatchPolicyService;
@@ -53,6 +54,7 @@ public class DispatchOrchestrationService {
             eventPublisher.publish(
                     candidate.getUserId(),
                     policy.getDispatchPolicyId().value(),
+                    candidate.getChannel(),
                     candidate.getAttemptCount(),
                     candidate.getEncryptedS3Url(),
                     candidate.getEncryptedDestination()
