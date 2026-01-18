@@ -1,6 +1,6 @@
 package com.tr1l.dispatch.domain.model.vo;
 
-import com.tr1l.dispatch.error.DispatchErrorCode;
+import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
 
 public record AdminId(

@@ -1,7 +1,6 @@
-package com.tr1l.dispatch.application.port;
+package com.tr1l.dispatch.infra.persistence.repository;
 
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
-import com.tr1l.dispatch.infra.persistence.entity.DispatchPolicyEntity;
 
 import java.util.List;
 import java.util.Optional;

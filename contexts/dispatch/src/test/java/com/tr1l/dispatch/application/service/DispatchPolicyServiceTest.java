@@ -1,7 +1,7 @@
 package com.tr1l.dispatch.application.service;
 
 import com.tr1l.dispatch.application.command.CreateDispatchPolicyCommand;
-import com.tr1l.dispatch.application.port.DispatchPolicyRepository;
+import com.tr1l.dispatch.infra.persistence.repository.DispatchPolicyRepository;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
 import com.tr1l.dispatch.domain.model.enums.PolicyStatus;
 import com.tr1l.dispatch.domain.model.vo.AdminId;
@@ -10,7 +10,6 @@ import com.tr1l.dispatch.domain.model.vo.DispatchPolicyId;
 import com.tr1l.dispatch.domain.model.vo.PolicyVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
