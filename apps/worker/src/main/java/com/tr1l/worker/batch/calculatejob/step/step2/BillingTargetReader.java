@@ -15,7 +15,7 @@ import java.util.Map;
 
 public class BillingTargetReader extends JdbcPagingItemReader<BillingTargetKey> {
 
-    public BillingTargetReader(DataSource dataSource, String viewName, YearMonth billingMonth, int pageSize) throws Exception{
+    public BillingTargetReader(DataSource dataSource, String viewName, String billingMonth, int pageSize) throws Exception{
 
         /**x
          * 쿼리를 이용해 Step1 에서 생성된 물리적 테이블 뷰에서 사용자 id 값과 billingMonth를 갖고 옵니다.
@@ -33,7 +33,7 @@ public class BillingTargetReader extends JdbcPagingItemReader<BillingTargetKey> 
         /**
          * 결과를 매핑해서 processor 에게 넘겨준다.
          */
-        LocalDate billingMonthDay = billingMonth.atDay(1);
+        LocalDate billingMonthDay = parseToBillingMonthDay(billingMonth);
         PagingQueryProvider queryProvider = queryProviderFactory.getObject();
         setName("step2Reader");
         setDataSource(dataSource);
@@ -45,6 +45,19 @@ public class BillingTargetReader extends JdbcPagingItemReader<BillingTargetKey> 
 
         afterPropertiesSet();
 
+    }
+
+    private static LocalDate parseToBillingMonthDay(String billingMonthParam) {
+        // 1) "YYYY-MM"이면 YearMonth로
+        if (billingMonthParam.length() == 7) {
+            return YearMonth.parse(billingMonthParam).atDay(1);
+        }
+        // 2) "YYYY-MM-DD"이면 LocalDate로 받고 "1일"로 강제 정규화
+        if (billingMonthParam.length() == 10) {
+            LocalDate d = LocalDate.parse(billingMonthParam);
+            return YearMonth.from(d).atDay(1);
+        }
+        throw new IllegalArgumentException("billingMonth format must be YYYY-MM or YYYY-MM-DD: " + billingMonthParam);
     }
 
 

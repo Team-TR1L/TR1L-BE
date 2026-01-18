@@ -1,6 +1,8 @@
 package com.tr1l.billing.application.port.out;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.Date;
 
 /**
  *
@@ -12,5 +14,6 @@ import java.time.YearMonth;
  * @date $2026-01-28
  * ========================== */
 public interface BillingCycleFinalizedJdbcPort {
-    int markFinishedIfRunning(YearMonth billingMonthDate);
+    int markFinishedIfRunning(LocalDate billingMonthDay
+    );
 }
