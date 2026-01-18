@@ -18,7 +18,7 @@ public class DispatchEventListener {
     private final DeliveryService deliveryService;
 
     // 토픽 이름과 컨슈머 그룹 체크 필요
-    @KafkaListener(topics = "dispatch-events-v1", groupId = "delivery-group")
+    @KafkaListener(topics = "${kafka.topic.dispatch-events}", groupId = "${kafka.group.delivery}")
     public void consume(ConsumerRecord<String, DispatchRequestedEvent> record, Acknowledgment ack) {
 
         DispatchRequestedEvent event = record.value();

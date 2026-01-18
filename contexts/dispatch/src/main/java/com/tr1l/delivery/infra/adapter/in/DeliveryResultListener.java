@@ -14,7 +14,7 @@ public class DeliveryResultListener {
     private final DeliveryService deliveryService;
 
     // 토픽 이름과 컨슈머 그룹 체크 필요
-    @KafkaListener(topics = "delivery-result-events-v1", groupId = "delivery-result-handler-group")
+    @KafkaListener(topics = "${kafka.topic.delivery-result-events}", groupId = "${kafka.group.delivery-result-handler}")
     public void handleResult(DeliveryResultEvent event, Acknowledgment ack) {
 
         try {
