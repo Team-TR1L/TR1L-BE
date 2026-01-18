@@ -1,8 +1,8 @@
-package com.tr1l.billing.adapter.out.persistence.mapper;
+package com.tr1l.billing.application.assembler;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tr1l.billing.adapter.out.persistence.dto.BillingTargetRow;
+import com.tr1l.billing.application.dto.BillingTargetRow;
 import com.tr1l.billing.domain.model.enums.WelfareType;
 import com.tr1l.billing.domain.exception.BillingDomainException;
 import com.tr1l.billing.domain.model.aggregate.Billing;
@@ -97,7 +97,6 @@ public final class BillingTargetRowAssembler {
 
         // 할인율(0~1)
         Rate contractRate = toRate(row.contractRate()); // 0.25
-        Rate soldierRate = toRate(row.soldierRate()); // 0.2
 
         // 복지 값은 welfareEligible 일 때만 세팅
         WelfareType welfareTypeOrNull = null; // 복지 유형
@@ -114,13 +113,13 @@ public final class BillingTargetRowAssembler {
             }
         }
 
-        // 결합 할인(정액): 없으면 0원
-        Money bundleDiscountAmount = Money.zero();
-        if (row.bundleEligible() // 결합 유저면
-                && row.bundleTotalDiscountAmount() != null // 할인된 금액
-                && row.bundleTotalDiscountAmount() > 0) {
-            bundleDiscountAmount = new Money(row.bundleTotalDiscountAmount());
-        }
+//        // 결합 할인(정액): 없으면 0원
+//        Money bundleDiscountAmount = Money.zero();
+//        if (row.bundleEligible() // 결합 유저면
+//                && row.bundleTotalDiscountAmount() != null // 할인된 금액
+//                && row.bundleTotalDiscountAmount() > 0) {
+//            bundleDiscountAmount = new Money(row.bundleTotalDiscountAmount());
+//        }
 
         // JSONB: [{name, monthlyPrice}] -> AddonLine 리스트
         List<BillingCalculationInput.AddonLine> addonLines = parseAddonLines(row.optionsJsonb());
@@ -131,12 +130,12 @@ public final class BillingTargetRowAssembler {
                 row.hasContract(),
                 contractRate,
                 row.soldierEligible(),
-                soldierRate,
+//                soldierRate,
                 row.welfareEligible(),
                 welfareTypeOrNull,
                 welfareRateOrNull,
                 welfareCapOrNull,
-                bundleDiscountAmount,
+//                bundleDiscountAmount,
                 addonLines
         );
     }
@@ -219,26 +218,17 @@ public final class BillingTargetRowAssembler {
      *   { "name":"디즈니+", "monthlyPrice":9405 },
      *   { "name":"티빙",   "monthlyPrice":4950 }
      * ]
-     *
-     * 현재 BillingCalculationInput.AddonLine 시그니처가 더 많은 필드를 요구하므로
-     * MVP용으로:
-     * - addonProductId: 1부터 순번
-     * - quantity: 1
-     * - unitPrice == lineAmount == monthlyPrice
      */
     private List<BillingCalculationInput.AddonLine> parseAddonLines(String jsonb) {
-        if (jsonb == null || jsonb.isBlank()) return List.of();
-
+        if (jsonb == null || jsonb.isBlank()) {
+            return List.of();
+        }
         try {
             List<AddonJson> list = objectMapper.readValue(jsonb, new TypeReference<List<AddonJson>>() {});
-            AtomicLong seq = new AtomicLong(1);
 
             return list.stream()
                     .map(a -> new BillingCalculationInput.AddonLine(
-                            seq.getAndIncrement(), // id
                             a.name(), // 부가서비스 이름
-                            Quantity.one(), // 1
-                            new Money(a.monthlyPrice()), // 왜 2번?
                             new Money(a.monthlyPrice()) //  왜 2번?
                     ))
                     .toList();

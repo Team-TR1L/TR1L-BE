@@ -10,6 +10,7 @@ import com.tr1l.billing.domain.service.BillingCalculationInput;
 import java.util.Optional;
 
 public final class SoldierDiscountPolicy {
+    private static final Rate SOLDIER_RATE = Rate.ofPercent(20); // 할인률 고정
 
     public Optional<DiscountLine> apply(LineId lineId, BillingCalculationInput in, Money planAfterContract) {
         if (!in.soldierEligible()) {
@@ -17,7 +18,7 @@ public final class SoldierDiscountPolicy {
         }
 
         Money base = planAfterContract; // 선약이 없으면 planAfterContract == P
-        Money amount = base.multiply(in.soldierRate()); // 할인 금액
+        Money amount = base.multiply(SOLDIER_RATE); // 할인 금액
 
         DiscountBasis basis = (in.hasContract())
                 ? DiscountBasis.PLAN_NET_AMOUNT //
@@ -31,7 +32,7 @@ public final class SoldierDiscountPolicy {
                 new SourceRef("soldier_policy", 20L),
                 basis,
                 base,
-                in.soldierRate(),
+                SOLDIER_RATE,
                 null,
                 amount
         ));

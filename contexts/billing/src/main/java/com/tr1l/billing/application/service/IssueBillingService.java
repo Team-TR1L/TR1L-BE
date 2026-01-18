@@ -1,7 +1,7 @@
 package com.tr1l.billing.application.service;
 
-import com.tr1l.billing.adapter.out.persistence.dto.BillingTargetRow;
-import com.tr1l.billing.adapter.out.persistence.mapper.BillingTargetRowAssembler;
+import com.tr1l.billing.application.dto.BillingTargetRow;
+import com.tr1l.billing.application.assembler.BillingTargetRowAssembler;
 import com.tr1l.billing.application.port.out.BillingIdGenerator;
 import com.tr1l.billing.application.port.out.BillingSnapshotSavePort;
 import com.tr1l.billing.domain.event.DomainEvent;
@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
+// service(유스케이스) -> port 호출
 @Service
 public class IssueBillingService {
     private final BillingTargetRowAssembler assembler;
@@ -45,18 +46,23 @@ public class IssueBillingService {
      * - Billing 스냅샷을 MongoDB에 저장
      * - DomainEvent는 뽑아서 반환(지금은 저장 안한다면 그냥 무시해도 됨)
      */
-    public BillingIssueResult issueAndSave(CustomerId customerId, BillingTargetRow row) {
-        Objects.requireNonNull(customerId);
+    public BillingIssueResult issueAndSave(BillingTargetRow row,  String workId) {
         Objects.requireNonNull(row);
+        Objects.requireNonNull(workId);
 
-        // 1) 멱등키 생성 (MVP: 결정성 있게 만들어서 배치 재실행 시 동일)
-        BillingId billingId = billingIdGenerator.nextId();
-        IdempotencyKey idempotencyKey = createIdempotencyKey(customerId, row.billingMonth());
+        // 1) 멱등키 = workId
+        IdempotencyKey idempotencyKey = new IdempotencyKey(workId);
 
-        // 2) 라인ID 공급자(청구/할인 라인 순번)
+        // 2) BillingId = workId 기반 결정적 생성
+        BillingId billingId = billingIdGenerator.generateForWork(workId);
+
+        // 3) CustomerId는 row 기반(이미 userId 있음)
+        CustomerId customerId = new CustomerId(row.userId());
+
+        // 4) 라인ID 공급자
         BillingCalculator.LineIdProvider lineIdProvider = newSequentialLineIdProvider();
 
-        // 3) Row -> Billing(DRAFT) (계산 + 라인구성 + totals)
+        // 5) Row -> Billing(DRAFT) (계산 + 라인구성 + totals)
         Billing draft = assembler.toDraftBilling(
                 billingId,
                 customerId,
@@ -69,20 +75,20 @@ public class IssueBillingService {
         Instant now = Instant.now(clock);
         draft.issue(now);
 
-        // 5) 도메인 이벤트는 Billing 스냅샷에 넣지 않도록 pull 해서 비움
+        // 7) 이벤트 pull (필요 없으면 무시)
         List<DomainEvent> events = draft.pullDomainEvents();
 
-        // 6) MongoDB 저장 (그대로)
+        // 8) MongoDB 스냅샷 저장 //
         billingSnapshotSavePort.save(draft);
 
         return new BillingIssueResult(draft, events);
     }
 
-    private IdempotencyKey createIdempotencyKey(CustomerId customerId, String billingMonth) {
-        // 예: 2026-01:customerIdValue
-        String v = billingMonth + ":" + customerId.value();
-        return new IdempotencyKey(v);
-    }
+//    private IdempotencyKey createIdempotencyKey(CustomerId customerId, String billingMonth) {
+//        // 예: 2026-01:customerIdValue
+//        String v = billingMonth + ":" + customerId.value();
+//        return new IdempotencyKey(v);
+//    }
 
     private BillingCalculator.LineIdProvider newSequentialLineIdProvider() {
         AtomicLong seq = new AtomicLong(1);
