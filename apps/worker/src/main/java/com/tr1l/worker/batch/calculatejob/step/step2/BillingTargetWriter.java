@@ -29,9 +29,9 @@ public class BillingTargetWriter implements ItemWriter<WorkDoc> {
         for (WorkDoc doc : chunk) {
             commands.add(new WorkDocUpsertCommand(
                     doc.id(),
-                    doc.billingMonth(),
+                    doc.billingMonthDay().toString(),
                     doc.userId(),
-                    String.valueOf(doc.status()), // status가 enum이면 toString/ name() 맞춰
+                    doc.status(), // status가 enum이면 toString/ name() 맞춰
                     doc.attemptCount(),
                     doc.createdAt()
             ));
