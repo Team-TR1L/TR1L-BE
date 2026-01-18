@@ -38,7 +38,7 @@ public class MessageCandidateEntity {
     private String encryptedDestination; // 이메일 주소, 전화 번호 등
 
     public void markProcessing(){
-        if (this.status != MessageStatus.PROCESSING)
+        if (this.status != MessageStatus.READY)
             throw new DispatchDomainException(DispatchErrorCode.MESSAGE_STATUS_ALREADY_PROCESSING);
     }
 }
