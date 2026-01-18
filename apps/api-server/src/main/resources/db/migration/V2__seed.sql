@@ -5,81 +5,26 @@
  */
 
 /* 부가 서비스 종류 초기 데이터 */
-INSERT INTO option_service (option_service_code, option_service_name)
+INSERT INTO option_service (option_service_code, option_service_name,monthly_price)
 VALUES
-    ('OPT-0001', 'V컬러링'),
-    ('OPT-0002', '디즈니+'),
-    ('OPT-0003', '넷플릭스'),
-    ('OPT-0004', '요기요'),
-    ('OPT-0005', 'GS칼텍스 주유세차권&차량정비서비스'),
-    ('OPT-0006', '티빙'),
-    ('OPT-0007', '스노우 VIP'),
-    ('OPT-0008', '리디셀렉트 도서멤버쉽'),
-    ('OPT-0009', '예스24 크레마 클럽'),
-    ('OPT-0010', '모바일 한경'),
-    ('OPT-0011', '클래스 101+'),
-    ('OPT-0012', '밀리의 서재'),
-    ('OPT-0013', '유튜브 프리미엄'),
-    ('OPT-0014', '아이들나라(스탠다드+러닝)'),
-    ('OPT-0015', '지니뮤직(genie)'),
-    ('OPT-0016', '구글 원(Google One)')
+    ('OPT-0001', 'V컬러링',3135),
+    ('OPT-0002', '디즈니+',9405),
+    ('OPT-0003', '넷플릭스',6500),
+    ('OPT-0004', '요기요',6000),
+    ('OPT-0005', 'GS칼텍스 주유세차권&차량정비서비스',5900),
+    ('OPT-0006', '티빙',4950),
+    ('OPT-0007', '스노우 VIP',4000),
+    ('OPT-0008', '리디셀렉트 도서멤버쉽',3900),
+    ('OPT-0009', '예스24 크레마 클럽',4500),
+    ('OPT-0010', '모바일 한경',3300),
+    ('OPT-0011', '클래스 101+',19900),
+    ('OPT-0012', '밀리의 서재',11900),
+    ('OPT-0013', '유튜브 프리미엄',13900),
+    ('OPT-0014', '아이들나라(스탠다드+러닝)',0),
+    ('OPT-0015', '지니뮤직(genie)',0),
+    ('OPT-0016', '구글 원(Google One)',0)
 ON CONFLICT (option_service_code) DO NOTHING;
 
-
-/* 부가 서비스 가격 정책 */
-/* option_policy_history: 2025~2026 (24개월 x 16개) */
-WITH services AS (
-    SELECT *
-    FROM (VALUES
-        ('OPT-0001',  3135::bigint),
-        ('OPT-0002',  9405::bigint),
-        ('OPT-0003',  6500::bigint),
-        ('OPT-0004',  6000::bigint),
-        ('OPT-0005',  5900::bigint),
-        ('OPT-0006',  4950::bigint),
-        ('OPT-0007',  4000::bigint),
-        ('OPT-0008',  3900::bigint),
-        ('OPT-0009',  4500::bigint),
-        ('OPT-0010',  3300::bigint),
-        ('OPT-0011', 19900::bigint),
-        ('OPT-0012', 11900::bigint),
-        ('OPT-0013', 13900::bigint),
-        ('OPT-0014',     0::bigint),
-        ('OPT-0015',     0::bigint),
-        ('OPT-0016',     0::bigint)
-    ) AS v(option_service_code, monthly_price)
-),
-months AS (
-    SELECT gs::date AS month_start
-    FROM generate_series(
-        DATE '2025-01-01',
-        DATE '2026-12-01',
-        INTERVAL '1 month'
-    ) AS gs
-),
-ranges AS (
-    SELECT
-        m.month_start,
-        (date_trunc('month', m.month_start::timestamp) + INTERVAL '1 month' - INTERVAL '1 day')::date AS month_end
-    FROM months m
-),
-to_insert AS (
-    SELECT
-        s.option_service_code,
-        s.monthly_price,
-        (r.month_start::timestamp AT TIME ZONE 'Asia/Seoul') AS effective_from,
-        ((r.month_end::timestamp + TIME '23:59:59') AT TIME ZONE 'Asia/Seoul') AS effective_to
-    FROM services s
-    CROSS JOIN ranges r
-)
-INSERT INTO option_policy_history (option_service_code, monthly_price, effective_from, effective_to)
-SELECT
-    t.option_service_code,
-    t.monthly_price,
-    t.effective_from,
-    t.effective_to
-FROM to_insert t
-ON CONFLICT (option_service_code, effective_from) DO NOTHING;
 
 /* 복지 유형 */
 INSERT INTO welfare_discount (discount_rate, max_discount, welfare_code, welfare_name)
@@ -105,54 +50,6 @@ VALUES
     ('DBT-02','nMB 이후 과금'),
     ('DBT-03','초과 없음')
 ON CONFLICT (data_billing_type_code) DO NOTHING;
-
-
-/* 가족무한사랑 유무선결합할인
-   - Y0(0~14): 기본 가족결합 할인
-   - Y1(15~29): 기본 + 11,000
-   - Y2(30+):   기본 + 22,000
-*/
-
-INSERT INTO public.family_discount_policy
-(policy_code, policy_name, min_user_count,
- min_monthly_amount_sum, max_monthly_amount_sum,
- min_joined_year_sum, max_joined_year_sum,
- total_discount_amount)
-VALUES
--- =========================
--- Y0 : 합산 가입연수 0~14
--- =========================
-('FDP-L2-Y0','가족무한사랑 유무선결합할인',2, 0, 68199, 0, 14, 1650),
-('FDP-L3-Y0','가족무한사랑 유무선결합할인',3, 0, 68199, 0, 14, 2200),
-('FDP-L4-Y0','가족무한사랑 유무선결합할인',4, 0, 68199, 0, 14, 2750),
-
-('FDP-H2-Y0','가족무한사랑 유무선결합할인',2, 68200, NULL, 0, 14, 3300),
-('FDP-H3-Y0','가족무한사랑 유무선결합할인',3, 68200, NULL, 0, 14, 4400),
-('FDP-H4-Y0','가족무한사랑 유무선결합할인',4, 68200, NULL, 0, 14, 5500),
-
--- =========================
--- Y1 : 합산 가입연수 15~29 (기본 + 11,000)
--- =========================
-('FDP-L2-Y1','가족무한사랑 유무선결합할인',2, 0, 68199, 15, 29, 12650), -- 1650 + 11000
-('FDP-L3-Y1','가족무한사랑 유무선결합할인',3, 0, 68199, 15, 29, 13200), -- 2200 + 11000
-('FDP-L4-Y1','가족무한사랑 유무선결합할인',4, 0, 68199, 15, 29, 13750), -- 2750 + 11000
-
-('FDP-H2-Y1','가족무한사랑 유무선결합할인',2, 68200, NULL, 15, 29, 14300), -- 3300 + 11000
-('FDP-H3-Y1','가족무한사랑 유무선결합할인',3, 68200, NULL, 15, 29, 15400), -- 4400 + 11000
-('FDP-H4-Y1','가족무한사랑 유무선결합할인',4, 68200, NULL, 15, 29, 16500), -- 5500 + 11000
-
--- =========================
--- Y2 : 합산 가입연수 30+ (기본 + 22,000) / 상한 없음(NULL)
--- =========================
-('FDP-L2-Y2','가족무한사랑 유무선결합할인',2, 0, 68199, 30, NULL, 23650), -- 1650 + 22000
-('FDP-L3-Y2','가족무한사랑 유무선결합할인',3, 0, 68199, 30, NULL, 24200), -- 2200 + 22000
-('FDP-L4-Y2','가족무한사랑 유무선결합할인',4, 0, 68199, 30, NULL, 24750), -- 2750 + 22000
-
-('FDP-H2-Y2','가족무한사랑 유무선결합할인',2, 68200, NULL, 30, NULL, 25300), -- 3300 + 22000
-('FDP-H3-Y2','가족무한사랑 유무선결합할인',3, 68200, NULL, 30, NULL, 26400), -- 4400 + 22000
-('FDP-H4-Y2','가족무한사랑 유무선결합할인',4, 68200, NULL, 30, NULL, 27500)  -- 5500 + 22000
-ON CONFLICT (policy_code) DO NOTHING;
-
 
 /* 요금제 */
 INSERT INTO public.plan
