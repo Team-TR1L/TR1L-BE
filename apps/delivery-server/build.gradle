@@ -4,7 +4,7 @@ tasks.named("bootJar") {
 
 dependencies {
     implementation project(':shared')
-
+    implementation project(":contexts:dispatch")
 
     implementation("org.springframework:spring-jdbc:6.2.15")
     implementation group: 'org.postgresql', name: 'postgresql', version: '42.7.7'
