@@ -25,4 +25,8 @@ public class OptionServiceEntity {
     @Column(name = "option_service_name",unique = true,nullable = false,length = 20)
     @Comment("부가 서비스 종류 이름")
     private String optionServiceName;
+
+    @Column(name = "monthly_price",nullable = false)
+    @Comment("부가 서비스 가격")
+    private Long price;
 }

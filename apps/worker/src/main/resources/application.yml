@@ -39,6 +39,15 @@ spring:
 server:
   port: 8080
 
+app:
+  sql:
+    step1:
+      mainBase: classpath:sql/job1/step1/main
+      targetBase: classpath:sql/job1/step1/target
+
+      #Step01 - SQL1 fetch size
+      reader:
+        fetchSize: 1000
 ---
 
 spring:
