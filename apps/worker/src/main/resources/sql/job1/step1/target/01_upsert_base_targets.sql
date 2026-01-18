@@ -1,5 +1,5 @@
 INSERT INTO billing_targets (
-    billing_month, user_id, cutoff_at,
+    billing_month, user_id,
 
     user_name, user_birth_date, recipient_email, recipient_phone,
 
@@ -15,7 +15,7 @@ INSERT INTO billing_targets (
 
     options_jsonb
 ) VALUES (
-    :billingMonth, :userId, :cutoffAt,
+    :billingMonth, :userId,
 
     :userName, :userBirthDate, :recipientEmail, :recipientPhone,
 
@@ -34,8 +34,6 @@ INSERT INTO billing_targets (
 )
 ON CONFLICT (billing_month, user_id)
 DO UPDATE SET
-    cutoff_at = EXCLUDED.cutoff_at,
-
     user_name = EXCLUDED.user_name,
     user_birth_date = EXCLUDED.user_birth_date,
     recipient_email = EXCLUDED.recipient_email,

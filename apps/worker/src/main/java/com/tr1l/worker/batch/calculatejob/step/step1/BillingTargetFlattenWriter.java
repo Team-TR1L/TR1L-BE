@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 @Component
+@StepScope
 public class BillingTargetFlattenWriter implements ItemWriter<BillingTargetBaseRow> {
     private final FlattenBillingTargetsUseCase useCase;
     private final BillingTargetFlatParams params;

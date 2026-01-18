@@ -11,8 +11,8 @@ WITH active_contract AS (
 
     FROM user_contract AS uc
     WHERE uc.user_id = ANY (:userIds)
-      AND uc.start_date >= :startDate::date
-      AND uc.end_date <= :endDate::date
+      AND uc.start_date <= :endDate::date
+      AND uc.end_date >= :startDate::date
     ORDER BY uc.user_id , uc.start_date DESC
 )
 

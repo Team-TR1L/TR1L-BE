@@ -14,5 +14,5 @@ JOIN option_service os
   ON os.option_service_code = uos.option_service_code
 
 WHERE uos.user_id IN (:userIds)
-  AND uos.start_date < :endDate::date
+  AND uos.start_date < (:endDate::date + INTERVAL '1 day')
   AND uos.end_date   > :startDate::date;
