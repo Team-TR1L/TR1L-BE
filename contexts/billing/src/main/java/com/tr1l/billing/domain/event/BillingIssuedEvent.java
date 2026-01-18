@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.time.YearMonth;
 
 public record BillingIssuedEvent(
-        long billingId,
+        String billingId,
         long customerId,
         YearMonth period,
         Instant issuedAt
