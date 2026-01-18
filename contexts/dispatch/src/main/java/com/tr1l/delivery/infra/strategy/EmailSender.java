@@ -22,6 +22,7 @@ public class EmailSender implements NotificationSender {
             // 1% 확률로 실패 시뮬레이션
             return Math.random() > 0.01;
         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             return false;
         }
     }

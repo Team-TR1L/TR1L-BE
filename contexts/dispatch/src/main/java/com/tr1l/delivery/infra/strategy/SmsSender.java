@@ -21,6 +21,7 @@ public class SmsSender implements NotificationSender{
             // SMS은 모두 성공 처리
             return true;
         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             return true;
         }
     }
