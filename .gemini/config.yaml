@@ -19,5 +19,4 @@ code_review:
 ignore_patterns:
   - "**/build/**"
   - "**/.gradle/**"
-  - "**/out/**"
   - "**/generated/**"

@@ -13,6 +13,9 @@ dependencies {
 
     testRuntimeOnly "com.h2database:h2:2.2.224"
     testImplementation "org.springframework.boot:spring-boot-test:3.2.6"
+
+    implementation platform("io.awspring.cloud:spring-cloud-aws-dependencies:3.0.1")
+    implementation("io.awspring.cloud:spring-cloud-aws-starter-s3")
 }
 
 tasks.named('test') {
