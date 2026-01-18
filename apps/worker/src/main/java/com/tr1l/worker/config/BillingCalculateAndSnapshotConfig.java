@@ -19,20 +19,18 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.YearMonth;
 
 @Configuration
-public class BillingStep3Config {
+public class BillingCalculateAndSnapshotConfig {
 
-    @Bean
-    public String workerId() {
-        // ex) "12345@HOST"
+    @Bean(name = "billingWorkerId")
+    public String billingWorkerId() {
         return ManagementFactory.getRuntimeMXBean().getName();
     }
 
     @Bean
-    public Step step3CalculateAndSnapshotStep(
+    public Step billingCalculateAndSnapshotStep(
             JobRepository jobRepository,
             @Qualifier("TX-target") PlatformTransactionManager txManager,
             WorkDocClaimReader reader,
@@ -40,7 +38,7 @@ public class BillingStep3Config {
             CalculateAndSnapshotWriter writer,
             @Value("${app.billing.step3.chunk-size:200}") int chunkSize
     ) {
-        return new StepBuilder("step3CalculateAndSnapshotStep", jobRepository)
+        return new StepBuilder("billingCalculateAndSnapshotStep", jobRepository)
                 .<WorkDocClaimPort.ClaimedWorkDoc, WorkToTargetRowProcessor.WorkAndTargetRow>chunk(chunkSize, txManager)
                 .reader(reader)
                 .processor(processor)
@@ -50,12 +48,12 @@ public class BillingStep3Config {
 
     @Bean
     @StepScope
-    public WorkDocClaimReader step3Reader(
+    public WorkDocClaimReader workDocClaimReader(
             WorkDocClaimPort claimPort,
             @Value("#{jobExecutionContext['billingYearMonth']}") String billingYearMonth, // 변환 필요
             @Value("${app.billing.step3.fetch-size:200}") int fetchSize, // reader 반복 횟수, 선점 버퍼 단위
             @Value("${app.billing.step3.lease-seconds:1000}") long leaseSeconds, // 몇초 이후 target으로 회수할지, 트랜잭션 커밋 단위
-            String workerId
+            @Qualifier("billingWorkerId") String workerId
     ) {
         YearMonth billingMonth = YearMonth.parse(billingYearMonth); // YYYY-MM -> YearMonth로 변환함
 
@@ -70,7 +68,7 @@ public class BillingStep3Config {
 
     @Bean
     @StepScope
-    public WorkToTargetRowProcessor step3Processor( // 실제 계산
+    public WorkToTargetRowProcessor workToTargetRowProcessor( // 실제 계산
             BillingTargetLoadPort loadPort,
             @Value("#{jobExecutionContext['billingYearMonth']}") String billingYearMonth
     ) {
@@ -79,7 +77,7 @@ public class BillingStep3Config {
     }
 
     @Bean
-    public CalculateAndSnapshotWriter step3Writer( // MongDB 적재
+    public CalculateAndSnapshotWriter calculateAndSnapshotWriter( // MongDB 적재
             IssueBillingService issueBillingService,
             WorkDocStatusPort statusPort
     ) {
