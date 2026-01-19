@@ -1,7 +1,6 @@
 package com.tr1l.worker.batch.formatjob.adapter.out.persistence;
 
 import com.tr1l.worker.batch.formatjob.port.out.FormatGatePort;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -128,6 +127,6 @@ public class FormatGateJdbcAdapter implements FormatGatePort {
     }
 
     private boolean safeEq(String a, String b) {
-        return a != null && a.equals(b);
+        return java.util.Objects.equals(a, b);
     }
 }

@@ -20,7 +20,7 @@ import static org.springframework.batch.core.ExitStatus.NOOP;
 @Component
 @StepScope
 @RequiredArgsConstructor
-public class formatGateTasklet implements Tasklet {
+public class FormatGateTasklet implements Tasklet {
 
     private final FormatGatePort formatGatePort;
 
