@@ -97,7 +97,7 @@ services:
         APP_DIR: "apps/dispatch-server"
         JAR_NAME: "dispatch-server.jar"
     depends_on:
-      postgres:
+      postgres_target:
         condition: service_healthy
       kafka:
         condition: service_started

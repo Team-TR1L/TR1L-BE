@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 public class DeliveryPersistenceAdapter implements DeliveryRepositoryPort {
 
     private final JdbcTemplate jdbcTemplate;
-    private static final String TABLE_NAME = "dispatch_message";
+    private static final String TABLE_NAME = "dispatch_message_candidate";
 
     // PROCESSING -> SENT
     @Override

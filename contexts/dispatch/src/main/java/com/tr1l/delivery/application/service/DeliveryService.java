@@ -27,6 +27,8 @@ public class DeliveryService {
         // 발송 상태로 변경 시도
         int updatedCount = deliveryRepository.updateStatusToSent(userId);
 
+        log.info("Delivery process has been called for userId={}", userId);
+
         if (updatedCount == 0) {
             return;
         }
