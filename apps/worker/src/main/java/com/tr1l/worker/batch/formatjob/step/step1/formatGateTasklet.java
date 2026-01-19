@@ -30,7 +30,7 @@ public class formatGateTasklet implements Tasklet {
         // 파라미터값 추출
         Map<String, Object> jobParams = chunkContext.getStepContext().getJobParameters();
 
-        String billingMonthStr = (String) jobParams.get("billingMonth");
+        String billingMonthStr = (String) jobParams.get("billingYearMonth");
         String policyVersion = (String) jobParams.get("policyVersion");
         String policyOrder = (String) jobParams.get("policyOrder");
         String policyIndexStr = (String) jobParams.get("policyIndex");
