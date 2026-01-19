@@ -1,3 +1,13 @@
+kafka:
+  topic:
+    dispatch-events: dispatch-events-v1
+    delivery-result-events: delivery-result-events-v1
+  group:
+    delivery: delivery-group
+    delivery-result-handler: delivery-result-handler-group
+
+secret-key: "12345678901234567890123456789012"
+
 spring:
   application:
     name: delivery-server
