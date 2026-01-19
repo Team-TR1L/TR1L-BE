@@ -1,12 +1,12 @@
+secret-key: ${DELIVERY_SECRET_KEY}
+
 kafka:
   topic:
-    dispatch-events: dispatch-events-v1
-    delivery-result-events: delivery-result-events-v1
+    dispatch-events: ${KAFKA_TOPIC_DISPATCH_EVENTS}
+    delivery-result-events: ${KAFKA_TOPIC_DELIVERY_RESULT_EVENTS}
   group:
-    delivery: delivery-group
-    delivery-result-handler: delivery-result-handler-group
-
-secret-key: "12345678901234567890123456789012"
+    delivery: ${KAFKA_GROUP_DELIVERY}
+    delivery-result-handler: ${KAFKA_GROUP_DELIVERY_RESULT_HANDLER}
 
 spring:
   application:
