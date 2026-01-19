@@ -3,6 +3,7 @@ package com.tr1l.dispatch.infra.kafka;
 import com.tr1l.dispatch.application.port.out.DispatchEventPublisher;
 import com.tr1l.dispatch.domain.model.enums.ChannelType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -11,6 +12,9 @@ import org.springframework.stereotype.Component;
 public class KafkaDispatchEventPublisher implements DispatchEventPublisher {
 
     private final KafkaTemplate<String, DispatchRequestedEvent> kafkaTemplate;
+
+    @Value("${kafka.topic.dispatch-events}")
+    private String dispatchTopic;
 
     @Override
     public void publish(
@@ -30,18 +34,7 @@ public class KafkaDispatchEventPublisher implements DispatchEventPublisher {
                 encryptedDestination
         );
 
-        //매체별로 topic 이름 결정
-        String topic = resolveTopic(event.getChannelType());
-
-        //해당 토픽으로 Event 발송
-        kafkaTemplate.send(topic, event);
-    }
-
-    private String resolveTopic(ChannelType channelType) {
-        return switch (channelType) {
-            case EMAIL -> "dispatch.email";
-            case SMS -> "dispatch.sms";
-            case PUSH -> "dispatch.push";
-        };
+        // 채널 구분 없이 설정된 단일 토픽으로 발송
+        kafkaTemplate.send(dispatchTopic, event);
     }
 }
