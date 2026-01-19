@@ -3,6 +3,7 @@ package com.tr1l.dispatch.infra.persistence.repository;
 import com.tr1l.dispatch.infra.persistence.entity.MessageCandidateEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -16,5 +17,5 @@ public interface MessageCandidateJpaRepository extends JpaRepository<MessageCand
         where c.status = 'READY'
           and c.availableTime <= :now
     """)
-    List<MessageCandidateEntity> findReadyCandidates(Instant now);
+    List<MessageCandidateEntity> findReadyCandidates(@Param("now") Instant now);
 }

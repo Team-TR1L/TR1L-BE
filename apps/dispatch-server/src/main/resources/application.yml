@@ -10,6 +10,21 @@ spring:
       - postgres.yml
       - kafka.yml
 
+  cloud:
+    aws:
+      region:
+        static: ap-northeast-2  # 서울 리전 (또는 us-east-1 등 아무거나)
+      stack:
+        auto: false             # CloudFormation 스택 자동 조회 방지 (필수)
+      credentials: # 로컬 테스트용 가짜 키 (없으면 또 에러 날 수 있음)
+        access-key: test
+        secret-key: test
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
 server:
   port: 8080
 
@@ -22,3 +37,8 @@ spring:
 logging:
   level:
     root: INFO
+
+
+
+
+
