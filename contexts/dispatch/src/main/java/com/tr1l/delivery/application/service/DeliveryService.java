@@ -33,19 +33,19 @@ public class DeliveryService {
             return;
         }
 
-        // 복호화
-        String destination = decryptSafely(event.getEncryptedDestination());
-        String contentUrl = decryptSafely(event.getEncryptedS3Url());
-
-        log.info("복호화 성공 destination: {}, contentUrl: {}", destination, contentUrl);
-        
-        // S3에서 청구서 다운로드
-        String realContent = contentProvider.downloadContent(contentUrl);
-
-        log.info("청구서 다운로드 성공 realContent: {}", realContent);
+//        // 복호화
+//        String destination = decryptSafely(event.getEncryptedDestination());
+//        String contentUrl = decryptSafely(event.getEncryptedS3Url());
+//
+//        log.info("복호화 성공 destination: {}, contentUrl: {}", destination, contentUrl);
+//
+//        // S3에서 청구서 다운로드
+//        String realContent = contentProvider.downloadContent(contentUrl);
+//
+//        log.info("청구서 다운로드 성공 realContent: {}", realContent);
 
         // 외부 발송
-        notificationClient.send(userId, destination, realContent, event.getChannelType());
+        notificationClient.send(userId, event.getEncryptedDestination(), event.getEncryptedS3Url(), event.getChannelType());
     }
 
     private String decryptSafely(String cipherText) {
