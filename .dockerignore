@@ -1,8 +1,8 @@
-.gradle
-build
-out
+**/.gradle
+**/build
+**/out
 .idea
-*.iml
+**/*.iml
 
 .git
 .github
