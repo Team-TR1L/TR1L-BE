@@ -10,7 +10,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         "com.tr1l.dispatchserver", // 실행 서버 패키지
         "com.tr1l.dispatch"        // 비즈니스 로직(Context) 패키지
 })
-@EnableScheduling
 @EnableJpaRepositories(basePackages = "com.tr1l.dispatch.infra.persistence.repository")
 @EntityScan(basePackages = "com.tr1l.dispatch.infra.persistence.entity")
 public class DispatchApplication {
