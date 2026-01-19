@@ -6,3 +6,5 @@ spring:
       auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:latest}
     producer:
       acks: ${KAFKA_ACKS:all}
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
