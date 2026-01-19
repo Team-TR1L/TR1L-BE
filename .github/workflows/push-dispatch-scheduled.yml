@@ -1,0 +1,43 @@
+name: Push dispatch-server image (scheduled tag, main only)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/dispatch-server/**"
+      - ".github/workflows/push-dispatch-scheduled.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPO: dispatch-server
+  TAG: scheduled
+
+jobs:
+  build_push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & Push (dispatch-server)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/dispatch-server/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.TAG }}

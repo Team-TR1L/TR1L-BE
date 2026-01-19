@@ -1,0 +1,60 @@
+{
+  "name": "delivery",
+  "image": "234588504179.dkr.ecr.ap-northeast-2.amazonaws.com/delivery@sha256:b18022792803e36b68f016ff14d15276c98780bb204df6faac1744ee64ce0057",
+  "cpu": 0,
+  "portMappings": [
+    {
+      "name": "delivery-80-tcp",
+      "containerPort": 80,
+      "hostPort": 80,
+      "protocol": "tcp",
+      "appProtocol": "http"
+    }
+  ],
+  "essential": true,
+  "environment": [
+    {
+      "name": "PG_SUB_DB",
+      "value": "postgre"
+    },
+    {
+      "name": "KAFKA_BOOTSTRAP",
+      "value": "10.0.1.13:9092"
+    },
+    {
+      "name": "PG_SUB_USER",
+      "value": "subroot"
+    },
+    {
+      "name": "PG_SUB_HOST",
+      "value": "rds-tr1l-sub.clmq422cskwt.ap-northeast-2.rds.amazonaws.com"
+    },
+    {
+      "name": "PG_SUB_PORT",
+      "value": "5432"
+    },
+    {
+      "name": "PG_SUB_PASSWORD",
+      "value": "subroot0000"
+    },
+    {
+      "name": "S3_BUCKER",
+      "value": "billing-tr1l-apne2"
+    }
+  ],
+  "environmentFiles": [],
+  "mountPoints": [],
+  "volumesFrom": [],
+  "ulimits": [],
+  "logConfiguration": {
+    "logDriver": "awslogs",
+    "options": {
+      "awslogs-group": "/ecs/td-delivery",
+      "awslogs-create-group": "true",
+      "awslogs-region": "ap-northeast-2",
+      "awslogs-stream-prefix": "ecs"
+    },
+    "secretOptions": []
+  },
+  "systemControls": []
+}
