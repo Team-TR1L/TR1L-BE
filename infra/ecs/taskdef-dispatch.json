@@ -1,0 +1,40 @@
+{
+  "family": "td-dispatch",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "taskRoleArn": "arn:aws:iam::234588504179:role/role-worker",
+  "executionRoleArn": "arn:aws:iam::234588504179:role/ecs-task-execution-role",
+  "containerDefinitions": [
+    {
+      "name": "dispatch",
+      "image": "234588504179.dkr.ecr.ap-northeast-2.amazonaws.com/dispatch-server:scheduled",
+      "cpu": 0,
+      "portMappings": [],
+      "essential": true,
+      "environment": [
+        { "name": "PG_SUB_DB", "value": "postgre" },
+        { "name": "S3_BUCKET", "value": "billing-tr1l-apne2" },
+        { "name": "PG_SUB_USER", "value": "subroot" },
+        { "name": "PG_MAIN_PASSWORD", "value": "mainroot0000" },
+        { "name": "PG_SUB_HOST", "value": "rds-tr1l-sub.clmq422cskwt.ap-northeast-2.rds.amazonaws.com" },
+        { "name": "PG_SUB_PORT", "value": "5432" },
+        { "name": "PG_MAIN_HOST", "value": "rds-tr1l-main.clmq422cskwt.ap-northeast-2.rds.amazonaws.com" },
+        { "name": "PG_MAIN_PORT", "value": "5432" },
+        { "name": "PG_SUB_PASSWORD", "value": "subroot0000" },
+        { "name": "PG_MAIN_DB", "value": "postgre" },
+        { "name": "PG_MAIN_USER", "value": "mainroot" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/td-dispatch",
+          "awslogs-create-group": "true",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

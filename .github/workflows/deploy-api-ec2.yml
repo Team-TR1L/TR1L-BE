@@ -1,0 +1,64 @@
+name: Deploy api-server to EC2 (main only)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api-server/**"
+      - ".github/workflows/deploy-api-ec2.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPO: api-server
+  CONTAINER_NAME: api
+  HOST_PORT: "8080"
+  CONTAINER_PORT: "8080"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & Push (api-server)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api-server/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:latest
+
+      - name: Deploy on EC2 via SSM (pull & replace container)
+        run: |
+          set -e
+          IMAGE="${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}"
+
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy api-server from GitHub Actions" \
+            --targets "Key=InstanceIds,Values=${{ secrets.API_EC2_INSTANCE_ID }}" \
+            --parameters commands="[
+              \"set -e\",
+              \"aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.ecr.outputs.registry }}\",
+              \"docker pull $IMAGE\",
+              \"docker rm -f ${{ env.CONTAINER_NAME }} || true\",
+              \"docker run -d --name ${{ env.CONTAINER_NAME }} -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} --restart unless-stopped --env-file /opt/billing-api/.env $IMAGE\",
+              \"docker ps | grep ${{ env.CONTAINER_NAME }}\"
+            ]"
