@@ -31,7 +31,11 @@ public record BillingTargetBaseRow(
         String welfareCode, //nullable
         String welfareName,
         BigDecimal welfareRate,
-        long welfareCapAmount
+        long welfareCapAmount,
+
+        String fromTime,
+        String toTime,
+        String dayTime
 
 ) {
 }

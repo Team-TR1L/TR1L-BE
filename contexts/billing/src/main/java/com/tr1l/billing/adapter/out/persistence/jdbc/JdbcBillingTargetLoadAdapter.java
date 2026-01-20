@@ -29,8 +29,8 @@ public class JdbcBillingTargetLoadAdapter implements BillingTargetLoadPort {
         String sql = """
                 SELECT
                   to_char(billing_month, 'YYYY-MM') AS billing_month,
-                  user_name,
                   user_id,
+                  user_name,
                   user_birth_date,
                   recipient_email_enc,
                   recipient_phone_enc,
@@ -67,8 +67,8 @@ public class JdbcBillingTargetLoadAdapter implements BillingTargetLoadPort {
                 rs.getString("user_name"),
                 rs.getLong("user_id"),
                 rs.getString("user_birth_date"),
-                rs.getString("recipient_email_enc"),
-                rs.getString("recipient_phone_enc"),
+                rs.getString("recipient_email"),
+                rs.getString("recipient_phone"),
 
                 rs.getString("plan_name"),
                 rs.getLong("plan_monthly_price"),
