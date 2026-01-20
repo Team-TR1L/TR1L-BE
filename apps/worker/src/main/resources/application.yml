@@ -11,6 +11,9 @@ spring:
       - optional:classpath:postgres.target.yml
       - optional:classpath:mongo.yml
 
+  thymeleaf:
+    cache: true
+
   batch:
     job:
       enabled: false  # job.name으로 실행할 때만
