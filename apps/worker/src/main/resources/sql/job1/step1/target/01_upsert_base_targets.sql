@@ -1,6 +1,8 @@
 INSERT INTO billing_targets (
     billing_month, user_id,
 
+    from_time,to_time,day_time,
+
     user_name, user_birth_date, recipient_email, recipient_phone,
 
     plan_name, plan_monthly_price, network_type_name,
@@ -13,9 +15,11 @@ INSERT INTO billing_targets (
 
     welfare_eligible, welfare_code, welfare_name, welfare_rate, welfare_cap_amount,
 
-    options_jsonb
+    options_jsonb,send_option_jsonb
 ) VALUES (
     :billingMonth, :userId,
+
+    CAST(:fromTime AS VARCHAR), CAST(:toTime AS VARCHAR), CAST(:dayTime AS VARCHAR),
 
     :userName, :userBirthDate, :recipientEmail, :recipientPhone,
 
@@ -30,7 +34,8 @@ INSERT INTO billing_targets (
     :welfareEligible, :welfareCode, :welfareName, :welfareRate, :welfareCapAmount,
 
 
-    CAST(:optionsJson AS jsonb)
+    CAST(:optionsJson AS jsonb),
+CAST(:sendOptionJson AS jsonb)
 )
 ON CONFLICT (billing_month, user_id)
 DO UPDATE SET
@@ -60,5 +65,10 @@ DO UPDATE SET
     welfare_rate = EXCLUDED.welfare_rate,
     welfare_cap_amount = EXCLUDED.welfare_cap_amount,
 
-    options_jsonb = EXCLUDED.options_jsonb
+    from_time = EXCLUDED.from_time,
+    to_time = EXCLUDED.to_time,
+    day_time = EXCLUDED.day_time,
+
+    options_jsonb = EXCLUDED.options_jsonb,
+    send_option_jsonb=EXCLUDED.send_option_jsonb
 ;
