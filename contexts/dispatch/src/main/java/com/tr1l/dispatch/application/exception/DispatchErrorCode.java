@@ -41,7 +41,8 @@ public enum DispatchErrorCode implements ErrorCode {
     // INFRA - Infrastructure (DB, S3, Network)
     // =====================================================================
     S3_DOWNLOAD_FAILED("DSP-INF-001", ErrorCategory.EXT, "S3에서 컨텐츠를 다운로드하는데 실패했습니다."),
-    DECRYPTION_FAILED("DSP-INF-002", ErrorCategory.EXT, "데이터 복호화에 실패했습니다.")
+    DECRYPTION_FAILED("DSP-INF-002", ErrorCategory.EXT, "데이터 복호화에 실패했습니다."),
+    S3_URL_FAILED("DSP-INF-003", ErrorCategory.EXT, "S3 url 제작이 실패했습니다.")
 
     ;
 
