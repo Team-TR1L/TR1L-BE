@@ -2,8 +2,8 @@ app:
   datasource:
     target:
       url: ${TARGET_DATASOURCE_URL:jdbc:postgresql://localhost:5433/billing_target}
-      username: ${TARGET_DATASOURCE_USERNAME:billing}
-      password: ${TARGET_DATASOURCE_PASSWORD:billing}
+      username: ${TARGET_DATASOURCE_USERNAME:postgres}
+      password: ${TARGET_DATASOURCE_PASSWORD:postgres}
       driver-class-name: org.postgresql.Driver
       hikari:
         maximum-pool-size: 20

@@ -14,8 +14,11 @@ spring:
   batch:
     job:
       enabled: false  # job.name으로 실행할 때만
+      name:
     jdbc:
-      initialize-schema: ${SPRING_BATCH_JDBC_INITIALIZE_SCHEMA:always} # local에서만 권장
+      initialize-schema: always
+
+
 
   jpa:
     hibernate:
@@ -25,17 +28,9 @@ spring:
       hibernate:
         format_sql: true
         use_sql_comments: true
-
-  # Table Setup
-  flyway:
-    enabled: true
-    url: ${TARGET_DATASOURCE_URL:jdbc:postgresql://postgresql_target:5433/billing_target}
-    user: ${TARGET_DATASOURCE_USERNAME:billing}
-    password: ${TARGET_DATASOURCE_PASSWORD:billing}
-    locations: classpath:db/migration/target
-    default-schema: public
-    baseline-on-migrate: true
-    clean-disabled: true
+  sql:
+    init:
+      mode: never
 server:
   port: 8080
 
@@ -48,6 +43,17 @@ app:
       #Step01 - SQL1 fetch size
       reader:
         fetchSize: 1000
+
+#Batch 환경 변수
+batch:
+  job1StartTime:
+  job2StartTime:
+  channelOrderJson:
+
+time:
+  zone: Asia/Seoul
+  format: yyyy-MM-dd HH:mm:ss
+
 ---
 
 spring:
@@ -56,11 +62,16 @@ spring:
       on-profile: dev
 
   batch:
+    job:
+      enabled: false
     jdbc:
-      initialize-schema: never
-
+      initialize-schema: always
+    name:
 
 logging:
   level:
     root: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.springframework.jdbc.core: DEBUG
 
