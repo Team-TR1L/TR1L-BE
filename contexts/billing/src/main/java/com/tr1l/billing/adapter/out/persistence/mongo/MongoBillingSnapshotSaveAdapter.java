@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tr1l.billing.application.port.out.BillingSnapshotSavePort;
 import com.tr1l.billing.domain.model.aggregate.Billing;
+import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -13,9 +14,12 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 @Component
+@Slf4j
 public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort {
 
     private final MongoTemplate mongoTemplate;
@@ -37,7 +41,7 @@ public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort 
         if (billing == null) return;
 
         // ✅ snapshotId = BillingId (workId 기반 결정적)
-        String snapshotId = billing.billingId().value().toString();
+        String snapshotId = billing.billingId().value();
 
         Instant now = Instant.now();
 
@@ -81,6 +85,7 @@ public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort 
                 .set("schemaVersion", 1);
 
         try {
+            log.info("upsert");
             mongoTemplate.upsert(q, u, collectionName);
         } catch (Exception e) {
             // snapshot 저장 실패 = 인프라 실패로 보고 step fail로 올리는 게 맞음

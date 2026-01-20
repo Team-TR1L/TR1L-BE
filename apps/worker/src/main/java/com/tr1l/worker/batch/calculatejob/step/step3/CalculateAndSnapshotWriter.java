@@ -2,6 +2,7 @@ package com.tr1l.worker.batch.calculatejob.step.step3;
 
 import com.tr1l.billing.application.port.out.WorkDocStatusPort;
 import com.tr1l.billing.application.service.IssueBillingService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.dao.DataAccessException;
@@ -9,6 +10,7 @@ import org.springframework.dao.DataAccessException;
 import java.time.Instant;
 
 //
+@Slf4j
 public class CalculateAndSnapshotWriter implements ItemWriter<WorkToTargetRowProcessor.WorkAndTargetRow> {
 
     private final IssueBillingService issueBillingService;
@@ -30,16 +32,17 @@ public class CalculateAndSnapshotWriter implements ItemWriter<WorkToTargetRowPro
 
             try { // 상태 변경 주의
                 if (item.row() == null) {
-                    statusPort.markFailed(workId, "BATCH-TARGET-NOT-FOUND", "billing_targets_mv row not found", now);
+                    statusPort.markFailed(workId, "BATCH-TARGET-NOT-FOUND", "billing_targets row not found", now);
                     continue;
                 }
 
-                // ✅ 도메인 계산 + Mongo billing_snapshot upsert
-                //
+                log.info("Before IsseAndSave");
                 var result = issueBillingService.issueAndSave(item.row(), workId);
+                log.info("After IsseAndSave");
 
-                // ✅ snapshotId = 결정적 BillingId
+                log.info("Before asdasda");
                 String snapshotId = result.billing().billingId().value().toString();
+                log.info("Before IsseAhhhhhe");
 
                 statusPort.markCalculated(workId, snapshotId, now);
 

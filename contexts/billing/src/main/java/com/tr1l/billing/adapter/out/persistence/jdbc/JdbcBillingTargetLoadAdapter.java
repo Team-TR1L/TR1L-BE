@@ -2,17 +2,19 @@ package com.tr1l.billing.adapter.out.persistence.jdbc;
 
 import com.tr1l.billing.application.dto.BillingTargetRow;
 import com.tr1l.billing.application.port.out.BillingTargetLoadPort;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
-import java.sql.Date;
+import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.LinkedHashMap;
 
+@Slf4j
 @Component
 public class JdbcBillingTargetLoadAdapter implements BillingTargetLoadPort {
 
@@ -24,16 +26,21 @@ public class JdbcBillingTargetLoadAdapter implements BillingTargetLoadPort {
 
     @Override
     public Map<Long, BillingTargetRow> loadByUserIds(YearMonth billingMonth, List<Long> userIds) {
+
         if (userIds == null || userIds.isEmpty()) return Map.of();
 
+        log.error("loadByUserIds : {}",userIds.size());
+
+
+        LocalDate date=billingMonth.atDay(1);
         String sql = """
                 SELECT
                   to_char(billing_month, 'YYYY-MM') AS billing_month,
                   user_id,
                   user_name,
                   user_birth_date,
-                  recipient_email_enc,
-                  recipient_phone_enc,
+                  recipient_email,
+                  recipient_phone,
                   plan_name,
                   plan_monthly_price,
                   network_type_name,
@@ -52,13 +59,13 @@ public class JdbcBillingTargetLoadAdapter implements BillingTargetLoadPort {
                   welfare_rate,
                   welfare_cap_amount,
                   options_jsonb
-                FROM billing_targets_mv
+                FROM billing_targets
                 WHERE billing_month = :bm
                   AND user_id IN (:userIds)
                 """;
 
         var params = Map.of(
-                "bm", Date.valueOf(billingMonth.atDay(1)),
+                "bm", date,
                 "userIds", userIds
         );
 
