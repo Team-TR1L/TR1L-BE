@@ -46,8 +46,7 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
 
         //3.  json 확인하고 Kafka에 이벤트 발행
         for(BillingTargetEntity candidate : candidates) {
-            ChannelType nowChannel = policy.getRoutingPolicy().getPrimaryOrder()
-                    .channels().get(candidate.getAttemptCount());
+            ChannelType nowChannel = channels.get(Math.min(channels.size() - 1, candidate.getAttemptCount()));
 
             String s3url = extractValueByChannel(
                     candidate.getS3UrlJsonb(),

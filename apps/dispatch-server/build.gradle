@@ -7,5 +7,7 @@ dependencies {
     implementation project(":contexts:dispatch")
 
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
     implementation group: 'org.postgresql', name: 'postgresql', version: '42.7.7'
 }

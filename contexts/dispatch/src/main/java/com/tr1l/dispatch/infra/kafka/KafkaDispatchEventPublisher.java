@@ -13,7 +13,7 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 public class KafkaDispatchEventPublisher implements DispatchEventPublisher {
 
-    private final KafkaTemplate<String, DispatchRequestedEvent> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Value("${kafka.topic.dispatch-events}")
     private String dispatchTopic;
