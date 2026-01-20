@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "apps/worker/**"
+      - "infra/ecs/taskdef-worker.json"
       - ".github/workflows/push-worker-scheduled.yml"
   workflow_dispatch:
 
@@ -41,3 +42,16 @@ jobs:
           push: true
           tags: |
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.TAG }}
+
+      - name: Render task definition (worker)
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: infra/ecs/taskdef-worker.json
+          container-name: worker
+          image: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.TAG }}
+
+      - name: Register task definition (worker)
+        uses: aws-actions/amazon-ecs-register-task-definition@v1
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
