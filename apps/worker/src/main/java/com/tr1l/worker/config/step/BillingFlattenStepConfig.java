@@ -28,8 +28,6 @@ import javax.sql.DataSource;
  *==========================*/
 @Configuration
 public class BillingFlattenStepConfig {
-    @Value("${app.sql.step1.reader.fetchSize}")
-    private int chunkSize;
 
     @Bean
     public JdbcCursorItemReader<BillingTargetBaseRow> billingTargetBaseReader(
@@ -54,7 +52,8 @@ public class BillingFlattenStepConfig {
             @Qualifier("TX-target") PlatformTransactionManager targetTx,
             JdbcCursorItemReader<BillingTargetBaseRow> billingTargetBaseRowJdbcCursorItemReader,
             BillingTargetFlattenWriter writer,
-            StepLoggingListener listener
+            StepLoggingListener listener,
+            @Value("${app.sql.step1.chunk.chunkSize}") int chunkSize
     ) {
         return new StepBuilder("billingFlattenStep", jobRepository)
                 .<BillingTargetBaseRow, BillingTargetBaseRow>chunk(chunkSize, targetTx)
