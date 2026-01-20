@@ -1,4 +1,4 @@
-package com.tr1l.worker.config;
+package com.tr1l.worker.config.step;
 
 import com.tr1l.billing.application.model.BillingTargetBaseRow;
 import com.tr1l.worker.batch.calculatejob.step.step1.BillingTargetFlattenWriter;
@@ -53,12 +53,14 @@ public class BillingFlattenStepConfig {
             JobRepository jobRepository,
             @Qualifier("TX-target") PlatformTransactionManager targetTx,
             JdbcCursorItemReader<BillingTargetBaseRow> billingTargetBaseRowJdbcCursorItemReader,
-            BillingTargetFlattenWriter writer
+            BillingTargetFlattenWriter writer,
+            StepLoggingListener listener
     ) {
-        return new StepBuilder("billingFlattenStep",jobRepository)
+        return new StepBuilder("billingFlattenStep", jobRepository)
                 .<BillingTargetBaseRow, BillingTargetBaseRow>chunk(chunkSize, targetTx)
                 .reader(billingTargetBaseRowJdbcCursorItemReader)
                 .writer(writer)
+                .listener(listener)
                 .build();
     }
 }
