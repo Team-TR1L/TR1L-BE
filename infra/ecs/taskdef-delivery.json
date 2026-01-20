@@ -3,7 +3,7 @@
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "1024",
-  "memory": "2048햣",
+  "memory": "2048",
   "taskRoleArn": "arn:aws:iam::234588504179:role/role-worker",
   "executionRoleArn": "arn:aws:iam::234588504179:role/ecs-task-execution-role",
   "containerDefinitions": [
