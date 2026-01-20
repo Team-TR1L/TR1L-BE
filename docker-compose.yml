@@ -156,6 +156,12 @@ services:
       # Batch metadata schema
       SPRING_BATCH_JDBC_INITIALIZE_SCHEMA: ${SPRING_BATCH_JDBC_INITIALIZE_SCHEMA}
 
+      # S3
+      AWS_REGION: ap-northeast-2
+      S3_BUCKET: billing-tr1l-apne2
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+
     profiles: ["batch"]
     restart: "no"
 
