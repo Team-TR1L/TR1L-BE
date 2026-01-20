@@ -4,7 +4,10 @@ import com.tr1l.apiserver.persistence.enums.UserRole;
 import com.tr1l.apiserver.persistence.enums.UserStatus;
 import io.hypersistence.utils.hibernate.id.Tsid;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Comment;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -29,6 +32,9 @@ public class UserEntity {
     @Comment("유저 이름")
     private String name;
 
+    @Column(name = "email",length = 50,nullable = false,unique = true)
+    private String email;
+
     @Column(name = "birth_date", nullable = false)
     @Comment("유저 생년월일")
     private LocalDate birthDate;
@@ -41,9 +47,9 @@ public class UserEntity {
     @Comment("유저 전화번호")
     private String phoneNumber;
 
-    @Column(name = "is_welfare")
+    @Column(name = "is_welfare",nullable = false)
     @Comment("복지 대상 여부")
-    private Integer isWelfare;
+    private Boolean isWelfare;
 
     @Column(name = "user_role", nullable = false)
     @Enumerated(value = EnumType.STRING)
