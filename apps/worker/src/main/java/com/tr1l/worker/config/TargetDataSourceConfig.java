@@ -1,33 +1,47 @@
 package com.tr1l.worker.config;
 
+
+import liquibase.integration.spring.SpringLiquibase;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer;
-import org.springframework.boot.sql.init.DatabaseInitializationMode;
-import org.springframework.boot.sql.init.DatabaseInitializationSettings;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 
 import javax.sql.DataSource;
 import java.util.List;
 
 @Configuration
-@Profile("dev")//dev 설정에서만 실행
 public class TargetDataSourceConfig {
 
     @Bean
-    public DataSourceScriptDatabaseInitializer targetSchemaInitializer(
-            @Qualifier("targetDataSource") DataSource dataSource
+    @ConfigurationProperties(prefix = "app.liquibase.target")
+    public TargetLiquibaseProps targetLiquibaseProps() {
+        return new TargetLiquibaseProps();
+    }
+
+    @Bean(name = "targetLiquibase")
+    public SpringLiquibase targetLiquibase(
+            @Qualifier("targetDataSource") DataSource targetDataSource,
+            TargetLiquibaseProps props
     ) {
+        SpringLiquibase liquibase = new SpringLiquibase();
+        liquibase.setDataSource(targetDataSource);
 
-        DatabaseInitializationSettings settings = new DatabaseInitializationSettings();
+        liquibase.setChangeLog(props.getChangeLog());
+        liquibase.setContexts(props.getContexts());
+        liquibase.setShouldRun(props.isEnabled());
 
-        settings.setSchemaLocations(List.of("classpath:schema.sql"));
+        return liquibase;
+    }
 
-        settings.setMode(DatabaseInitializationMode.ALWAYS);
-
-        return new DataSourceScriptDatabaseInitializer(dataSource,settings);
-
+    @Getter
+    @Setter
+    public static class TargetLiquibaseProps {
+        private boolean enabled = true;
+        private String changeLog;
+        private String contexts;
     }
 
 }

@@ -16,9 +16,7 @@ spring:
       enabled: false  # job.name으로 실행할 때만
       name:
     jdbc:
-      initialize-schema: always
-
-
+      initialize-schema: never
 
   jpa:
     hibernate:
@@ -34,6 +32,7 @@ spring:
 server:
   port: 8080
 
+#Target DB
 app:
   sql:
     step1:
@@ -42,7 +41,16 @@ app:
 
       #Step01 - SQL1 fetch size
       reader:
-        fetchSize: 1000
+        fetchSize: ${BATCH_JOB1_STEP1_FETCH_SIZE:}
+      chunk:
+        chunkSize: ${BATCH_JOB1_STEP1_CHUNK_SIZE:}
+
+  liquibase:
+    target:
+      enabled: true
+      change-log: classpath:/db/changelog/target/db.changelog-master.yml
+      contexts: ${SPRING_PROFILES_ACTIVE:dev}
+
 
 #Batch 환경 변수
 batch:
@@ -53,6 +61,20 @@ batch:
 time:
   zone: Asia/Seoul
   format: yyyy-MM-dd HH:mm:ss
+
+
+
+#Log setting
+logging:
+  level:
+    root: info
+    org.springframework.batch: INFO
+    org.hibernate.sql: WARN
+    #Jdbc template
+    org.springframework.jdbc.core: WARN
+    #driver
+    org.postgresql: WARN
+
 
 ---
 

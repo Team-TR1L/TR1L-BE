@@ -39,3 +39,5 @@ out/
 ### env (secrets) ###
 .env
 .env.*
+
+.env.prod
