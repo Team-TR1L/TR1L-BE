@@ -1,6 +1,7 @@
 package com.tr1l.dispatch.infra.persistence.repository;
 
-import com.tr1l.dispatch.infra.persistence.entity.MessageCandidateEntity;
+import com.tr1l.dispatch.infra.persistence.entity.BillingTargetEntity;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,12 +11,21 @@ import java.time.Instant;
 import java.util.List;
 
 @Repository
-public interface MessageCandidateJpaRepository extends JpaRepository<MessageCandidateEntity, Long> {
+public interface MessageCandidateJpaRepository
+        extends JpaRepository<BillingTargetEntity, Long> {
+
     @Query("""
-        select c
-        from MessageCandidateEntity c
-        where c.status = 'READY'
-          and c.availableTime <= :now
-    """)
-    List<MessageCandidateEntity> findReadyCandidates(@Param("now") Instant now);
+    select c
+    from BillingTargetEntity c
+    where c.sendStatus in ('READY', 'FAILED')
+      and (
+            :currentHour < cast(c.fromTime as integer)
+         or :currentHour >= cast(c.toTime as integer)
+      )
+""")
+    List<BillingTargetEntity> findReadyCandidates(
+            @Param("currentHour") Integer currentHour,
+            Pageable pageable
+    );
 }
+

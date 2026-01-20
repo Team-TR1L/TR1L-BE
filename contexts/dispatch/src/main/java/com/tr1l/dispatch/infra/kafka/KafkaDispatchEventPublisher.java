@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+
 @Component
 @RequiredArgsConstructor
 public class KafkaDispatchEventPublisher implements DispatchEventPublisher {
@@ -19,17 +21,15 @@ public class KafkaDispatchEventPublisher implements DispatchEventPublisher {
     @Override
     public void publish(
             Long userId,
-            Long dispatchPolicyId,
+            LocalDate billingMonth,
             ChannelType channelType,
-            Integer attemptCount,
             String encryptedS3Url,
             String encryptedDestination
     ) {
         DispatchRequestedEvent event = new DispatchRequestedEvent(
                 userId,
-                dispatchPolicyId,
+                billingMonth,
                 channelType,
-                attemptCount,
                 encryptedS3Url,
                 encryptedDestination
         );
