@@ -35,7 +35,6 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build & Push (dispatch-server)
-        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -44,7 +43,6 @@ jobs:
           tags: |
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.TAG }}
 
-      # ✅ 1) taskdef에 새 이미지 주입
       - name: Render task definition (dispatch)
         id: render
         uses: aws-actions/amazon-ecs-render-task-definition@v1
@@ -53,7 +51,6 @@ jobs:
           container-name: dispatch
           image: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.TAG }}
 
-      # ✅ 2) ECS에 새 리비전 등록 (스케줄러는 다음 실행부터 새 리비전을 쓰게 됨)
       - name: Register task definition (dispatch)
         uses: aws-actions/amazon-ecs-register-task-definition@v1
         with:

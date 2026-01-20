@@ -1,5 +1,5 @@
 {
-  "family": "td-delivery",
+  "family": "td-dispatch",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
@@ -8,17 +8,10 @@
   "executionRoleArn": "arn:aws:iam::234588504179:role/ecs-task-execution-role",
   "containerDefinitions": [
     {
-      "name": "delivery",
-      "image": "234588504179.dkr.ecr.ap-northeast-2.amazonaws.com/delivery-server:latest",
+      "name": "dispatch",
+      "image": "234588504179.dkr.ecr.ap-northeast-2.amazonaws.com/dispatch-server:scheduled",
       "cpu": 0,
-      "portMappings": [
-        {
-          "name": "delivery-http",
-          "containerPort": 8080,
-          "hostPort": 8080,
-          "protocol": "tcp"
-        }
-      ],
+      "portMappings": [],
       "essential": true,
       "environment": [
         { "name": "PG_SUB_DB", "value": "postgre" },
@@ -36,7 +29,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/td-delivery",
+          "awslogs-group": "/ecs/td-dispatch",
           "awslogs-create-group": "true",
           "awslogs-region": "ap-northeast-2",
           "awslogs-stream-prefix": "ecs"

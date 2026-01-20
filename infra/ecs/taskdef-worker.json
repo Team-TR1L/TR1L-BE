@@ -1,5 +1,5 @@
 {
-  "family": "td-delivery",
+  "family": "td-worker",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
@@ -8,15 +8,16 @@
   "executionRoleArn": "arn:aws:iam::234588504179:role/ecs-task-execution-role",
   "containerDefinitions": [
     {
-      "name": "delivery",
-      "image": "234588504179.dkr.ecr.ap-northeast-2.amazonaws.com/delivery-server:latest",
+      "name": "worker",
+      "image": "234588504179.dkr.ecr.ap-northeast-2.amazonaws.com/worker:scheduled",
       "cpu": 0,
       "portMappings": [
         {
-          "name": "delivery-http",
-          "containerPort": 8080,
-          "hostPort": 8080,
-          "protocol": "tcp"
+          "name": "worker-80-tcp",
+          "containerPort": 80,
+          "hostPort": 80,
+          "protocol": "tcp",
+          "appProtocol": "http"
         }
       ],
       "essential": true,
@@ -33,10 +34,16 @@
         { "name": "PG_MAIN_DB", "value": "postgre" },
         { "name": "PG_MAIN_USER", "value": "mainroot" }
       ],
+      "secrets": [
+        {
+          "name": "MONGODB_URI",
+          "valueFrom": "arn:aws:ssm:ap-northeast-2:234588504179:parameter/tr1l/mongodb_uri"
+        }
+      ],
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/td-delivery",
+          "awslogs-group": "/ecs/td-worker",
           "awslogs-create-group": "true",
           "awslogs-region": "ap-northeast-2",
           "awslogs-stream-prefix": "ecs"
