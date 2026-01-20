@@ -1,4 +1,7 @@
 spring:
+  main:
+    web-application-type: none  # 톰캣 기동 방지 (핵심)
+    banner-mode: "off"          # 로그 가독성을 위해 선택사항
   application:
     name: dispatch-server
 
