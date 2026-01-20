@@ -10,7 +10,8 @@ import java.util.List;
 
 @Repository
 public interface MessageCandidateJpaRepository
-        extends JpaRepository<BillingTargetEntity, Long> {
+        extends JpaRepository<BillingTargetEntity, BillingTargetId> {
+
 
     @Query("""
        select c
