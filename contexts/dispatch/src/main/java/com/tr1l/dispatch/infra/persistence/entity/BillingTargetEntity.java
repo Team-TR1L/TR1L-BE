@@ -32,7 +32,7 @@ public class BillingTargetEntity {
     @Column(name = "send_option_jsonb") // 발송 상태
     private String sendOptionJsonb;
 
-    @Column(name = " s3_url_jsonb") // 종착지
+    @Column(name = "s3_url_jsonb") // 종착지
     private String s3UrlJsonb;
 }
 

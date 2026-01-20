@@ -11,13 +11,10 @@ import com.tr1l.dispatch.application.port.out.DispatchEventPublisher;
 import com.tr1l.dispatch.infra.persistence.entity.BillingTargetEntity;
 import com.tr1l.dispatch.infra.persistence.repository.MessageCandidateJpaRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.*;
 import java.util.List;
 
 @Service
@@ -32,17 +29,20 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
     @Transactional
     public void orchestrate(Instant now) {
         //1. 발송 정책을 조회한다.
-
         DispatchPolicy policy = dispatchPolicyService.findCurrentActivePolicy();
-        //2. 현재 발송 가능한 메시지들을 가져온다.
-
-        int currentHour = LocalDateTime.now(ZoneId.of("Asia/Seoul")).getHour();
-
-        List<BillingTargetEntity> candidates =
-                candidateRepository.findReadyCandidates(currentHour, PageRequest.of(0, 500));
 
         List<ChannelType> channels =
                 policy.getRoutingPolicy().getPrimaryOrder().channels();
+
+        //2. 현재 발송 가능한 메시지들을 가져온다.
+        int currentHour = LocalDateTime.now(ZoneId.of("Asia/Seoul")).getHour();
+
+        List<BillingTargetEntity> candidates =
+                candidateRepository.findReadyCandidates(channels.size() - 1,
+                        String.format("%02d", LocalDate.now().getDayOfMonth()),
+                        currentHour);
+
+        System.out.println("후보군 사이즈: " + candidates.size());
 
         //3.  json 확인하고 Kafka에 이벤트 발행
         for(BillingTargetEntity candidate : candidates) {
