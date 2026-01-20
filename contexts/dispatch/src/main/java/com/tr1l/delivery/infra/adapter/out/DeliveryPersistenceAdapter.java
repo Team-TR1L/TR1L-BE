@@ -24,6 +24,7 @@ public class DeliveryPersistenceAdapter implements DeliveryRepositoryPort {
         return jdbcTemplate.update(sql, userId, billingMonth);
     }
     // 완료 처리 SUCCEED
+    @Override
     public void updateStatusToSucceed(Long userId, LocalDate billingMonth) {
         String sql = "UPDATE " + TABLE_NAME +
                 " SET send_status = 'SUCCEED' " +
