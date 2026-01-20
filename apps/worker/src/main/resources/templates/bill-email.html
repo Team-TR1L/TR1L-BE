@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>TR1L 청구서</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f7f9;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;">
+    <tr>
+        <td align="center" style="padding:24px;">
+            <table role="presentation" width="640" cellpadding="0" cellspacing="0"
+                   style="width:640px;max-width:640px;background:#ffffff;border:1px solid #e6e8ee;border-radius:14px;">
+                <tr>
+                    <td style="padding:24px 24px 10px 24px;">
+                        <div style="font-size:18px;font-weight:700;color:#111827;">
+                            <span th:text="${period}">2026-01</span> 청구서 안내
+                        </div>
+                        <div style="margin-top:6px;font-size:13px;color:#6b7280;">
+                            안녕하세요, <b th:text="${customerName}">박준희</b>님. 청구서가 발행되었습니다.
+                        </div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:0 24px 16px 24px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                               style="background:#f3f6ff;border:1px solid #dfe7ff;border-radius:12px;">
+                            <tr>
+                                <td style="padding:16px;">
+                                    <div style="font-size:12px;color:#334155;">총 청구금액</div>
+                                    <div style="margin-top:6px;font-size:28px;font-weight:800;color:#111827;">
+                                        <span th:text="${totalAmount}">41,121</span>원
+                                    </div>
+                                    <div style="margin-top:6px;font-size:12px;color:#475569;">
+                                        요금 합계 <span th:text="${subtotalAmount}">91,410</span>원 ·
+                                        할인 합계 <span th:text="${discountTotalAmount}">50,289</span>원
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:0 24px 8px 24px;">
+                        <div style="font-size:14px;font-weight:700;color:#111827;margin:8px 0;">
+                            요금 내역
+                        </div>
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                               style="border-collapse:collapse;">
+                            <tr th:each="c : ${chargeLines}">
+                                <td style="padding:10px 6px;border-bottom:1px solid #eef2f7;color:#111827;font-size:13px;"
+                                    th:text="${c.name}">요금제 월정액</td>
+                                <td style="padding:10px 6px;border-bottom:1px solid #eef2f7;color:#111827;font-size:13px;text-align:right;"
+                                    th:text="${c.amount} + '원'">77,000원</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:0 24px 8px 24px;">
+                        <div style="font-size:14px;font-weight:700;color:#111827;margin:18px 0 8px 0;">
+                            할인 내역
+                        </div>
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                               style="border-collapse:collapse;">
+                            <tr th:each="d : ${discountLines}">
+                                <td style="padding:10px 6px;border-bottom:1px solid #eef2f7;color:#111827;font-size:13px;"
+                                    th:text="${d.name}">선택약정 할인</td>
+                                <td style="padding:10px 6px;border-bottom:1px solid #eef2f7;color:#111827;font-size:13px;text-align:right;"
+                                    th:text="'-' + ${d.amount} + '원'">-19,250원</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:18px 24px 24px 24px;">
+                        <div style="font-size:11px;color:#94a3b8;">
+                            © TR1L · 본 메일은 발신전용입니다.
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
