@@ -1,5 +1,6 @@
 package com.tr1l.delivery.infra.adapter.in;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tr1l.delivery.application.service.DeliveryService;
 import com.tr1l.dispatch.infra.kafka.DispatchRequestedEvent;
 import lombok.RequiredArgsConstructor;
@@ -16,14 +17,15 @@ import org.springframework.stereotype.Component;
 public class DispatchEventListener {
 
     private final DeliveryService deliveryService;
+    private final ObjectMapper objectMapper;
 
     // 토픽 이름과 컨슈머 그룹 체크 필요
     @KafkaListener(topics = "${kafka.topic.dispatch-events}", groupId = "${kafka.group.delivery}")
-    public void consume(ConsumerRecord<String, DispatchRequestedEvent> record, Acknowledgment ack) {
-
-        DispatchRequestedEvent event = record.value();
+    public void consume(ConsumerRecord<String, String> record, Acknowledgment ack) {
 
         try {
+            // JSON 문자열 -> 객체 변환
+            DispatchRequestedEvent event = objectMapper.readValue(record.value(), DispatchRequestedEvent.class);
             // 발송 비즈니스 로직 실행
             deliveryService.deliveryProcess(event);
 
@@ -31,7 +33,7 @@ public class DispatchEventListener {
             ack.acknowledge();
 
         } catch (Exception e) {
-            throw e;
+            throw new RuntimeException(e);
         }
     }
 }

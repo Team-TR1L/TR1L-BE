@@ -35,12 +35,15 @@ public enum DispatchErrorCode implements ErrorCode {
     MESSAGE_STATUS_ALREADY_PROCESSING("DSP-APP-003",ErrorCategory.ADA, "메시지 상태가 이미 PROCESSING입니다."),
     POLICY_NOT_EQUAL("DSP-APP-004",ErrorCategory.ADA, "발송 정책의 전송 매체와 메시지의 전송 매체가 다릅니다."),
     NO_MORE_RETRY("DSP-APP-005", ErrorCategory.ADA, "발송 정책의 maxAttemptCount보다 높은 attemptCount입니다."),
+    JSON_MAPPING_ERROR("DSP-APP-006", ErrorCategory.ADA, "json 변환에 실패했습니다."),
 
     // =====================================================================
     // INFRA - Infrastructure (DB, S3, Network)
     // =====================================================================
     S3_DOWNLOAD_FAILED("DSP-INF-001", ErrorCategory.EXT, "S3에서 컨텐츠를 다운로드하는데 실패했습니다."),
-    DECRYPTION_FAILED("DSP-INF-002", ErrorCategory.EXT, "데이터 복호화에 실패했습니다.")
+    DECRYPTION_FAILED("DSP-INF-002", ErrorCategory.EXT, "데이터 복호화에 실패했습니다."),
+    S3_URL_FAILED("DSP-INF-003", ErrorCategory.EXT, "S3 url 제작이 실패했습니다.")
+
     ;
 
     private final String code;
