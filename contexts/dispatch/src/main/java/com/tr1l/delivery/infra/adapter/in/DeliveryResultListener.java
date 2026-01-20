@@ -24,7 +24,7 @@ public class DeliveryResultListener {
             // JSON 문자열 -> 객체 변환
             DeliveryResultEvent event = objectMapper.readValue(record.value(), DeliveryResultEvent.class);
             // 비즈니스 로직 실행
-            deliveryService.processCallback(event.userId(), event.isSuccess());
+            deliveryService.processCallback(event.userId(), event.isSuccess(), event.billingMonth());
 
             ack.acknowledge();
 

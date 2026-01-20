@@ -17,7 +17,7 @@ public class EmailSender implements NotificationSender {
     public boolean send(String destination, String content) {
         try {
             // 1초 딜레이
-            TimeUnit.SECONDS.sleep(2);
+            TimeUnit.SECONDS.sleep(1);
 
             // 1% 확률로 실패 시뮬레이션
             return Math.random() > 0.01;

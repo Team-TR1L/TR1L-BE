@@ -3,7 +3,7 @@ spring:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: ${KAFKA_CONSUMER_GROUP_ID:dispatch-server}
-      auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:latest}
+      auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:earliest}
       enable-auto-commit: false
 
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
