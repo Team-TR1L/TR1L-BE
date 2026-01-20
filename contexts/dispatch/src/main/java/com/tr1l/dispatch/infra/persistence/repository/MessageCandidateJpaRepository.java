@@ -18,10 +18,12 @@ public interface MessageCandidateJpaRepository
         where (c.dayTime = :dayTime or c.dayTime is null)
           and c.sendStatus in ('READY', 'FAILED')
           and c.attemptCount <= :maxAttemptCount
-          and (c.fromTime is null and c.toTime is null)
+          and (
+          (c.fromTime is null and c.toTime is null)
           or (
             :currentHour < cast(c.fromTime as integer)
-         or :currentHour >= cast(c.toTime as integer)
+               or :currentHour >= cast(c.toTime as integer)
+         )
       )
 """)
 
