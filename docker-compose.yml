@@ -147,9 +147,11 @@ services:
 
       # Batch metadata schema
       SPRING_BATCH_JDBC_INITIALIZE_SCHEMA: ${SPRING_BATCH_JDBC_INITIALIZE_SCHEMA}
+      SPRING_BATCH_JOB_NAME: ${SPRING_BATCH_JOB_NAME}
 
-    profiles: ["batch"]
+      JAVA_TOOL_OPTIONS: "-Dcutoff=${CUTOFF_TIME}"
     restart: "no"
+
 
   delivery-server:
     build:
