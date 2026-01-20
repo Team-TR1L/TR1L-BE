@@ -41,7 +41,7 @@ public class CalculateAndSnapshotWriter implements ItemWriter<WorkToTargetRowPro
                 log.info("After IsseAndSave");
 
                 log.info("Before asdasda");
-                String snapshotId = result.billing().billingId().value().toString();
+                String snapshotId = result.billing().billingId().value();
                 log.info("Before IsseAhhhhhe");
 
                 statusPort.markCalculated(workId, snapshotId, now);

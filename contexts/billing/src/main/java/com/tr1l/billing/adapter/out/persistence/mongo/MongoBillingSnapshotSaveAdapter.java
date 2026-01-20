@@ -56,8 +56,8 @@ public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort 
         String billingMonth = billing.period().value().atDay(1).toString(); // "YYYY-MM-01"
         Long userId = extractUserId(payloadDoc, billing);
 
-        RecipientTopLevel recipientTop = extractRecipientTopLevel(payloadDoc, billing);
-        List<String> availableChannels = computeAvailableChannels(recipientTop);
+        //RecipientTopLevel recipientTop = extractRecipientTopLevel(payloadDoc, billing);
+        //List<String> availableChannels = computeAvailableChannels(recipientTop);
 
         Query q = new Query(Criteria.where("_id").is(snapshotId));
 
@@ -70,10 +70,10 @@ public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort 
                 .set("billingMonth", billingMonth)
                 .set("userId", userId)
 
-                .set("availableChannels", availableChannels)
-                .set("recipientEmailEnc", recipientTop.emailEnc)
-                .set("recipientPhoneEnc", recipientTop.phoneEnc)
-                .set("kakaoUserKeyEnc", recipientTop.kakaoUserKeyEnc)
+                //.set("availableChannels", availableChannels)
+                //.set("recipientEmailEnc", recipientTop.emailEnc)
+                //.set("recipientPhoneEnc", recipientTop.phoneEnc)
+                //.set("kakaoUserKeyEnc", recipientTop.kakaoUserKeyEnc)
 
                 // 상태/발행시각은 Billing 안에 있다면 같이 top-level로 뽑아두는 게 운영상 좋음
                 .set("status", safeString(payloadDoc.get("status")))

@@ -6,7 +6,9 @@ import com.tr1l.billing.domain.model.vo.LineId;
 import com.tr1l.billing.domain.model.vo.PricingSnapshot;
 import com.tr1l.billing.domain.model.vo.SourceRef;
 import com.tr1l.billing.error.BillingErrorCode;
+import lombok.Getter;
 
+@Getter
 public final class ChargeLine {
 
     private final LineId lineId;

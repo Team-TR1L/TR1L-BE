@@ -10,6 +10,8 @@ import com.tr1l.billing.domain.model.vo.*;
 import com.tr1l.billing.domain.service.BillingCalculationInput;
 import com.tr1l.billing.domain.service.BillingCalculator;
 import com.tr1l.billing.error.BillingErrorCode;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -30,6 +32,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * 주의:
  * - issue() / Mongo 저장은 Batch Processor/Writer(Application)에서 수행
  */
+@Slf4j
+@Component
 public final class BillingTargetRowAssembler {
 
     private final ObjectMapper objectMapper;
@@ -59,20 +63,30 @@ public final class BillingTargetRowAssembler {
             BillingCalculator.LineIdProvider lineIdProvider
     ) {
         Objects.requireNonNull(billingId);
+        log.warn("billingId = {}",billingId);
+
         Objects.requireNonNull(customerId);
+        log.warn("customerId = {}",customerId);
+
         Objects.requireNonNull(idempotencyKey);
+        log.warn("idempotencyKey = {}",idempotencyKey);
+
         Objects.requireNonNull(row);
+        log.warn("row = {}" ,row);
+
         Objects.requireNonNull(lineIdProvider);
+        log.warn("lineIdProvider = {}",lineIdProvider);
 
         // 1) Row -> Aggregate 생성에 필요한 VO (스냅샷)
         BillingPeriod period = new BillingPeriod(parseBillingMonth(row.billingMonth()));
         CustomerName customerName = new CustomerName(row.userName());
         CustomerBirthDate customerBirthDate = new CustomerBirthDate(parseBirthYearMonth(row.userBirthDate()));
         Recipient recipient = toRecipient(row.recipientEmailEnc(), row.recipientPhoneEnc());
-
+        log.warn("period = {} customerName = {} customerBirthDate = {} recipient = {}",period,customerName,customerBirthDate,recipient);
         // 2) Row -> 도메인 계산 입력
-        BillingCalculationInput in = toCalculationInput(row);
 
+        BillingCalculationInput in = toCalculationInput(row);
+        log.warn("======= BillingCalculationInput Success ==========");
         // 3) 계산기 호출: 라인 구성 + 할인 적용 + totals 재계산까지 완료된 Billing(DRAFT) 반환
         return calculator.calculateDraft(
                 billingId,
@@ -92,24 +106,35 @@ public final class BillingTargetRowAssembler {
      * - RDB 값/코드/JSONB를 도메인 정책들이 사용할 수 있는 형태로 정규화
      */
     private BillingCalculationInput toCalculationInput(BillingTargetRow row) {
+        log.warn("==================== toCalculationInput Start ============================");
         Money planP = new Money(row.planMonthlyPrice());     // 요금제 정가 P
+        log.warn("==================== computeAdditionalUsageFee Start ============================");
         Money usageM = computeAdditionalUsageFee(row);       // 추가 사용량 과금 M -> 0 or 1200원
-
+         log.warn("==================== computeAdditionalUsageFee End ============================");
         // 할인율(0~1)
+         log.warn("==================== toRate Start ============================");
         Rate contractRate = toRate(row.contractRate()); // 0.25
-
+        log.warn("==================== toRate End ============================");
         // 복지 값은 welfareEligible 일 때만 세팅
         WelfareType welfareTypeOrNull = null; // 복지 유형
         Rate welfareRateOrNull = null; // 복지 할인률
         Money welfareCapOrNull = null; // 복지 상한선
 
+        log.warn("==================== 분기 Start ============================");
         if (row.welfareEligible()) { // 복지 유저일 경우
+            log.warn("==================== toWelfareType Start ============================");
             welfareTypeOrNull = toWelfareType(row.welfareCode()); // 복지코드 -> 변환 필요함
+            log.warn("==================== toWelfareType End ============================");
+
+            log.warn("==================== toRate2 Start ============================");
             welfareRateOrNull = toRate(row.welfareRate()); // 할인률 -> 0.35
+            log.warn("==================== toRate2 End ============================");
 
             // cap: null 또는 0이면 상한 없음(null로 표현)
+            log.warn("==================== 분기 시작 ============================");
             if (row.welfareCapAmount() != null && row.welfareCapAmount() > 0) {
                 welfareCapOrNull = new Money(row.welfareCapAmount());
+                log.warn("==================== {} , {}  ============================",row.welfareCapAmount(),row.welfareCapAmount());
             }
         }
 
@@ -124,6 +149,7 @@ public final class BillingTargetRowAssembler {
         // JSONB: [{name, monthlyPrice}] -> AddonLine 리스트
         List<BillingCalculationInput.AddonLine> addonLines = parseAddonLines(row.optionsJsonb());
 
+        log.warn("==================== toCalculationInput End ============================");
         return new BillingCalculationInput(
                 planP,
                 usageM,
@@ -202,9 +228,12 @@ public final class BillingTargetRowAssembler {
             throw new BillingDomainException(BillingErrorCode.INVALID_WELFARE);
         }
         return switch (welfareCode) {
+            case "WLF-01" ->WelfareType.NORMAL;
             case "WLF-02" -> WelfareType.DISABLED;
             case "WLF-03" -> WelfareType.NATIONAL_MERIT;
             case "WLF-04" -> WelfareType.BASIC_LIVELIHOOD;
+            case "WLF-05" -> WelfareType.BASIC_LIVELIHOOD;
+
             default -> throw new BillingDomainException(BillingErrorCode.INVALID_WELFARE);
         };
     }
