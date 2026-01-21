@@ -1,6 +1,7 @@
 package com.tr1l.dispatch.infra.persistence.repository;
 
 import com.tr1l.dispatch.infra.persistence.entity.BillingTargetEntity;
+import com.tr1l.dispatch.infra.persistence.entity.BillingTargetId;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

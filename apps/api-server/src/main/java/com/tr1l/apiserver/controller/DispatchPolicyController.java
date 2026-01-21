@@ -1,6 +1,6 @@
 package com.tr1l.apiserver.controller;
 
-import com.tr1l.apiserver.DispatchPolicyRequest;
+import com.tr1l.apiserver.dto.DispatchPolicyRequest;
 import com.tr1l.dispatch.application.command.CreateDispatchPolicyCommand;
 import com.tr1l.dispatch.application.service.DispatchPolicyService;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;

@@ -1,4 +1,4 @@
-package com.tr1l.apiserver;
+package com.tr1l.apiserver.dto;
 
 import com.tr1l.dispatch.domain.model.vo.ChannelRoutingPolicy;
 import lombok.AllArgsConstructor;
