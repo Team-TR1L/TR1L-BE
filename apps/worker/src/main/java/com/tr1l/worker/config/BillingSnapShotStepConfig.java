@@ -1,10 +1,14 @@
 package com.tr1l.worker.config;
 
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tr1l.billing.application.port.out.BillingTargetS3UpdatePort;
+import com.tr1l.billing.application.port.out.S3UploadPort;
 import com.tr1l.worker.batch.formatjob.domain.BillingSnapshotDoc;
 import com.tr1l.worker.batch.formatjob.domain.RenderedMessage;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotProcessor;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotReader;
+import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotWriter;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.repository.JobRepository;
@@ -22,7 +26,7 @@ import org.thymeleaf.TemplateEngine;
  * BillingSnapShotStepConfig
  *
  * BillingSnapShotStep들을 모아 step 연결하는곳
- * 
+ *
  * @author nonstop
  * @version 1.0.0
  * @since 2026-01-20
@@ -48,14 +52,14 @@ public class BillingSnapShotStepConfig {
             @Qualifier("TX-target") PlatformTransactionManager transactionManager,
             BillingSnapShotReader reader,
             BillingSnapShotProcessor processor,
-            //BillingSnapShotWriter writer,
+            BillingSnapShotWriter writer,
             @Value("${app.billing.step2.chunk-size:1000}") int chunkSize
     ){
         return new StepBuilder("billingSnapShotStep",jobRepository)
                 .<BillingSnapshotDoc, RenderedMessage>chunk(chunkSize,transactionManager)
                 .reader(reader)
                 .processor(processor)
-                //.writer(writer)
+                .writer(writer)
                 .build();
     }
 
@@ -74,10 +78,14 @@ public class BillingSnapShotStepConfig {
         return new BillingSnapShotProcessor(templateEngine);
     }
 
-    /**
-     * Writer 부분 작성해줘
-     */
-    /*
-    public BillingSnapShotStepConfig billing....
-     */
+    @Bean
+    @StepScope
+    public BillingSnapShotWriter billingSnapShotWriter(
+            @Value("${s3.bucket}") String bucket,
+            S3UploadPort s3UploadPort,
+            ObjectMapper om,
+            BillingTargetS3UpdatePort billingTargetS3UpdatePort
+    ) {
+        return new BillingSnapShotWriter(bucket, s3UploadPort, om, billingTargetS3UpdatePort);
+    }
 }

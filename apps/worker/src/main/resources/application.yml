@@ -67,3 +67,10 @@ logging:
   level:
     root: INFO
 
+
+# S3 설정값
+s3:
+  bucket: ${S3_BUCKET:billing-tr1l-apne2}
+
+aws:
+  region: ${AWS_REGION:ap-northeast-2}
