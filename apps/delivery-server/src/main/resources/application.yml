@@ -1,7 +1,3 @@
-secret-key: ${SECRET_KEY}
-algorithm: ${ALGORITHM}
-transformation: ${TRANSFORMATION}
-
 kafka:
   topic:
     dispatch-events: ${KAFKA_TOPIC_DISPATCH_EVENTS}
