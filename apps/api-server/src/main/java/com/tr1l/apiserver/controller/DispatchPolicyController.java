@@ -67,5 +67,13 @@ public class DispatchPolicyController {
     public ResponseEntity<DispatchPolicy> getActivePolicy() {
         return ResponseEntity.ok(service.findCurrentActivePolicy());
     }
+
+
+    /** 배치 수동 실행 */
+    @PostMapping("/start-batch")
+    public ResponseEntity<String> startBatch() {
+        //ToDo: 배치 수동 실행 코드
+        return ResponseEntity.ok().body("배치 수동 완료");
+    }
 }
 
