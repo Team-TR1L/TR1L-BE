@@ -55,32 +55,46 @@ jobs:
           INSTANCE_ID="${{ secrets.API_EC2_INSTANCE_ID }}"
           REGISTRY="${{ steps.ecr.outputs.registry }}"
           IMAGE="${REGISTRY}/${{ env.ECR_REPO }}:${{ github.sha }}"
+          NAME="${{ env.CONTAINER_NAME }}"
+          HOST_PORT="${{ env.HOST_PORT }}"
+          CONTAINER_PORT="${{ env.CONTAINER_PORT }}"
+          ENV_FILE="${{ env.ENV_FILE }}"
 
           echo "Deploy image: $IMAGE"
           echo "Target instance: $INSTANCE_ID"
+
+          cat > ssm-params.json <<EOF
+          {
+            "commands": [
+              "set -eu",
+              "unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY no_proxy NO_PROXY",
+              "export AWS_REGION=$REGION AWS_DEFAULT_REGION=$REGION",
+
+              "aws ecr get-login-password --region $REGION --cli-connect-timeout 3 --cli-read-timeout 5 > /tmp/ecr_pass",
+              "sudo docker login --username AWS --password-stdin $REGISTRY < /tmp/ecr_pass",
+              "rm -f /tmp/ecr_pass",
+
+              "timeout 300 sudo docker pull $IMAGE",
+              "test -f $ENV_FILE",
+
+              "sudo docker rm -f $NAME || true",
+              "sudo docker run -d --name $NAME -p 127.0.0.1:$HOST_PORT:$CONTAINER_PORT --restart unless-stopped --env-file $ENV_FILE $IMAGE",
+              "sudo docker ps --no-trunc | grep $NAME"
+            ]
+          }
+          EOF
 
           CMD_ID=$(aws ssm send-command \
             --region "$REGION" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy api-server from GitHub Actions" \
             --instance-ids "$INSTANCE_ID" \
-            --parameters "commands=[
-              \"set -euo pipefail\",
-              \"export AWS_REGION=$REGION AWS_DEFAULT_REGION=$REGION\",
-              \"TOKEN=\\\$(aws ecr get-login-password --region $REGION)\",
-              \"echo token_len=\\\${#TOKEN}\",
-              \"echo \\\"\\\$TOKEN\\\" | sudo docker login --username AWS --password-stdin $REGISTRY\",
-              \"timeout 300 sudo docker pull $IMAGE\",
-              \"test -f ${{ env.ENV_FILE }}\",
-              \"sudo docker rm -f ${{ env.CONTAINER_NAME }} || true\",
-              \"sudo docker run -d --name ${{ env.CONTAINER_NAME }} -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} --restart unless-stopped --env-file ${{ env.ENV_FILE }} $IMAGE\",
-              \"sudo docker inspect ${{ env.CONTAINER_NAME }} --format 'created={{.Created}} image={{.Config.Image}} sha={{.Image}}'\"
-            ]" \
+            --parameters file://ssm-params.json \
             --query "Command.CommandId" --output text)
 
           echo "SSM CommandId: $CMD_ID"
 
-          # ✅ 너무 길어지는거 싫다 했으니: 최대 2분만 확인(15초*8)
+          # 최대 2분만 체크(15초*8) — 너무 느려지는거 방지
           STATUS="Pending"
           for i in {1..8}; do
             STATUS=$(aws ssm get-command-invocation \
@@ -95,7 +109,6 @@ jobs:
 
           echo "Final status=$STATUS"
 
-          # 실패면 로그 한번 뽑아주고 종료
           if [[ "$STATUS" != "Success" ]]; then
             echo "----- STDOUT -----"
             aws ssm get-command-invocation --region "$REGION" --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
