@@ -9,11 +9,34 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
+  sql:
+    init:
+      mode: never
+
+  liquibase:
+    enabled: true
+    change-log: classpath:/db/changelog/db.changelog-master.yml
+    contexts: ${spring.config.activate.on-profile}
 
 server:
   port: 8080
 
+logging:
+  level:
+    root: info
+    org.hibernate.sql: WARN
+    #Jdbc template
+    org.springframework.jdbc.core: WARN
+    #driver
+    org.postgresql: WARN
+
+#Liquibase
+app:
+  liquibase:
+    target:
+      contexts: ${SPRING_PROFILES_ACTIVE:dev}
 ---
+
 spring:
   config:
     activate:
@@ -21,18 +44,11 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: false
+    show-sql: true
     properties:
       hibernate:
         format_sql: true
         use_sql_comments: true
-  # Table Setup
-  flyway:
-    enabled: true
-    locations: "classpath:db/migration"
-    default-schema: public
-    baseline-on-migrate: true
-    clean-disabled: true
 
 logging:
   level:

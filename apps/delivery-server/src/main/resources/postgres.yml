@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${TARGET_DATASOURCE_URL:jdbc:postgresql://localhost:5433/billing_target}
-    username: ${TARGET_DATASOURCE_USERNAME:billing}
-    password: ${TARGET_DATASOURCE_PASSWORD:billing}
+    url: ${PG_SUB_HOST:jdbc:postgresql://localhost:5433/billing_target}
+    username: ${PG_SUB_USER:billing}
+    password: ${PG_SUB_PASSWORD:billing}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 50

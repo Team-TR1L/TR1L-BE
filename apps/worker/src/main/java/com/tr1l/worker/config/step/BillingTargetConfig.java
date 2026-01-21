@@ -1,4 +1,4 @@
-package com.tr1l.worker.config;
+package com.tr1l.worker.config.step;
 
 
 import com.tr1l.billing.application.port.out.WorkDocUpsertPort;
@@ -18,7 +18,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
-import java.time.YearMonth;
 
 /**
  ==========================
@@ -39,11 +38,13 @@ public class BillingTargetConfig {
             BillingTargetReader reader,
             BillingTargetProcessor processor,
             BillingTargetWriter writer,
+            StepLoggingListener listener,
             @Value("${app.billing.step2.chunk-size:1000}") int chunkSize
     ) {
         return new StepBuilder("billingTargetStep", jobRepository)
                 .<BillingTargetKey, WorkDoc>chunk(chunkSize, transactionManager)
                 .reader(reader)
+                .listener(listener)
                 .processor(processor)
                 .writer(writer)
                 .build();
@@ -58,7 +59,7 @@ public class BillingTargetConfig {
     @StepScope
     public BillingTargetReader step2Reader(
             @Qualifier("targetDataSource") DataSource dataSource,
-            @Value("${app.billing.targets-view-name:billing_targets_mv}") String viewName,
+            @Value("${app.billing.targets-view-name:billing_targets}") String viewName,
             @Value("#{jobExecutionContext['billingYearMonth']}") String billingMonth,
             @Value("${app.billing.step2.page-size:1000}") int pageSize
     ) throws Exception {

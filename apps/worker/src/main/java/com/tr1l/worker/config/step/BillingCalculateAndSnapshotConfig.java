@@ -1,4 +1,4 @@
-package com.tr1l.worker.config;
+package com.tr1l.worker.config.step;
 
 import com.tr1l.billing.application.port.out.BillingTargetLoadPort;
 import com.tr1l.billing.application.port.out.WorkDocClaimPort;
@@ -36,12 +36,14 @@ public class BillingCalculateAndSnapshotConfig {
             WorkDocClaimReader reader,
             WorkToTargetRowProcessor processor,
             CalculateAndSnapshotWriter writer,
+            StepLoggingListener listener,
             @Value("${app.billing.step3.chunk-size:200}") int chunkSize
     ) {
         return new StepBuilder("billingCalculateAndSnapshotStep", jobRepository)
                 .<WorkDocClaimPort.ClaimedWorkDoc, WorkToTargetRowProcessor.WorkAndTargetRow>chunk(chunkSize, txManager)
                 .reader(reader)
                 .processor(processor)
+                .listener(listener)
                 .writer(writer)
                 .build();
     }
@@ -69,14 +71,13 @@ public class BillingCalculateAndSnapshotConfig {
     @Bean
     @StepScope
     public WorkToTargetRowProcessor workToTargetRowProcessor( // 실제 계산
-            BillingTargetLoadPort loadPort,
-            @Value("#{jobExecutionContext['billingYearMonth']}") String billingYearMonth
+            BillingTargetLoadPort loadPort
     ) {
-        YearMonth billingMonth = YearMonth.parse(billingYearMonth); // YYYY-MM -> YearMonth로 변환함
-        return new WorkToTargetRowProcessor(loadPort, billingMonth);
+        return new WorkToTargetRowProcessor(loadPort);
     }
 
     @Bean
+    @StepScope
     public CalculateAndSnapshotWriter calculateAndSnapshotWriter( // MongDB 적재
             IssueBillingService issueBillingService,
             WorkDocStatusPort statusPort

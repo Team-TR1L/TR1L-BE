@@ -17,8 +17,9 @@ spring:
   batch:
     job:
       enabled: false  # job.name으로 실행할 때만
+      name:
     jdbc:
-      initialize-schema: ${SPRING_BATCH_JDBC_INITIALIZE_SCHEMA:always} # local에서만 권장
+      initialize-schema: never
 
   jpa:
     hibernate:
@@ -28,20 +29,13 @@ spring:
       hibernate:
         format_sql: true
         use_sql_comments: true
-
-  # Table Setup
-  flyway:
-    enabled: true
-    url: ${TARGET_DATASOURCE_URL:jdbc:postgresql://postgresql_target:5433/billing_target}
-    user: ${TARGET_DATASOURCE_USERNAME:billing}
-    password: ${TARGET_DATASOURCE_PASSWORD:billing}
-    locations: classpath:db/migration/target
-    default-schema: public
-    baseline-on-migrate: true
-    clean-disabled: true
+  sql:
+    init:
+      mode: never
 server:
   port: 8080
 
+#Target DB
 app:
   sql:
     step1:
@@ -50,7 +44,41 @@ app:
 
       #Step01 - SQL1 fetch size
       reader:
-        fetchSize: 1000
+        fetchSize: ${BATCH_JOB1_STEP1_FETCH_SIZE:}
+      chunk:
+        chunkSize: ${BATCH_JOB1_STEP1_CHUNK_SIZE:}
+
+  liquibase:
+    target:
+      enabled: true
+      change-log: classpath:/db/changelog/target/db.changelog-master.yml
+      contexts: ${SPRING_PROFILES_ACTIVE:dev}
+
+
+#Batch 환경 변수
+batch:
+  job1StartTime:
+  job2StartTime:
+  channelOrderJson:
+
+time:
+  zone: Asia/Seoul
+  format: yyyy-MM-dd HH:mm:ss
+
+
+
+#Log setting
+logging:
+  level:
+    root: info
+    org.springframework.batch: INFO
+    org.hibernate.sql: WARN
+    #Jdbc template
+    org.springframework.jdbc.core: WARN
+    #driver
+    org.postgresql: WARN
+
+
 ---
 
 spring:
@@ -59,13 +87,18 @@ spring:
       on-profile: dev
 
   batch:
+    job:
+      enabled: false
     jdbc:
-      initialize-schema: never
-
+      initialize-schema: always
+    name:
 
 logging:
   level:
     root: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.springframework.jdbc.core: DEBUG
 
 
 # S3 설정값
