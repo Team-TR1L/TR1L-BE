@@ -35,11 +35,11 @@ public record BillingSnapshotDoc(
         @Field("issuedAt")
         Instant issuedAt,
 
-        @Field("recipientEmailEnc")
-        String recipientEmailEnc,
-
-        @Field("recipientPhoneEnc")
-        String recipientPhoneEnc,
+//        @Field("recipientEmailEnc")
+//        String recipientEmailEnc,
+//
+//        @Field("recipientPhoneEnc")
+//        String recipientPhoneEnc,
 
         @Field("payload")
         Payload payload
