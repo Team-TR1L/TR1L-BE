@@ -12,7 +12,7 @@ import java.time.LocalDate;
 public class DeliveryPersistenceAdapter implements DeliveryRepositoryPort {
 
     private final JdbcTemplate jdbcTemplate;
-    private static final String TABLE_NAME = "billing_target";
+    private static final String TABLE_NAME = "billing_targets";
 
     // PROCESSING -> SENT
     @Override

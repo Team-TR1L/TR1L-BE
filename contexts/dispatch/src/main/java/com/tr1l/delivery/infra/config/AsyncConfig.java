@@ -14,8 +14,8 @@ public class AsyncConfig {
     @Bean(name = "notificationExecutor")
     public Executor notificationExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(100);
-        executor.setMaxPoolSize(150);
+        executor.setCorePoolSize(200);
+        executor.setMaxPoolSize(300);
         executor.setQueueCapacity(0);
 
         // 커스텀 정책: 스레드가 꽉 차면, 자리가 날 때까지 "멈춰서 기다림"
