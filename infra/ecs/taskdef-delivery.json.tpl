@@ -25,6 +25,7 @@
         { "name": "SPRING_JPA_SHOW_SQL", "value": "false" },
         { "name": "SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL", "value": "false" },
 
+        { "name": "SPRING_PROFILES_ACTIVE", "value": "prod" },
         { "name": "KAFKA_CONSUMER_GROUP_ID", "value": "dispatch-server" },
         { "name": "SPRING_KAFKA_BOOTSTRAP_SERVERS", "value": "${SPRING_KAFKA_BOOTSTRAP_SERVERS}" },
         { "name": "KAFKA_TOPIC_DISPATCH_EVENTS", "value": "dispatch-events-v1" },
