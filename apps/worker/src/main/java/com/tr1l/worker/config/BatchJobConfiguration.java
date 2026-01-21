@@ -52,14 +52,12 @@ public class BatchJobConfiguration {
     /**
      * channelOrder : Json -> String 파싱
      */
-    public String getChannelOrder() throws JsonProcessingException {
+    public String getChannelOrder()  {
         if (channelOrderJson == null || channelOrderJson.isEmpty()) {
-            return "";
+            throw new IllegalArgumentException("필수 파라미터 값인 channelOrder를 입력하지 않았습니다.");
         }
 
-        ChannelOrderParameter parameter = mapper.readValue(channelOrderJson, ChannelOrderParameter.class);
-
-        return mapper.writeValueAsString(parameter.channelOrder());
+        return channelOrderJson;
     }
 
     /**
