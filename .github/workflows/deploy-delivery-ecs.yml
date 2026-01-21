@@ -61,7 +61,6 @@ jobs:
 
           DELIVERY_IMAGE_URI: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
 
-
           # app env
           PG_SUB_DB: ${{ secrets.PG_SUB_DB }}
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
