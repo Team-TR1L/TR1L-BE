@@ -57,6 +57,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+
       - name: Deploy on EC2 via SSM (pull & replace container)
         shell: bash
         run: |
