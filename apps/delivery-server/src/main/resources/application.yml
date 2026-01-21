@@ -1,0 +1,34 @@
+secret-key: ${SECRET_KEY}
+
+kafka:
+  topic:
+    dispatch-events: ${KAFKA_TOPIC_DISPATCH_EVENTS}
+    delivery-result-events: ${KAFKA_TOPIC_DELIVERY_RESULT_EVENTS}
+  group:
+    delivery: ${KAFKA_GROUP_DELIVERY}
+    delivery-result-handler: ${KAFKA_GROUP_DELIVERY_RESULT_HANDLER}
+
+spring:
+  application:
+    name: delivery-server
+
+  profiles:
+    default: local
+
+  config:
+    import:
+      - postgres.yml
+      - kafka.yml
+
+server:
+  port: 8080
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+logging:
+  level:
+    root: INFO

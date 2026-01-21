@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-schema-target-prod
+      author: tkv00
+      context: prod
+      changes:
+        - sqlFile:
+            path: db/sql/target/schema_prod.yml
+            relativeToChangelogFile: false
+            splitStatements: true
+            stripComments: true
+
+  - changeSet:
+      id: 900-dev-schema-target-dev
+      author: tkv00
+      context: dev
+      changes:
+        - sqlFile:
+            path: db/sql/target/schema_dev.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            stripComments: true

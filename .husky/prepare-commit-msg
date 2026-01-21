@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+BRANCH="$(git branch --show-current)"
+TICKET="$(echo "$BRANCH" | grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | head -n 1)"
+
+# 티켓이 없으면 그대로 종료(원하면 exit 1로 막아도 됨)
+[ -z "$TICKET" ] && exit 0
+
+MSG_FILE="$1"
+MSG="$(cat "$MSG_FILE")"
+
+# 이미 티켓이 앞에 있으면 종료
+echo "$MSG" | grep -qE "^\[$TICKET\]" && exit 0
+
+echo "[$TICKET] $MSG" > "$MSG_FILE"

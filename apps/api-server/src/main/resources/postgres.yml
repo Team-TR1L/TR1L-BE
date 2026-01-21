@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: ${PG_MAIN_HOST:jdbc:postgresql://localhost:5432/billing}
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    properties:
+      hibernate:
+        format_sql: ${SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL:false}
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}

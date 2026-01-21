@@ -35,3 +35,12 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### env (secrets) ###
+.env
+.env.*
+
+.env.prod
+
+
+infra/ecs/*.rendered.json

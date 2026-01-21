@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: api-server
+
+  config:
+    import:
+      - postgres.yml
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  sql:
+    init:
+      mode: never
+
+  liquibase:
+    enabled: true
+    change-log: classpath:/db/changelog/db.changelog-master.yml
+    contexts: ${spring.config.activate.on-profile}
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: info
+    org.hibernate.sql: WARN
+    #Jdbc template
+    org.springframework.jdbc.core: WARN
+    #driver
+    org.postgresql: WARN
+
+#Liquibase
+app:
+  liquibase:
+    target:
+      contexts: ${SPRING_PROFILES_ACTIVE:dev}
+---
+
+spring:
+  config:
+    activate:
+      on-profile: dev
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE

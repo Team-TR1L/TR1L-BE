@@ -1,1 +1,14 @@
-rootProject.name = 'billing-platform'
+rootProject.name = "tr1l-billing"
+
+include(
+        ":shared",
+
+        ":contexts:billing",
+        ":contexts:dispatch",
+        ":contexts:error-log",
+
+        ":apps:api-server",
+        ":apps:dispatch-server",
+        ":apps:delivery-server",
+        ":apps:worker"
+)

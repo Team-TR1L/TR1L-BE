@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: ${PG_SUB_HOST:jdbc:postgresql://localhost:5433/billing_target}
+    username: ${PG_SUB_USER:billing}
+    password: ${PG_SUB_PASSWORD:billing}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:validate}

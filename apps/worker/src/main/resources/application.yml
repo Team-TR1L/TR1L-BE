@@ -1,0 +1,109 @@
+spring:
+  application:
+    name: worker
+
+  profiles:
+    default: local
+
+  config:
+    import:
+      - optional:classpath:postgres.main.yml
+      - optional:classpath:postgres.target.yml
+      - optional:classpath:mongo.yml
+
+  thymeleaf:
+    cache: true
+
+  batch:
+    job:
+      enabled: false  # job.name으로 실행할 때만
+      name:
+    jdbc:
+      initialize-schema: never
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+  sql:
+    init:
+      mode: never
+server:
+  port: 8080
+
+#Target DB
+app:
+  sql:
+    step1:
+      mainBase: classpath:sql/job1/step1/main
+      targetBase: classpath:sql/job1/step1/target
+
+      #Step01 - SQL1 fetch size
+      reader:
+        fetchSize: ${BATCH_JOB1_STEP1_FETCH_SIZE:}
+      chunk:
+        chunkSize: ${BATCH_JOB1_STEP1_CHUNK_SIZE:}
+
+  liquibase:
+    target:
+      enabled: true
+      change-log: classpath:/db/changelog/target/db.changelog-master.yml
+      contexts: ${SPRING_PROFILES_ACTIVE:dev}
+
+
+#Batch 환경 변수
+batch:
+  job1StartTime:
+  job2StartTime:
+  channelOrderJson:
+
+time:
+  zone: Asia/Seoul
+  format: yyyy-MM-dd HH:mm:ss
+
+
+
+#Log setting
+logging:
+  level:
+    root: info
+    org.springframework.batch: INFO
+    org.hibernate.sql: WARN
+    #Jdbc template
+    org.springframework.jdbc.core: WARN
+    #driver
+    org.postgresql: WARN
+
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-schema: always
+    name:
+
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.springframework.jdbc.core: DEBUG
+
+
+# S3 설정값
+s3:
+  bucket: ${S3_BUCKET:billing-tr1l-apne2}
+
+aws:
+  region: ${AWS_REGION:ap-northeast-2}

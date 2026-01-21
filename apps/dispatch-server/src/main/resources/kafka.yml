@@ -1,0 +1,16 @@
+spring:
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:dispatch-server}
+      auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:latest}
+    producer:
+      acks: ${KAFKA_ACKS:all}
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+
+      batch-size: 65536     # 64KB까지 모아서 전송
+      buffer-memory: 33554432 # 32MB 버퍼
+      properties:
+        linger.ms: 10      # 10ms 동안 메시지가 쌓이길 기다림
