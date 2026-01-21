@@ -1,6 +1,7 @@
 package com.tr1l.worker.config.job;
 
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobExecutionListener;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
@@ -26,10 +27,12 @@ public class FormatJobConfig {
     @Bean(name = "formatJob")
     public Job formatJob(
             JobRepository jobRepository,
+            JobExecutionListener formatJobContextInitializer,
             @Qualifier("billingSnapShotStep") Step billingSnapShotStep
     ) {
         return new JobBuilder("formatJob", jobRepository)
                 .start(billingSnapShotStep)
+                .listener(formatJobContextInitializer)
                 .build();
 
     }

@@ -2,6 +2,8 @@ package com.tr1l.worker.batch.formatjob.step.step1;
 
 import com.tr1l.worker.batch.formatjob.domain.BillingSnapshotDoc;
 import com.tr1l.worker.batch.formatjob.domain.RenderedMessage;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.ItemProcessor;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
@@ -24,7 +26,8 @@ import java.util.Locale;
  */
 
 
-
+@Slf4j
+@StepScope
 public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDoc, RenderedMessage> {
 
     //thymleaf 필요한 엔진
@@ -36,6 +39,7 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
 
     @Override
     public RenderedMessage process(BillingSnapshotDoc doc) throws Exception {
+        log.warn("doc = {}", doc.toString());
         if (doc.payload() == null) return null;
 
         // snapshot 에서 필요한 값을 뽑기
@@ -49,20 +53,22 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
         int discountTotal = safeInt(p.discountTotalAmount());
         int total = safeInt(p.totalAmount());
 
+        log.warn("process = {} , {} , {} , {} , {} , {}", p, period, customerName, subtotal, discountTotal, total);
+
         //이메일 제목 , 이메일HTML, 문자메세지
         String emailSubject = "TR1L " + period + " 청구서 안내 (총 " + money(total) + "원)";
-        String emailHtml = renderEmailHtml(period,customerName,subtotal,discountTotal,total,p);
+        String emailHtml = renderEmailHtml(period, customerName, subtotal, discountTotal, total, p);
         String smsText =
-                "[TR1L] "+"이름 : "+customerName+" 청구 월 :"+ period + " 청구 금액: " + money(total) + "원\n" +
-                        "예금주: nonstop  국민: 111798-468468-1351";
+                "[TR1L] " + "이름 : " + customerName + " 청구 월 :" + period + " 청구 금액: " + money(total) + "원\n" +
+                "예금주: nonstop  국민: 111798-468468-1351";
 
 
         return new RenderedMessage(
                 doc.billingMonth(),
                 period,
                 doc.userId(),
-                doc.recipientEmailEnc(),
-                doc.recipientPhoneEnc(),
+//                doc.recipientEmailEnc(),
+//                doc.recipientPhoneEnc(),
                 emailSubject,
                 emailHtml,
                 smsText
@@ -75,7 +81,7 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
      * 템플릿에서 th:each 반복문으로 출력할 수 있도록 List로 넣는다.
      */
     private String renderEmailHtml(String period, String customerName, int subtotal, int discountTotal, int total, BillingSnapshotDoc.Payload payload) {
-
+        log.warn("=== renderEmailHtml start ==== ");
         //  chargeLines-> 템플릿용 리스트로 변환하는단계 서비스 이름과 가격 만 집어 넣는다.
         List<LineRow> chargeRows = new ArrayList<>();
         if (payload.chargeLines() != null) {
@@ -110,6 +116,7 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
         ctx.setVariable("chargeLines", chargeRows);
         ctx.setVariable("discountLines", discountRows);
 
+        log.warn("=== renderEmailHtml end ==== ");
         return templateEngine.process("bill-email", ctx);
     }
 

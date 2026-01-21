@@ -2,6 +2,8 @@ package com.tr1l.worker.batch.formatjob.step.step1;
 
 
 import com.tr1l.worker.batch.formatjob.domain.BillingSnapshotDoc;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.data.MongoCursorItemReader;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -21,29 +23,28 @@ import java.time.YearMonth;
  */
 
 
+@Slf4j
+@StepScope
 public class BillingSnapShotReader extends MongoCursorItemReader<BillingSnapshotDoc> {
 
     public BillingSnapShotReader(
             MongoTemplate mongoTemplate,
             String collectionName,
-            String billingMonth,
-            boolean onlyIssued
-    ){
+            String billingMonth
+    ) {
         String billingMonthDay = YearMonth.parse(billingMonth).atDay(1).toString();
         Query query = new Query();
         query.addCriteria(Criteria.where("billingMonth").is(billingMonthDay));
+        //query.addCriteria(Criteria.where("status").is("ISSUED"));
 
-        if (onlyIssued) {
-            query.addCriteria(Criteria.where("status").is("ISSUED"));
-        }
 
         query.fields()
                 .include("billingMonth")
                 .include("userId")
                 .include("status")
                 .include("issuedAt")
-                .include("recipientEmailEnc")   // Enc면 recipientEmailEnc로 수정
-                .include("recipientPhoneEnc")
+//                .include("recipientEmailEnc")   // Enc면 recipientEmailEnc로 수정
+//                .include("recipientPhoneEnc")
                 .include("payload.period.value")
                 .include("payload.customerName.value")
                 .include("payload.subtotalAmount.value")
@@ -54,12 +55,18 @@ public class BillingSnapShotReader extends MongoCursorItemReader<BillingSnapshot
                 .include("payload.discountLines.name")
                 .include("payload.discountLines.discountType")
                 .include("payload.discountLines.discountAmount.value");
+        log.warn(" ============== query finished ===========");
 
-        this.setName("billingSnapShotReader");
+        this.setName("billingSnapshotReader");   // restart 시 필요
+        this.setSaveState(true);                 // restart 시 필요
         this.setTemplate(mongoTemplate);
         this.setCollection(collectionName);
         this.setQuery(query);
         this.setTargetType(BillingSnapshotDoc.class);
+
+        log.info("BillingSnapShotReader query prepared. billingMonthDay={}, status=ISSUED", billingMonthDay);
+
+        log.warn("query = {}", query);
 
     }
 }

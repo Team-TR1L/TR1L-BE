@@ -68,9 +68,8 @@ public class BillingSnapShotStepConfig {
     public BillingSnapShotReader billingSnapShotReader(
             MongoTemplate mongoTemplate,
             @Value("${app.format.snapshot-collection:billing_snapshot}") String collectionName,
-            @Value("#{jobExecutionContext['billingYearMonth']}") String billingMonth,
-            @Value("#{jobExecutionContext['onlyIssued'] ?: true}") boolean onlyIssued){
-        return new BillingSnapShotReader(mongoTemplate,collectionName,billingMonth,onlyIssued);
+            @Value("#{jobExecutionContext['billingYearMonth']}") String billingMonth){
+        return new BillingSnapShotReader(mongoTemplate,collectionName,billingMonth);
     }
 
     @Bean
