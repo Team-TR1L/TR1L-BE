@@ -20,11 +20,11 @@ env:
   CONTAINER_PORT: "80"
   ENV_FILE_PATH: /opt/billing-api/.env
 
-  # 속도 상한선
+  # 상한선(느려짐 방지)
   PULL_TIMEOUT_SEC: "300"     # pull 최대 5분
-  SSM_TIMEOUT_SEC: "600"      # SSM 명령 전체 최대 10분
-  POLL_DELAY_SEC: "5"         # 폴링 주기 5초
-  POLL_MAX_COUNT: "72"        # 72*5초=6분
+  SSM_TIMEOUT_SEC: "600"      # SSM 실행 최대 10분
+  POLL_DELAY_SEC: "5"         # 폴링 5초
+  POLL_MAX_COUNT: "72"        # 72*5=6분
 
 jobs:
   deploy:
@@ -57,7 +57,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-
       - name: Deploy on EC2 via SSM (pull & replace container)
         shell: bash
         run: |
@@ -71,27 +70,70 @@ jobs:
           echo "Deploy image: $IMAGE"
           echo "Target instance: $INSTANCE_ID"
 
+          export REGION REGISTRY IMAGE
+          export CONTAINER_NAME="${{ env.CONTAINER_NAME }}"
+          export HOST_PORT="${{ env.HOST_PORT }}"
+          export CONTAINER_PORT="${{ env.CONTAINER_PORT }}"
+          export ENV_FILE_PATH="${{ env.ENV_FILE_PATH }}"
+          export PULL_TIMEOUT_SEC="${{ env.PULL_TIMEOUT_SEC }}"
+
+          # ✅ SSM parameters JSON 생성(이스케이프 지옥 탈출)
+          python3 - <<'PY' > ssm-params.json
+          import json, os
+
+          REGION = os.environ["REGION"]
+          REGISTRY = os.environ["REGISTRY"]
+          IMAGE = os.environ["IMAGE"]
+          CONTAINER_NAME = os.environ["CONTAINER_NAME"]
+          HOST_PORT = os.environ["HOST_PORT"]
+          CONTAINER_PORT = os.environ["CONTAINER_PORT"]
+          ENV_FILE_PATH = os.environ["ENV_FILE_PATH"]
+          PULL_TIMEOUT_SEC = os.environ["PULL_TIMEOUT_SEC"]
+
+          params = {
+            "commands": [
+              "set -euo pipefail",
+              f"REGION='{REGION}'",
+              f"REGISTRY='{REGISTRY}'",
+              f"IMAGE='{IMAGE}'",
+              f"CONTAINER_NAME='{CONTAINER_NAME}'",
+              f"HOST_PORT='{HOST_PORT}'",
+              f"CONTAINER_PORT='{CONTAINER_PORT}'",
+              f"ENV_FILE_PATH='{ENV_FILE_PATH}'",
+              f"PULL_TIMEOUT_SEC='{PULL_TIMEOUT_SEC}'",
+
+              "echo START $(date -Is)",
+              "echo IMAGE=$IMAGE",
+
+              # ✅ 여기서 TOKEN 받아서 길이 출력
+              "TOKEN=$(aws ecr get-login-password --region $REGION)",
+              "echo token_len=${#TOKEN}",
+
+              # ✅ non-TTY 방지(토큰이 비면 set -e로 여기서 터짐)
+              "echo \"$TOKEN\" | sudo docker login --username AWS --password-stdin $REGISTRY",
+
+              "timeout $PULL_TIMEOUT_SEC sudo docker pull $IMAGE",
+              "test -f $ENV_FILE_PATH",
+
+              "sudo docker rm -f $CONTAINER_NAME || true",
+              "sudo docker run -d --name $CONTAINER_NAME -p 127.0.0.1:$HOST_PORT:$CONTAINER_PORT --restart unless-stopped --env-file $ENV_FILE_PATH $IMAGE",
+              "sudo docker ps --no-trunc | grep $CONTAINER_NAME",
+              "sudo docker inspect $CONTAINER_NAME --format 'created={{.Created}} image={{.Config.Image}} sha={{.Image}}'",
+
+              "echo END $(date -Is)"
+            ]
+          }
+
+          print(json.dumps(params))
+          PY
+
           CMD_ID=$(aws ssm send-command \
             --region "$REGION" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy api-server from GitHub Actions" \
             --instance-ids "$INSTANCE_ID" \
             --timeout-seconds "${{ env.SSM_TIMEOUT_SEC }}" \
-            --parameters "commands=[
-              \"set -euo pipefail\",
-              \"echo START \$(date -Is)\",
-              \"echo IMAGE=$IMAGE\",
-              \"TOKEN=$(aws ecr get-login-password --region $REGION)", 
-              \"echo token_len=${#TOKEN}",
-              \"echo \"$TOKEN\" | sudo docker login --username AWS --password-stdin $REGISTRY",
-              \"timeout ${{ env.PULL_TIMEOUT_SEC }} sudo docker pull $IMAGE\",
-              \"test -f ${{ env.ENV_FILE_PATH }}\",
-              \"sudo docker rm -f ${{ env.CONTAINER_NAME }} || true\",
-              \"sudo docker run -d --name ${{ env.CONTAINER_NAME }} -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} --restart unless-stopped --env-file ${{ env.ENV_FILE_PATH }} $IMAGE\",
-              \"sudo docker ps --no-trunc | grep ${{ env.CONTAINER_NAME }}\",
-              \"sudo docker inspect ${{ env.CONTAINER_NAME }} --format 'created={{.Created}} image={{.Config.Image}} sha={{.Image}}'\",
-              \"echo END \$(date -Is)\"
-            ]" \
+            --parameters file://ssm-params.json \
             --query "Command.CommandId" --output text)
 
           echo "SSM CommandId: $CMD_ID"
@@ -104,7 +146,6 @@ jobs:
               --instance-id "$INSTANCE_ID" \
               --query "Status" --output text 2>/dev/null || echo "Pending")
 
-            # 로그 너무 도배 안 되게 12번(=1분)마다 한 번씩만 출력
             if (( i % 12 == 0 )); then
               echo "[$i/${{ env.POLL_MAX_COUNT }}] status=$STATUS"
             fi
@@ -128,6 +169,6 @@ jobs:
             --query "StandardErrorContent" --output text || true
 
           if [[ "$STATUS" != "Success" ]]; then
-            echo "Deploy failed (or still running). status=$STATUS"
+            echo "Deploy failed. status=$STATUS"
             exit 1
           fi
