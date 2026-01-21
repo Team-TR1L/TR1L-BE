@@ -72,7 +72,8 @@ jobs:
           container-name: dispatch
           image: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.TAG }}
 
-      - name: Register task definition (dispatch)
-        uses: aws-actions/amazon-ecs-register-task-definition@v1
-        with:
-          task-definition: ${{ steps.render.outputs.task-definition }}
+      - name: Register task definition
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://${{ steps.render.outputs.task-definition }} \
+            --region ${{ env.AWS_REGION }}
