@@ -48,7 +48,7 @@ public class CalculateJobContextInitializer implements JobExecutionListener {
         LocalDate endDate = billingYm.atEndOfMonth();         // 해당 월의 마지막 날
 
         // 5) channelOrder 파싱
-        String channelOrderJson = params.getString("channelOrder");
+        String channelOrder = params.getString("channelOrder");
 
         // 6) 포맷터 정의
         DateTimeFormatter ymFormat = DateTimeFormatter.ofPattern("yyyy-MM");
@@ -60,7 +60,7 @@ public class CalculateJobContextInitializer implements JobExecutionListener {
         ctx.putString(CTX_BILLING_YM, billingYm.format(ymFormat));
         ctx.putString(CTX_START_DATE, startDate.format(dateFormat));
         ctx.putString(CTX_END_DATE, endDate.format(dateFormat));
-        ctx.put(CTX_CHANNEL_ORDER, channelOrderJson);
+        ctx.put(CTX_CHANNEL_ORDER, channelOrder);
 
         // 8) 로그 출력
         log.info("=== Calculate Job Context Initialized ===");
@@ -69,7 +69,7 @@ public class CalculateJobContextInitializer implements JobExecutionListener {
         log.info("Billing YM      : {}", ctx.getString(CTX_BILLING_YM));
         log.info("Start Date      : {}", ctx.getString(CTX_START_DATE));
         log.info("End Date        : {}", ctx.getString(CTX_END_DATE));
-        log.info("Channel Order   : {}", channelOrderJson);
+        log.info("Channel Order   : {}", channelOrder);
         log.info("==========================================");
     }
 }

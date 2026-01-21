@@ -84,10 +84,10 @@ public class BillingTargetAssembler {
             log.warn("userId: {} params : {}",userId,params.channelOrder());
 
 
-            List<ChannelValue> channelOrderJson =
+            List<ChannelValue> channelOrder =
                     builder.build(params.channelOrder(),new UserContact(baseRow.recipientEmail(),baseRow.recipientPhone()));
 
-            String parsedChannelOrderJson = mapper.writeValueAsString(channelOrderJson);
+            String parsedChannelOrder = mapper.writeValueAsString(channelOrder);
 
             out.add(new BillingTargetFlatRow(
                     params.billingMonth(),
@@ -123,7 +123,7 @@ public class BillingTargetAssembler {
                     fromTime,
                     toTime,
                     dayTime,
-                    parsedChannelOrderJson
+                    parsedChannelOrder
             ));
         }
 
