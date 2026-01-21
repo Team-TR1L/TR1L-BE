@@ -51,5 +51,13 @@ public record BillingTargetFlatRow(
         //복지 헤택 상한 할인
         long welfareCapAmount,
         //부가 서비스 이용 정보
-        String optionsJson // json string
+        String optionsJson, // json string
+        //발송 제한 시간 시작
+        String fromTime,
+        //발송 제한 시간 끝
+        String toTime,
+        //발송 날짜
+        String dayTime,
+        //발송 채널
+        String sendOptionJson
 ) {}

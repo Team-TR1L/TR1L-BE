@@ -44,14 +44,45 @@ CREATE TABLE IF NOT EXISTS billing_targets
     welfare_rate numeric(6,5) NOT NULL ,
     --복지 상한선
     welfare_cap_amount bigint NOT NULL default 0,
+    -- 금지 시작 시간
+    from_time varchar(2) NULL ,
+    -- 금지 끝 시간
+    to_time varchar(2) NULL ,
+    -- 날짜
+    day_time varchar(2) NULL ,
+    -- 재시도 횟수
+    attempt_count int default 0,
+    -- 상태
+    send_status  varchar(50) NOT NULL default 'INIT',
+    -- s3 url
+    s3_url_jsonb jsonb NULL default '[]'::jsonb,
+    -- 전송 종착지
+    send_option_jsonb jsonb NULL default '[]'::jsonb,
     --부가 서비스
-    options_jsonb jsonb NOT NULL default '[]'::jsonb,
+    options_jsonb jsonb NULL default '[]'::jsonb,
 
     --===== 제약 조건 =======
-    CONSTRAINT pk_billing_targets PRIMARY KEY (billing_month,user_id)
+    CONSTRAINT pk_billing_targets PRIMARY KEY (billing_month,user_id),
+
+    -- 시간 및 날짜 제약
+    CONSTRAINT chk_from_time_range CHECK (from_time::int >= 0 AND from_time::int <= 24),
+    CONSTRAINT chk_to_time_range CHECK (to_time::int >= 0 AND to_time::int <= 24),
+    CONSTRAINT chk_day_time_range CHECK (day_time::int >= 1 AND day_time::int <= 31),
+
+    -- 시작 시간 <= 종료 시간
+    CONSTRAINT chk_time_order CHECK (from_time::int <= to_time::int)
 );
 
 -- 청구서 월 + userId 인덱스 처리
 CREATE INDEX IF NOT EXISTS idx_billing_targets_month_user
     ON billing_targets (billing_month,user_id);
 
+CREATE TABLE IF NOT EXISTS billing_cycle
+(
+    billing_month DATE PRIMARY KEY,
+    status varchar(10) NOT NULL,
+    cutoff_at timestamp(6) with time zone NOT NULL UNIQUE,
+
+    CONSTRAINT uk_month_status
+        UNIQUE (billing_month,status)
+);

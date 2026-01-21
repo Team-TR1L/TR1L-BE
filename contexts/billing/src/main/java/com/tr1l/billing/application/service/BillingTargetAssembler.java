@@ -1,6 +1,12 @@
 package com.tr1l.billing.application.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tr1l.billing.application.channel.ChannelPayloadBuilder;
 import com.tr1l.billing.application.model.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -18,13 +24,18 @@ import java.util.Set;
  * @version 1.0
  *==========================*/
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class BillingTargetAssembler {
+    private final ObjectMapper mapper;
+    private final ChannelPayloadBuilder builder;
+
     public List<BillingTargetFlatRow> assemble(
             List<BillingTargetBaseRow> baseRows,
             BillingTargetFacts facts,
             BillingTargetFlatParams params,
             Map<Long, String> optionsJsonByUser
-    ) {
+    ) throws JsonProcessingException {
         if (baseRows == null || baseRows.isEmpty()) return List.of();
 
         Map<Long, Long> usageByUser = facts.usageByUser();
@@ -35,23 +46,51 @@ public class BillingTargetAssembler {
 
         for (BillingTargetBaseRow baseRow : baseRows) {
             long userId = baseRow.userId();
-            long usedDataMb = usageByUser.get(userId);
+
+            long usedDataMb = usageByUser.getOrDefault(userId, 0L);
 
             ContractFact contractFact = contractByUser.get(userId);
-            boolean hasContract = contractFact.durationMonths() > 0 && contractFact.discountRate() != null;
-            BigDecimal contractRate = contractFact.discountRate();
-            int contractDurationMonths = contractFact.durationMonths();
+            int contractDurationMonths = 0;
+            BigDecimal contractRate = BigDecimal.ZERO;
 
-            boolean soldierEligible= soldierUserIds.contains(userId);
-            boolean welfareEligible = baseRow.welfareCode() != null; // welfare_code가 존재하면 true
+            if (contractFact != null) {
+                contractDurationMonths = contractFact.durationMonths();
+                contractRate = (contractFact.discountRate() != null) ? contractFact.discountRate() : BigDecimal.ZERO;
+            }
+
+            boolean hasContract = contractDurationMonths > 0 && contractRate.compareTo(BigDecimal.ZERO) > 0;
+
+            boolean soldierEligible = soldierUserIds.contains(userId);
+
+            boolean welfareEligible = baseRow.welfareCode() != null;
             String welfareCode = baseRow.welfareCode();
             String welfareName = baseRow.welfareName();
             BigDecimal welfareRate = baseRow.welfareRate();
             long welfareCap = baseRow.welfareCapAmount();
 
+            String fromTime = baseRow.fromTime();
+            String toTime = baseRow.toTime();
+            String dayTime = baseRow.dayTime();
+
+            if (fromTime != null && fromTime.isBlank()) fromTime = null;
+            if (toTime != null && toTime.isBlank()) toTime = null;
+            if (dayTime !=null && dayTime.isBlank()) dayTime =null;
+
             String optionsJson = (optionsJsonByUser != null)
                     ? optionsJsonByUser.getOrDefault(userId, "[]")
                     : "[]";
+
+            //["sms","email"] (String.class) -> List<String> 변환
+            log.warn("userId: {} params : {}",userId,params.channelOrder());
+
+            List<String> sendOptionList = mapper.readValue(
+                    params.channelOrder(),
+                    new TypeReference<List<String>>() {}
+            );
+            List<ChannelValue> channelOrderJson =
+                    builder.build(sendOptionList,new UserContact(baseRow.recipientEmail(),baseRow.recipientPhone()));
+
+            String parsedChannelOrderJson = mapper.writeValueAsString(channelOrderJson);
 
             out.add(new BillingTargetFlatRow(
                     params.billingMonth(),
@@ -83,8 +122,11 @@ public class BillingTargetAssembler {
                     welfareName,
                     welfareRate,
                     welfareCap,
-
-                    optionsJson
+                    optionsJson,
+                    fromTime,
+                    toTime,
+                    dayTime,
+                    parsedChannelOrderJson
             ));
         }
 

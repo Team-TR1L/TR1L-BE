@@ -1,6 +1,7 @@
 package com.tr1l.billing.adapter.out.persistence.mongo;
 
 import com.tr1l.billing.application.port.out.WorkDocClaimPort;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+@Slf4j
 @Component
 public class MongoWorkDocClaimAdapter implements WorkDocClaimPort {
 
@@ -26,9 +28,12 @@ public class MongoWorkDocClaimAdapter implements WorkDocClaimPort {
     public MongoWorkDocClaimAdapter(
             MongoTemplate mongoTemplate,
             @Value("${app.billing.step2.work-collection:billing_work}") String collectionName
+
     ) {
         this.mongoTemplate = mongoTemplate;
         this.collectionName = collectionName;
+        log.info("### MongoWorkDocClaimAdapter init. collection={}", collectionName);
+
     }
 
     @Override
@@ -40,6 +45,7 @@ public class MongoWorkDocClaimAdapter implements WorkDocClaimPort {
 
         // Mongo에는 "YYYY-MM-01" String 저장 컨벤션
         String bm = billingMonth.atDay(1).toString();
+        log.info("### claim called. bm={}, limit={}", billingMonth, limit);
 
         Instant leaseUntil = now.plus(leaseDuration);
         List<ClaimedWorkDoc> claimed = new ArrayList<>(limit);

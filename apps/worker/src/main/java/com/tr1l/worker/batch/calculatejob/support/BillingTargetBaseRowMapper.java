@@ -40,7 +40,11 @@ public class BillingTargetBaseRowMapper implements RowMapper<BillingTargetBaseRo
                 rs.getString("welfare_code"),
                 rs.getString("welfare_name"),
                 rs.getBigDecimal("welfare_rate"),
-                rs.getLong("welfare_cap_amount")
+                rs.getLong("welfare_cap_amount"),
+
+                rs.getString("from_time"),
+                rs.getString("to_time"),
+                rs.getString("day_time")
         );
     }
 }
