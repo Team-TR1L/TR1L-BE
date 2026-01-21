@@ -9,5 +9,5 @@ public interface NotificationClientPort {
      * content 내용 (S3 등에서 가져온 본문)
      * mediaType 매체 타입
      */
-    void send(Long userId, String destination, String content, ChannelType channelType);
+    boolean send(String destination, String content, ChannelType channelType);
 }

@@ -11,6 +11,9 @@ spring:
       - optional:classpath:postgres.target.yml
       - optional:classpath:mongo.yml
 
+  thymeleaf:
+    cache: true
+
   batch:
     job:
       enabled: false  # job.name으로 실행할 때만
@@ -97,3 +100,10 @@ logging:
     org.hibernate.orm.jdbc.bind: TRACE
     org.springframework.jdbc.core: DEBUG
 
+
+# S3 설정값
+s3:
+  bucket: ${S3_BUCKET:billing-tr1l-apne2}
+
+aws:
+  region: ${AWS_REGION:ap-northeast-2}

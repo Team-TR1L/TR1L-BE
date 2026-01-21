@@ -1,0 +1,65 @@
+package com.tr1l.worker.batch.formatjob.step.step1;
+
+
+import com.tr1l.worker.batch.formatjob.domain.BillingSnapshotDoc;
+import org.springframework.batch.item.data.MongoCursorItemReader;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+
+import java.time.YearMonth;
+
+/**
+ * ==========================
+ * BillingSnapShotReader
+ * billing snapshot 에서 요금서에 필요한 정보들을 읽어서 Processor에 전달
+ *
+ * @author nonstop
+ * @version 1.0.0
+ * @since 2026-01-20
+ * ==========================
+ */
+
+
+public class BillingSnapShotReader extends MongoCursorItemReader<BillingSnapshotDoc> {
+
+    public BillingSnapShotReader(
+            MongoTemplate mongoTemplate,
+            String collectionName,
+            String billingMonth,
+            boolean onlyIssued
+    ){
+        String billingMonthDay = YearMonth.parse(billingMonth).atDay(1).toString();
+        Query query = new Query();
+        query.addCriteria(Criteria.where("billingMonth").is(billingMonthDay));
+
+        if (onlyIssued) {
+            query.addCriteria(Criteria.where("status").is("ISSUED"));
+        }
+
+        query.fields()
+                .include("billingMonth")
+                .include("userId")
+                .include("status")
+                .include("issuedAt")
+                .include("recipientEmailEnc")   // Enc면 recipientEmailEnc로 수정
+                .include("recipientPhoneEnc")
+                .include("payload.period.value")
+                .include("payload.customerName.value")
+                .include("payload.subtotalAmount.value")
+                .include("payload.discountTotalAmount.value")
+                .include("payload.totalAmount.value")
+                .include("payload.chargeLines.name")
+                .include("payload.chargeLines.pricingSnapshot.amount.value")
+                .include("payload.discountLines.name")
+                .include("payload.discountLines.discountType")
+                .include("payload.discountLines.discountAmount.value");
+
+        this.setName("billingSnapShotReader");
+        this.setTemplate(mongoTemplate);
+        this.setCollection(collectionName);
+        this.setQuery(query);
+        this.setTargetType(BillingSnapshotDoc.class);
+
+    }
+}

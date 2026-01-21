@@ -16,4 +16,15 @@ dependencies {
 
     //PostgreSQL
     implementation group: 'org.postgresql', name: 'postgresql', version: '42.7.7'
+
+
+    //thymelaf
+    implementation "org.springframework.boot:spring-boot-starter-thymeleaf"
+
+    // s3 의존성 설치
+    implementation platform("software.amazon.awssdk:bom:2.41.10")
+    implementation "software.amazon.awssdk:s3"
+    implementation "software.amazon.awssdk:auth"
+    implementation "software.amazon.awssdk:aws-core"
+    implementation "software.amazon.awssdk:sdk-core"
 }

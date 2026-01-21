@@ -1,3 +1,13 @@
+secret-key: ${DELIVERY_SECRET_KEY}
+
+kafka:
+  topic:
+    dispatch-events: ${KAFKA_TOPIC_DISPATCH_EVENTS}
+    delivery-result-events: ${KAFKA_TOPIC_DELIVERY_RESULT_EVENTS}
+  group:
+    delivery: ${KAFKA_GROUP_DELIVERY}
+    delivery-result-handler: ${KAFKA_GROUP_DELIVERY_RESULT_HANDLER}
+
 spring:
   application:
     name: delivery-server

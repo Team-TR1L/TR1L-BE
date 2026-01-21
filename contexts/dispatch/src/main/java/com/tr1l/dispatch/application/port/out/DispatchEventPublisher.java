@@ -2,13 +2,14 @@ package com.tr1l.dispatch.application.port.out;
 
 import com.tr1l.dispatch.domain.model.enums.ChannelType;
 
+import java.time.LocalDate;
+
 public interface DispatchEventPublisher {
 
     void publish(
             Long userId,
-            Long DispatchPolicyId,
+            LocalDate billingMonth,
             ChannelType channelType,
-            Integer attemptCount,
             String encryptedS3Url,
             String destination
     );
