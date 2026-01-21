@@ -83,12 +83,9 @@ public class BillingTargetAssembler {
             //["sms","email"] (String.class) -> List<String> 변환
             log.warn("userId: {} params : {}",userId,params.channelOrder());
 
-            List<String> sendOptionList = mapper.readValue(
-                    params.channelOrder(),
-                    new TypeReference<List<String>>() {}
-            );
+
             List<ChannelValue> channelOrderJson =
-                    builder.build(sendOptionList,new UserContact(baseRow.recipientEmail(),baseRow.recipientPhone()));
+                    builder.build(params.channelOrder(),new UserContact(baseRow.recipientEmail(),baseRow.recipientPhone()));
 
             String parsedChannelOrderJson = mapper.writeValueAsString(channelOrderJson);
 
