@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - "apps/dispatch-server/**"
-      - "infra/ecs/taskdef-dispatch.json"
+      - "infra/ecs/taskdef-dispatch.json.tpl"
       - ".github/workflows/push-dispatch-scheduled.yml"
   workflow_dispatch:
 
@@ -15,7 +15,7 @@ permissions:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPO: dispatch-server
+  ECR_REPO: dispatcher
   TAG: scheduled
 
 jobs:
@@ -43,11 +43,30 @@ jobs:
           tags: |
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.TAG }}
 
-      - name: Render task definition (dispatch)
+      - name: Render taskdef template vars (envsubst)
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+
+          TASK_ROLE_ARN: ${{ secrets.TASK_ROLE_ARN }}
+          AWS_EXE_ROLE_ARN: ${{ secrets.AWS_EXE_ROLE_ARN }}
+
+          PG_SUB_DB: ${{ secrets.PG_SUB_DB }}
+          PG_SUB_USER: ${{ secrets.PG_SUB_USER }}
+          PG_SUB_HOST: ${{ secrets.PG_SUB_HOST }}
+          PG_SUB_PASSWORD: ${{ secrets.PG_SUB_PASSWORD }}
+
+          DISPATCH_IMAGE_URI: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.TAG }}
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gettext-base
+          envsubst < infra/ecs/taskdef-dispatch.json.tpl > infra/ecs/taskdef-dispatch.rendered.json
+
+
+      - name: Render task definition (dispatch) - ensure image
         id: render
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: infra/ecs/taskdef-dispatch.json
+          task-definition: infra/ecs/taskdef-dispatch.rendered.json
           container-name: dispatch
           image: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.TAG }}
 

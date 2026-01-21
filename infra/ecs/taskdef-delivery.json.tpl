@@ -4,7 +4,7 @@
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "1024",
   "memory": "2048",
-  "taskRoleArn": "${AWS_ROLE_ARN}",
+  "taskRoleArn": "${TASK_ROLE_ARN}",
   "executionRoleArn": "${AWS_EXE_ROLE_ARN}",
   "containerDefinitions": [
     {
@@ -12,12 +12,6 @@
       "image": "${DELIVERY_IMAGE_URI}",
       "cpu": 0,
       "portMappings": [
-        {
-          "name": "delivery-http",
-          "containerPort": 8080,
-          "hostPort": 8080,
-          "protocol": "tcp"
-        }
       ],
       "essential": true,
       "environment": [
@@ -26,7 +20,10 @@
         { "name": "PG_SUB_USER", "value": "${PG_SUB_USER}" },
         { "name": "PG_SUB_HOST", "value": "${PG_SUB_HOST}" },
         { "name": "PG_SUB_PORT", "value": "5432" },
-        { "name": "PG_SUB_PASSWORD", "value": "${PG_SUB_PASSWORD}" }
+        { "name": "PG_SUB_PASSWORD", "value": "${PG_SUB_PASSWORD}" },
+        { "name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "5432" },
+        { "name": "SPRING_JPA_SHOW_SQL", "value": "false" },
+        { "name": "SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL", "value": "false" }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",

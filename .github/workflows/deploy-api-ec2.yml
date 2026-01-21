@@ -14,7 +14,7 @@ permissions:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPO: api-server
+  ECR_REPO: api
   CONTAINER_NAME: api
   HOST_PORT: "8080"
   CONTAINER_PORT: "8080"
