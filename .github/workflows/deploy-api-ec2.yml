@@ -18,7 +18,6 @@ env:
   CONTAINER_NAME: api
   HOST_PORT: "8080"
   CONTAINER_PORT: "80"
-  ENV_FILE_PATH: /opt/billing-api/.env
 
 jobs:
   deploy:
@@ -45,57 +44,19 @@ jobs:
           tags: |
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:latest
-
       - name: Deploy on EC2 via SSM (pull & replace container)
-        shell: bash
         run: |
-          set -euo pipefail
-
-          REGION="${{ env.AWS_REGION }}"
-          INSTANCE_ID="${{ secrets.API_EC2_INSTANCE_ID }}"
-          REGISTRY="${{ steps.ecr.outputs.registry }}"
-          IMAGE="${REGISTRY}/${{ env.ECR_REPO }}:${{ github.sha }}"
-
-          CMD_ID=$(aws ssm send-command \
-            --region "$REGION" \
+          set -e
+          IMAGE="${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}"
+          aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy api-server from GitHub Actions" \
-            --instance-ids "$INSTANCE_ID" \
-            --timeout-seconds 600 \
-            --parameters "commands=[
+            --targets "Key=InstanceIds,Values=${{ secrets.API_EC2_INSTANCE_ID }}" \
+            --parameters commands="[
               \"set -e\",
-              \"aws ecr get-login-password --region $REGION | sudo docker login --username AWS --password-stdin $REGISTRY\",
-              \"sudo docker pull $IMAGE\",
-              \"test -f ${{ env.ENV_FILE_PATH }}\",
-              \"sudo docker rm -f ${{ env.CONTAINER_NAME }} || true\",
-              \"sudo docker run -d --name ${{ env.CONTAINER_NAME }} -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} --restart unless-stopped --env-file ${{ env.ENV_FILE_PATH }} $IMAGE\"
-            ]" \
-            --query "Command.CommandId" --output text)
-
-          aws ssm wait command-executed \
-            --region "$REGION" \
-            --command-id "$CMD_ID" \
-            --instance-id "$INSTANCE_ID"
-
-          STATUS=$(aws ssm get-command-invocation \
-            --region "$REGION" \
-            --command-id "$CMD_ID" \
-            --instance-id "$INSTANCE_ID" \
-            --query "Status" --output text)
-
-          if [[ "$STATUS" != "Success" ]]; then
-            echo "Deploy failed. status=$STATUS"
-            echo "----- STDOUT -----"
-            aws ssm get-command-invocation \
-              --region "$REGION" \
-              --command-id "$CMD_ID" \
-              --instance-id "$INSTANCE_ID" \
-              --query "StandardOutputContent" --output text || true
-            echo "----- STDERR -----"
-            aws ssm get-command-invocation \
-              --region "$REGION" \
-              --command-id "$CMD_ID" \
-              --instance-id "$INSTANCE_ID" \
-              --query "StandardErrorContent" --output text || true
-            exit 1
-          fi
+              \"aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.ecr.outputs.registry }}\",
+              \"docker pull $IMAGE\",
+              \"docker rm -f ${{ env.CONTAINER_NAME }} || true\",
+              \"docker run -d --name ${{ env.CONTAINER_NAME }} -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} --restart unless-stopped --env-file /opt/billing-api/.env $IMAGE\",
+              \"docker ps | grep ${{ env.CONTAINER_NAME }}\"
+            ]"
