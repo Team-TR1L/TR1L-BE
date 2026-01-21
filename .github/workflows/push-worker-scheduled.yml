@@ -63,6 +63,9 @@ jobs:
           PG_MAIN_DB: ${{ secrets.PG_MAIN_DB }}
           PG_MAIN_USER: ${{ secrets.PG_MAIN_USER }}
 
+          ALGORITHM: ${{ secrets.ALGORITHM }}
+          TRANSFORMATION: ${{ secrets.TRANSFORMATION }}
+
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
 
           WORKER_IMAGE_URI: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.TAG }}
