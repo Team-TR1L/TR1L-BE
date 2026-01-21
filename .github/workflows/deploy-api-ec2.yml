@@ -77,7 +77,6 @@ jobs:
           export ENV_FILE_PATH="${{ env.ENV_FILE_PATH }}"
           export PULL_TIMEOUT_SEC="${{ env.PULL_TIMEOUT_SEC }}"
 
-          # ✅ SSM parameters JSON 생성(이스케이프 지옥 탈출)
           python3 - <<'PY' > ssm-params.json
           import json, os
 
@@ -93,7 +92,16 @@ jobs:
           params = {
             "commands": [
               "set -euo pipefail",
+
+              # ✅ RunCommand 환경에서만 잡히는 proxy 변수 제거
+              "unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY no_proxy NO_PROXY",
+              "echo '--- proxy env ---'",
+              "env | grep -i proxy || true",
+
+              # ✅ 리전 강제 고정
               f"REGION='{REGION}'",
+              "export AWS_REGION=$REGION AWS_DEFAULT_REGION=$REGION",
+
               f"REGISTRY='{REGISTRY}'",
               f"IMAGE='{IMAGE}'",
               f"CONTAINER_NAME='{CONTAINER_NAME}'",
@@ -104,21 +112,28 @@ jobs:
 
               "echo START $(date -Is)",
               "echo IMAGE=$IMAGE",
+              "echo INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id || true)",
+              "aws --version || true",
 
-              # ✅ 여기서 TOKEN 받아서 길이 출력
-              "TOKEN=$(aws ecr get-login-password --region $REGION)",
+              # ✅ ECR 엔드포인트/해결 확인 (VPC endpoint면 10.x가 찍혀야 함)
+              "echo '--- ecr dns ---'",
+              "getent hosts api.ecr.$REGION.amazonaws.com || true",
+              "getent hosts $(echo $REGISTRY | sed 's#^https\\?://##') || true",
+              "echo '--- ecr https ---'",
+              "curl -m 3 -I https://api.ecr.$REGION.amazonaws.com/ || true",
+
+              # ✅ 토큰 획득(짧은 timeout으로 빨리 실패 원인 노출)
+              "TOKEN=$(AWS_MAX_ATTEMPTS=1 AWS_RETRY_MODE=standard aws ecr get-login-password --region $REGION --cli-connect-timeout 3 --cli-read-timeout 5)",
               "echo token_len=${#TOKEN}",
+              "echo \"$TOKEN\" | docker login --username AWS --password-stdin $REGISTRY",
 
-              # ✅ non-TTY 방지(토큰이 비면 set -e로 여기서 터짐)
-              "echo \"$TOKEN\" | sudo docker login --username AWS --password-stdin $REGISTRY",
-
-              "timeout $PULL_TIMEOUT_SEC sudo docker pull $IMAGE",
+              "timeout $PULL_TIMEOUT_SEC docker pull $IMAGE",
               "test -f $ENV_FILE_PATH",
 
-              "sudo docker rm -f $CONTAINER_NAME || true",
-              "sudo docker run -d --name $CONTAINER_NAME -p 127.0.0.1:$HOST_PORT:$CONTAINER_PORT --restart unless-stopped --env-file $ENV_FILE_PATH $IMAGE",
-              "sudo docker ps --no-trunc | grep $CONTAINER_NAME",
-              "sudo docker inspect $CONTAINER_NAME --format 'created={{.Created}} image={{.Config.Image}} sha={{.Image}}'",
+              "docker rm -f $CONTAINER_NAME || true",
+              "docker run -d --name $CONTAINER_NAME -p 127.0.0.1:$HOST_PORT:$CONTAINER_PORT --restart unless-stopped --env-file $ENV_FILE_PATH $IMAGE",
+              "docker ps --no-trunc | grep $CONTAINER_NAME",
+              "docker inspect $CONTAINER_NAME --format 'created={{.Created}} image={{.Config.Image}} sha={{.Image}}'",
 
               "echo END $(date -Is)"
             ]
