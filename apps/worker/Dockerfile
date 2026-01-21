@@ -4,7 +4,7 @@ WORKDIR /workspace
 COPY . .
 RUN chmod +x ./gradlew
 
-RUN ./gradlew apps:worker:bootJar -x test --no-daemon
+RUN ./gradlew :apps:worker:bootJar -x test --no-daemon
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
