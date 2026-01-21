@@ -1,5 +1,6 @@
 package com.tr1l.billing.domain.model.aggregate;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.tr1l.billing.domain.event.BillingIssuedEvent;
 import com.tr1l.billing.domain.event.DomainEvent;
 import com.tr1l.billing.domain.model.enums.BillingStatus;
@@ -8,14 +9,16 @@ import com.tr1l.billing.domain.model.entity.ChargeLine;
 import com.tr1l.billing.domain.model.entity.DiscountLine;
 import com.tr1l.billing.domain.model.vo.*;
 import com.tr1l.billing.error.BillingErrorCode;
+import lombok.Getter;
 
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-
-public final class Billing {
+@Getter
+public final class Billing implements Serializable {
 
     private final BillingId billingId; // 청구서 식별자
     private final CustomerId customerId; // 고객 식별자
@@ -40,6 +43,7 @@ public final class Billing {
     private final CustomerBirthDate customerBirthDate;
 
     // Outbox 연계용(도메인 이벤트 적재)
+    @JsonIgnore
     private final List<DomainEvent> domainEvents = new ArrayList<>();
 
     private Billing(

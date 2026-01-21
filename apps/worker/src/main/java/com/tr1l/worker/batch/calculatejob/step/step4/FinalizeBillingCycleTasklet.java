@@ -1,4 +1,4 @@
-package com.tr1l.worker.batch.calculatejob.step;
+package com.tr1l.worker.batch.calculatejob.step.step4;
 
 import com.tr1l.billing.application.port.out.BillingCycleFinalizedJdbcPort;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +8,7 @@ import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.YearMonth;
@@ -30,6 +31,8 @@ public class FinalizeBillingCycleTasklet implements Tasklet {
 
     private final BillingCycleFinalizedJdbcPort port;
 
+    @Value("#{jobExecutionContext['billingYearMonth']}")
+    private String billingYearMonth;
 
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
@@ -37,7 +40,7 @@ public class FinalizeBillingCycleTasklet implements Tasklet {
         var jobParams = chunkContext.getStepContext().getStepExecution().getJobParameters();
 
         // 문자열을 YearMonth로 변환 (필수 파라미터)
-        YearMonth billingMonth = YearMonth.parse(Objects.requireNonNull(jobParams.getString("billingYearMonth")));
+        YearMonth billingMonth = YearMonth.parse(billingYearMonth);
 
         // RUNNING 상태일 때만 FINISHED로 전환
         int updated = port.markFinishedIfRunning(billingMonth.atDay(1));

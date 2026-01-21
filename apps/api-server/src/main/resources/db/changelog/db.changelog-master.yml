@@ -1,0 +1,58 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-schema-main-prod
+      author: tkv00
+      context: prod
+      changes:
+        - sqlFile:
+            path: db/sql/schema_prod.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            stripComments: true
+
+  - changeSet:
+      id: 002-data-main-prod
+      author: tkv00
+      context: prod
+      #선행 조건
+      preConditions:
+        - onFail: HALT
+        - tableExists:
+            tableName: users
+
+      changes:
+        - sqlFile:
+            path: db/sql/data_prod.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            stripComments: true
+
+# =========== dev ======================
+
+  - changeSet:
+      id: 900-schema-main-dev
+      author: tkv00
+      context: dev
+      changes:
+        - sqlFile:
+            path: db/sql/schema_dev.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            stripComments: true
+
+  - changeSet:
+      id: 901-data-main-dev
+      author: tkv00
+      context: dev
+
+      #선행 조건
+      preConditions:
+        - onFail: HALT
+        - tableExists:
+            tableName: users
+      changes:
+        - sqlFile:
+            path: db/sql/data_dev.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            stripComments: true

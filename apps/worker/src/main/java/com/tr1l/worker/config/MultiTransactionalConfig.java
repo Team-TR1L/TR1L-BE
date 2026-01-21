@@ -32,7 +32,7 @@ public class MultiTransactionalConfig {
     }
 
     @Bean(name = "TX-target")
-    public PlatformTransactionManager targerTxManager(@Qualifier("targetDataSource")DataSource ds){
+    public PlatformTransactionManager targetTxManager(@Qualifier("targetDataSource")DataSource ds){
         return new DataSourceTransactionManager(ds);
     }
 }
