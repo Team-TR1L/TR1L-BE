@@ -114,7 +114,6 @@ public class CalculateJobBatchRunner implements CommandLineRunner {
 
         JobParameters jobParameters = new JobParametersBuilder()
                 .addString("cutoff", cutoffAt.toString())
-                .addString("channelOrder", batchConfiguration.getChannelOrder())
                 .toJobParameters();
 
 

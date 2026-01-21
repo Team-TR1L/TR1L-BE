@@ -1,10 +1,4 @@
-package com.tr1l.delivery.infra.adapter.out;
-
-import com.tr1l.delivery.application.port.out.DecryptionPort;
-import com.tr1l.dispatch.application.exception.DispatchDomainException;
-import com.tr1l.dispatch.application.exception.DispatchErrorCode;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
+package com.tr1l.util;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
@@ -14,17 +8,17 @@ import java.util.Base64;
 /*
  * AES-256 복호화
  */
-@Component
-public class DecryptionAdapter implements DecryptionPort {
+public class DecryptionTool {
+    private final String secretKey;
+    private final String ALGORITHM;
+    private final String TRANSFORMATION;
 
-    // 시크릿 키 주입 필요
-    @Value("${secret-key}")
-    private String secretKey;
+    public DecryptionTool(String secretKey, String ALGORITHM, String TRANSFORMATION) {
+        this.secretKey = secretKey;
+        this.ALGORITHM = ALGORITHM;
+        this.TRANSFORMATION = TRANSFORMATION;
+    }
 
-    private static final String ALGORITHM = "AES";
-    private static final String TRANSFORMATION = "AES/ECB/PKCS5Padding";
-
-    @Override
     public String decrypt(String cipherText) {
         if (cipherText == null || cipherText.isBlank()) return null;
 
@@ -45,7 +39,7 @@ public class DecryptionAdapter implements DecryptionPort {
             return new String(decryptedBytes, StandardCharsets.UTF_8);
 
         } catch (Exception e) {
-            throw new DispatchDomainException(DispatchErrorCode.DECRYPTION_FAILED);
+            throw new RuntimeException("Decryption failed", e);
         }
     }
 }

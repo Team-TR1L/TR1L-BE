@@ -1,8 +1,8 @@
 package com.tr1l.delivery.application.service;
 
-import com.tr1l.delivery.application.port.out.DecryptionPort;
 import com.tr1l.delivery.application.port.out.DeliveryRepositoryPort;
 import com.tr1l.dispatch.infra.kafka.DispatchRequestedEvent;
+import com.tr1l.util.DecryptionTool;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,7 +15,6 @@ import java.time.LocalDate;
 public class DeliveryService {
 
     private final DeliveryRepositoryPort deliveryRepository;
-    private final DecryptionPort decryptionPort;
     private final DeliveryWorker deliveryWorker;
 
     public void deliveryProcess(DispatchRequestedEvent event) {
