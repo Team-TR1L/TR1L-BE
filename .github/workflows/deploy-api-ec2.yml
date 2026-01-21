@@ -18,13 +18,7 @@ env:
   CONTAINER_NAME: api
   HOST_PORT: "8080"
   CONTAINER_PORT: "80"
-  ENV_FILE_PATH: /opt/billing-api/.env
-
-  # 상한선(느려짐 방지)
-  PULL_TIMEOUT_SEC: "300"     # pull 최대 5분
-  SSM_TIMEOUT_SEC: "600"      # SSM 실행 최대 10분
-  POLL_DELAY_SEC: "5"         # 폴링 5초
-  POLL_MAX_COUNT: "72"        # 72*5=6분
+  ENV_FILE: /opt/billing-api/.env
 
 jobs:
   deploy:
@@ -42,10 +36,7 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build & Push (api-server) with cache
+      - name: Build & Push (api-server)
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -54,8 +45,6 @@ jobs:
           tags: |
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Deploy on EC2 via SSM (pull & replace container)
         shell: bash
@@ -70,120 +59,49 @@ jobs:
           echo "Deploy image: $IMAGE"
           echo "Target instance: $INSTANCE_ID"
 
-          export REGION REGISTRY IMAGE
-          export CONTAINER_NAME="${{ env.CONTAINER_NAME }}"
-          export HOST_PORT="${{ env.HOST_PORT }}"
-          export CONTAINER_PORT="${{ env.CONTAINER_PORT }}"
-          export ENV_FILE_PATH="${{ env.ENV_FILE_PATH }}"
-          export PULL_TIMEOUT_SEC="${{ env.PULL_TIMEOUT_SEC }}"
-
-          python3 - <<'PY' > ssm-params.json
-          import json, os
-
-          REGION = os.environ["REGION"]
-          REGISTRY = os.environ["REGISTRY"]
-          IMAGE = os.environ["IMAGE"]
-          CONTAINER_NAME = os.environ["CONTAINER_NAME"]
-          HOST_PORT = os.environ["HOST_PORT"]
-          CONTAINER_PORT = os.environ["CONTAINER_PORT"]
-          ENV_FILE_PATH = os.environ["ENV_FILE_PATH"]
-          PULL_TIMEOUT_SEC = os.environ["PULL_TIMEOUT_SEC"]
-
-          params = {
-            "commands": [
-              "set -euo pipefail",
-
-              # ✅ RunCommand 환경에서만 잡히는 proxy 변수 제거
-              "unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY no_proxy NO_PROXY",
-              "echo '--- proxy env ---'",
-              "env | grep -i proxy || true",
-
-              # ✅ 리전 강제 고정
-              f"REGION='{REGION}'",
-              "export AWS_REGION=$REGION AWS_DEFAULT_REGION=$REGION",
-
-              f"REGISTRY='{REGISTRY}'",
-              f"IMAGE='{IMAGE}'",
-              f"CONTAINER_NAME='{CONTAINER_NAME}'",
-              f"HOST_PORT='{HOST_PORT}'",
-              f"CONTAINER_PORT='{CONTAINER_PORT}'",
-              f"ENV_FILE_PATH='{ENV_FILE_PATH}'",
-              f"PULL_TIMEOUT_SEC='{PULL_TIMEOUT_SEC}'",
-
-              "echo START $(date -Is)",
-              "echo IMAGE=$IMAGE",
-              "echo INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id || true)",
-              "aws --version || true",
-
-              # ✅ ECR 엔드포인트/해결 확인 (VPC endpoint면 10.x가 찍혀야 함)
-              "echo '--- ecr dns ---'",
-              "getent hosts api.ecr.$REGION.amazonaws.com || true",
-              "getent hosts $(echo $REGISTRY | sed 's#^https\\?://##') || true",
-              "echo '--- ecr https ---'",
-              "curl -m 3 -I https://api.ecr.$REGION.amazonaws.com/ || true",
-
-              # ✅ 토큰 획득(짧은 timeout으로 빨리 실패 원인 노출)
-              "TOKEN=$(AWS_MAX_ATTEMPTS=1 AWS_RETRY_MODE=standard aws ecr get-login-password --region $REGION --cli-connect-timeout 3 --cli-read-timeout 5)",
-              "echo token_len=${#TOKEN}",
-              "echo \"$TOKEN\" | docker login --username AWS --password-stdin $REGISTRY",
-
-              "timeout $PULL_TIMEOUT_SEC docker pull $IMAGE",
-              "test -f $ENV_FILE_PATH",
-
-              "docker rm -f $CONTAINER_NAME || true",
-              "docker run -d --name $CONTAINER_NAME -p 127.0.0.1:$HOST_PORT:$CONTAINER_PORT --restart unless-stopped --env-file $ENV_FILE_PATH $IMAGE",
-              "docker ps --no-trunc | grep $CONTAINER_NAME",
-              "docker inspect $CONTAINER_NAME --format 'created={{.Created}} image={{.Config.Image}} sha={{.Image}}'",
-
-              "echo END $(date -Is)"
-            ]
-          }
-
-          print(json.dumps(params))
-          PY
-
           CMD_ID=$(aws ssm send-command \
             --region "$REGION" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy api-server from GitHub Actions" \
             --instance-ids "$INSTANCE_ID" \
-            --timeout-seconds "${{ env.SSM_TIMEOUT_SEC }}" \
-            --parameters file://ssm-params.json \
+            --parameters "commands=[
+              \"set -euo pipefail\",
+              \"export AWS_REGION=$REGION AWS_DEFAULT_REGION=$REGION\",
+              \"TOKEN=\\\$(aws ecr get-login-password --region $REGION)\",
+              \"echo token_len=\\\${#TOKEN}\",
+              \"echo \\\"\\\$TOKEN\\\" | sudo docker login --username AWS --password-stdin $REGISTRY\",
+              \"timeout 300 sudo docker pull $IMAGE\",
+              \"test -f ${{ env.ENV_FILE }}\",
+              \"sudo docker rm -f ${{ env.CONTAINER_NAME }} || true\",
+              \"sudo docker run -d --name ${{ env.CONTAINER_NAME }} -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} --restart unless-stopped --env-file ${{ env.ENV_FILE }} $IMAGE\",
+              \"sudo docker inspect ${{ env.CONTAINER_NAME }} --format 'created={{.Created}} image={{.Config.Image}} sha={{.Image}}'\"
+            ]" \
             --query "Command.CommandId" --output text)
 
           echo "SSM CommandId: $CMD_ID"
 
+          # ✅ 너무 길어지는거 싫다 했으니: 최대 2분만 확인(15초*8)
           STATUS="Pending"
-          for i in $(seq 1 ${{ env.POLL_MAX_COUNT }}); do
+          for i in {1..8}; do
             STATUS=$(aws ssm get-command-invocation \
               --region "$REGION" \
               --command-id "$CMD_ID" \
               --instance-id "$INSTANCE_ID" \
               --query "Status" --output text 2>/dev/null || echo "Pending")
-
-            if (( i % 12 == 0 )); then
-              echo "[$i/${{ env.POLL_MAX_COUNT }}] status=$STATUS"
-            fi
-
-            if [[ "$STATUS" == "Success" || "$STATUS" == "Failed" || "$STATUS" == "Cancelled" || "$STATUS" == "TimedOut" ]]; then
-              break
-            fi
-
-            sleep "${{ env.POLL_DELAY_SEC }}"
+            echo "status=$STATUS"
+            [[ "$STATUS" =~ ^(Success|Failed|Cancelled|TimedOut)$ ]] && break
+            sleep 15
           done
 
-          echo "----- SSM STATUS -----"
-          echo "$STATUS"
+          echo "Final status=$STATUS"
 
-          echo "----- SSM STDOUT -----"
-          aws ssm get-command-invocation --region "$REGION" --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
-            --query "StandardOutputContent" --output text || true
-
-          echo "----- SSM STDERR -----"
-          aws ssm get-command-invocation --region "$REGION" --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
-            --query "StandardErrorContent" --output text || true
-
+          # 실패면 로그 한번 뽑아주고 종료
           if [[ "$STATUS" != "Success" ]]; then
-            echo "Deploy failed. status=$STATUS"
+            echo "----- STDOUT -----"
+            aws ssm get-command-invocation --region "$REGION" --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+              --query "StandardOutputContent" --output text || true
+            echo "----- STDERR -----"
+            aws ssm get-command-invocation --region "$REGION" --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+              --query "StandardErrorContent" --output text || true
             exit 1
           fi
