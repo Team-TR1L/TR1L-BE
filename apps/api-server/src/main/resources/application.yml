@@ -18,6 +18,13 @@ spring:
     change-log: classpath:/db/changelog/db.changelog-master.yml
     contexts: ${spring.config.activate.on-profile}
 
+  cloud:
+    aws:
+      region:
+        static: ap-northeast-2
+      stack:
+        auto: false
+
 server:
   port: 8080
 
