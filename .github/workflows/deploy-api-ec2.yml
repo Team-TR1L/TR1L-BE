@@ -15,17 +15,16 @@ permissions:
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPO: api
-
   CONTAINER_NAME: api
   HOST_PORT: "8080"
   CONTAINER_PORT: "80"
   ENV_FILE_PATH: /opt/billing-api/.env
 
-  # ✅ 느려지지 않게 상한선
-  PULL_TIMEOUT_SEC: "300"       # docker pull 최대 5분
-  SSM_TIMEOUT_SEC: "600"        # SSM 스크립트 최대 10분
-  SSM_WAIT_MAX_ATTEMPTS: "72"   # 72 * 5초 = 6분
-  SSM_WAIT_DELAY_SEC: "5"
+  # 속도 상한선
+  PULL_TIMEOUT_SEC: "300"     # pull 최대 5분
+  SSM_TIMEOUT_SEC: "600"      # SSM 명령 전체 최대 10분
+  POLL_DELAY_SEC: "5"         # 폴링 주기 5초
+  POLL_MAX_COUNT: "72"        # 72*5초=6분
 
 jobs:
   deploy:
@@ -94,21 +93,25 @@ jobs:
 
           echo "SSM CommandId: $CMD_ID"
 
-          # ✅ 최대 6분만 대기 (느려짐 방지)
-          set +e
-          aws ssm wait command-executed \
-            --region "$REGION" \
-            --command-id "$CMD_ID" \
-            --instance-id "$INSTANCE_ID" \
-            --max-attempts "${{ env.SSM_WAIT_MAX_ATTEMPTS }}" \
-            --delay "${{ env.SSM_WAIT_DELAY_SEC }}"
-          set -e
+          STATUS="Pending"
+          for i in $(seq 1 ${{ env.POLL_MAX_COUNT }}); do
+            STATUS=$(aws ssm get-command-invocation \
+              --region "$REGION" \
+              --command-id "$CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query "Status" --output text 2>/dev/null || echo "Pending")
 
-          STATUS=$(aws ssm get-command-invocation \
-            --region "$REGION" \
-            --command-id "$CMD_ID" \
-            --instance-id "$INSTANCE_ID" \
-            --query "Status" --output text 2>/dev/null || echo "Unknown")
+            # 로그 너무 도배 안 되게 12번(=1분)마다 한 번씩만 출력
+            if (( i % 12 == 0 )); then
+              echo "[$i/${{ env.POLL_MAX_COUNT }}] status=$STATUS"
+            fi
+
+            if [[ "$STATUS" == "Success" || "$STATUS" == "Failed" || "$STATUS" == "Cancelled" || "$STATUS" == "TimedOut" ]]; then
+              break
+            fi
+
+            sleep "${{ env.POLL_DELAY_SEC }}"
+          done
 
           echo "----- SSM STATUS -----"
           echo "$STATUS"
