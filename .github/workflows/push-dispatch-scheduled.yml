@@ -57,6 +57,9 @@ jobs:
           PG_SUB_HOST: ${{ secrets.PG_SUB_HOST }}
           PG_SUB_PASSWORD: ${{ secrets.PG_SUB_PASSWORD }}
 
+          ALGORITHM: ${{ secrets.ALGORITHM }}
+          TRANSFORMATION: ${{ secrets.TRANSFORMATION }}
+
           DISPATCH_IMAGE_URI: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.TAG }}
         run: |
           sudo apt-get update -y

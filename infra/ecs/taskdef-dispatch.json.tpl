@@ -29,7 +29,10 @@
         { "name": "KAFKA_CONSUMER_GROUP_ID", "value": "dispatch-server" },
         { "name": "SPRING_KAFKA_BOOTSTRAP_SERVERS", "value": "${SPRING_KAFKA_BOOTSTRAP_SERVERS}" },
         { "name": "KAFKA_TOPIC_DISPATCH_EVENTS", "value": "dispatch-events-v1" },
-        { "name": "KAFKA_ACKS", "value": "all" }
+        { "name": "KAFKA_ACKS", "value": "all" },
+
+        { "name": "ALGORITHM", "value": "${ALGORITHM}" },
+        { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" }
 
       ],
       "logConfiguration": {

@@ -67,6 +67,10 @@ jobs:
           PG_SUB_USER: ${{ secrets.PG_SUB_USER }}
           PG_SUB_PASSWORD: ${{ secrets.PG_SUB_PASSWORD }}
           PG_SUB_HOST: ${{ secrets.PG_SUB_HOST }}
+
+          ALGORITHM: ${{ secrets.ALGORITHM }}
+          TRANSFORMATION: ${{ secrets.TRANSFORMATION }}
+
         run: |
           sudo apt-get update -y
           sudo apt-get install -y gettext-base

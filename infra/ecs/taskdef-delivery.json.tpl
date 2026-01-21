@@ -35,7 +35,10 @@
         { "name": "KAFKA_TOPIC_DELIVERY_RESULT_EVENTS", "value": "delivery-result-events-v1" },
         { "name": "KAFKA_GROUP_DELIVERY", "value": "delivery-group" },
         { "name": "KAFKA_GROUP_DELIVERY_RESULT_HANDLER", "value": "delivery-result-handler-group" },
-        { "name": "SECRET_KEY", "value": "${SECRET_KEY}" }
+        { "name": "SECRET_KEY", "value": "${SECRET_KEY}" },
+
+        { "name": "ALGORITHM", "value": "${ALGORITHM}" },
+        { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
