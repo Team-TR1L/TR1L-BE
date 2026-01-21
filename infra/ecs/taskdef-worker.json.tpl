@@ -31,7 +31,10 @@
         { "name": "BATCH_JOB1_STEP1_CHUNK_SIZE", "value": "1000" },
         { "name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "update" },
         { "name": "SPRING_JPA_SHOW_SQL", "value": "false" },
-        { "name": "SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL", "value": "false" }
+        { "name": "SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL", "value": "false" },
+
+        { "name": "ALGORITHM", "value": "${ALGORITHM}" },
+        { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" }
       ],
       "secrets": [
         {
