@@ -2,6 +2,8 @@ package com.tr1l.dispatch.application.service;
 
 import com.tr1l.dispatch.application.command.CreateDispatchPolicyCommand;
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
+import com.tr1l.dispatch.domain.model.enums.PolicyStatus;
+import com.tr1l.dispatch.domain.model.vo.ChannelRoutingPolicy;
 import com.tr1l.dispatch.infra.persistence.repository.DispatchPolicyRepository;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
 import com.tr1l.dispatch.domain.model.vo.AdminId;
@@ -51,4 +53,30 @@ public class DispatchPolicyService {
         return repository.findCurrentPolicy()
                 .orElseThrow(() -> new DispatchDomainException(DispatchErrorCode.ACTIVE_POLICY_NOT_FOUND));
     }
+
+    @Transactional
+    public DispatchPolicy updatePolicy(Long policyId, ChannelRoutingPolicy newRoutingPolicyJson, String newStatus) {
+        DispatchPolicy policy = findPolicy(policyId);
+
+        // ACTIVE 단일성 처리
+        if ("ACTIVE".equals(newStatus) && !"ACTIVE".equals(policy.getStatus())) {
+            repository.findCurrentPolicy().ifPresent(activePolicy -> {
+                activePolicy.retire(); // 기존 ACTIVE 정책 RETIRED 처리
+                repository.save(activePolicy);
+            });
+            policy.activate(); // 현재 정책 ACTIVE 처리
+        }
+
+        // 채널 정책 수정
+        policy.changeRoutingPolicy(newRoutingPolicyJson, AdminId.of(0L)); // 하드코딩
+
+        // 상태 변경 (DRAFT, RETIRED 등)
+        policy.setStatus(PolicyStatus.valueOf(newStatus));
+
+        // 버전 증가
+        policy.incrementVersion();
+
+        return repository.save(policy);
+    }
+
 }
