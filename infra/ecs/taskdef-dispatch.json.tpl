@@ -20,6 +20,7 @@
         { "name": "PG_SUB_PORT", "value": "5432" },
         { "name": "PG_SUB_PASSWORD", "value": "${PG_SUB_PASSWORD}" },
 
+        { "name": "SPRING_PROFILES_ACTIVE", "value": "prod" },
         { "name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "update" },
         { "name": "SPRING_JPA_SHOW_SQL", "value": "false" },
         { "name": "SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL", "value": "false" },

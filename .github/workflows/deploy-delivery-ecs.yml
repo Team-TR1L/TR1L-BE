@@ -66,6 +66,7 @@ jobs:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           PG_SUB_USER: ${{ secrets.PG_SUB_USER }}
           PG_SUB_PASSWORD: ${{ secrets.PG_SUB_PASSWORD }}
+          PG_SUB_HOST: ${{ secrets.PG_SUB_HOST }}
         run: |
           sudo apt-get update -y
           sudo apt-get install -y gettext-base
