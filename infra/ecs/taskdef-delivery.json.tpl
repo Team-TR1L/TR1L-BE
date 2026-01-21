@@ -21,9 +21,21 @@
         { "name": "PG_SUB_HOST", "value": "${PG_SUB_HOST}" },
         { "name": "PG_SUB_PORT", "value": "5432" },
         { "name": "PG_SUB_PASSWORD", "value": "${PG_SUB_PASSWORD}" },
-        { "name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "5432" },
+        { "name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "update" },
         { "name": "SPRING_JPA_SHOW_SQL", "value": "false" },
-        { "name": "SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL", "value": "false" }
+        { "name": "SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL", "value": "false" },
+
+        { "name": "KAFKA_CONSUMER_GROUP_ID", "value": "dispatch-server" },
+        { "name": "SPRING_KAFKA_BOOTSTRAP_SERVERS", "value": "${SPRING_KAFKA_BOOTSTRAP_SERVERS}" },
+        { "name": "KAFKA_TOPIC_DISPATCH_EVENTS", "value": "dispatch-events-v1" },
+        { "name": "KAFKA_ACKS", "value": "all" },
+
+        { "name": "KAFKA_AUTO_OFFSET_RESET", "value": "earliest" },
+        { "name": "KAFKA_TOPIC_DELIVERY_RESULT_EVENTS", "value": "delivery-result-events-v1" },
+        { "name": "KAFKA_GROUP_DELIVERY", "value": "delivery-group" },
+        { "name": "KAFKA_GROUP_DELIVERY_RESULT_HANDLER", "value": "delivery-result-handler-group" },
+        { "name": "SECRET_KEY", "value": "${SECRET_KEY}" }
+
       ],
       "logConfiguration": {
         "logDriver": "awslogs",

@@ -50,6 +50,8 @@ jobs:
           AWS_EXE_ROLE_ARN: ${{ secrets.AWS_EXE_ROLE_ARN }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
 
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+
           # app env
           PG_SUB_DB: ${{ secrets.PG_SUB_DB }}
           S3_BUCKET: ${{ secrets.S3_BUCKET }}

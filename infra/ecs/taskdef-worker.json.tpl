@@ -25,10 +25,11 @@
         { "name": "PG_SUB_PASSWORD", "value": "${PG_SUB_PASSWORD}" },
         { "name": "PG_MAIN_DB", "value": "${PG_MAIN_DB}" },
         { "name": "PG_MAIN_USER", "value": "${PG_MAIN_USER}" },
+
         { "name": "SPRING_PROFILES_ACTIVE", "value": "prod" },
         { "name": "BATCH_JOB1_STEP1_FETCH_SIZE", "value": "1000" },
         { "name": "BATCH_JOB1_STEP1_CHUNK_SIZE", "value": "1000" },
-        { "name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "5432" },
+        { "name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "update" },
         { "name": "SPRING_JPA_SHOW_SQL", "value": "false" },
         { "name": "SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL", "value": "false" }
       ],
