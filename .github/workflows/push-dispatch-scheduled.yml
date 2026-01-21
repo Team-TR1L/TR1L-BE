@@ -63,6 +63,7 @@ jobs:
           sudo apt-get install -y gettext-base
           envsubst < infra/ecs/taskdef-dispatch.json.tpl > infra/ecs/taskdef-dispatch.rendered.json
 
+
       - name: Render task definition (dispatch) - ensure image
         id: render
         uses: aws-actions/amazon-ecs-render-task-definition@v1
