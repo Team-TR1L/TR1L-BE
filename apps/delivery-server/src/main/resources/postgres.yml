@@ -4,6 +4,8 @@ spring:
     username: ${TARGET_DATASOURCE_USERNAME:billing}
     password: ${TARGET_DATASOURCE_PASSWORD:billing}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 50
 
   jpa:
     open-in-view: false
