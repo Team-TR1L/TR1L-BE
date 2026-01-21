@@ -41,3 +41,6 @@ out/
 .env.*
 
 .env.prod
+
+
+infra/ecs/*.rendered.json

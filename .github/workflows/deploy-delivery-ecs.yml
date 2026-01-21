@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - "apps/delivery-server/**"
-      - "infra/ecs/taskdef-delivery.json"
+      - "infra/ecs/taskdef-delivery.json.tpl"
       - ".github/workflows/deploy-delivery-ecs.yml"
   workflow_dispatch:
 
@@ -15,13 +15,14 @@ permissions:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPO: delivery-server
+  ECR_REPO: delivery
 
   ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
   ECS_SERVICE: svc-delivery
 
-  TASK_DEFINITION: infra/ecs/taskdef-delivery.json
-  CONTAINER_NAME: delivery   # ✅ 너가 준 값 반영
+  TASK_DEFINITION_TPL: infra/ecs/taskdef-delivery.json.tpl
+  TASK_DEFINITION_RENDERED: infra/ecs/taskdef-delivery.rendered.json
+  CONTAINER_NAME: delivery
 
 jobs:
   deploy:
@@ -49,11 +50,32 @@ jobs:
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:latest
 
+      - name: Render task definition template (envsubst)
+        env:
+          TASK_ROLE_ARN: ${{ secrets.TASK_ROLE_ARN }}
+          AWS_EXE_ROLE_ARN: ${{ secrets.AWS_EXE_ROLE_ARN }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          SPRING_KAFKA_BOOTSTRAP_SERVERS: ${{ secrets.SPRING_KAFKA_BOOTSTRAP_SERVERS }}
+
+          DELIVERY_IMAGE_URI: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
+
+          # app env
+          PG_SUB_DB: ${{ secrets.PG_SUB_DB }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          PG_SUB_USER: ${{ secrets.PG_SUB_USER }}
+          PG_SUB_PASSWORD: ${{ secrets.PG_SUB_PASSWORD }}
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gettext-base
+          envsubst < "${{ env.TASK_DEFINITION_TPL }}" > "${{ env.TASK_DEFINITION_RENDERED }}"
+
       - name: Render task definition (inject image)
         id: render
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: ${{ env.TASK_DEFINITION }}
+          task-definition: ${{ env.TASK_DEFINITION_RENDERED }}
           container-name: ${{ env.CONTAINER_NAME }}
           image: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
 

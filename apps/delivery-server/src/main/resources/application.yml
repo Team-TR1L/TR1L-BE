@@ -1,4 +1,4 @@
-secret-key: ${DELIVERY_SECRET_KEY}
+secret-key: ${SECRET_KEY}
 
 kafka:
   topic:
