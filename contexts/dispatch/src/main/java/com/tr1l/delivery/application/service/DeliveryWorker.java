@@ -1,11 +1,11 @@
 package com.tr1l.delivery.application.service;
 
 import com.tr1l.delivery.application.port.out.ContentProviderPort;
-import com.tr1l.delivery.application.port.out.DecryptionPort;
 import com.tr1l.delivery.application.port.out.DeliveryResultEventPort;
 import com.tr1l.delivery.application.port.out.NotificationClientPort;
 import com.tr1l.delivery.domain.DeliveryResultEvent;
 import com.tr1l.dispatch.infra.kafka.DispatchRequestedEvent;
+import com.tr1l.util.DecryptionTool;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -16,7 +16,7 @@ import java.util.concurrent.Executor;
 @RequiredArgsConstructor
 public class DeliveryWorker {
 
-    private final DecryptionPort decryptionPort;
+    private final DecryptionTool decryptionTool;
     private final ContentProviderPort contentProvider;
     private final NotificationClientPort notificationClient;
     private final DeliveryResultEventPort eventPort;
@@ -29,7 +29,7 @@ public class DeliveryWorker {
             try {
 //                // 복호화
 //                String s3Url = decryptionPort.decrypt(event.getEncryptedS3Url());
-//                String destination = decryptionPort.decrypt(event.getEncryptedDestination());
+//                String destination = decryptionTool.decrypt(event.getEncryptedDestination());
 //
 //                // S3 다운로드
 //                String realContent = contentProvider.downloadContent(s3Url);

@@ -78,6 +78,12 @@ logging:
     #driver
     org.postgresql: WARN
 
+# S3 설정값
+s3:
+  bucket: ${S3_BUCKET:}
+
+aws:
+  region: ${AWS_REGION:}
 
 ---
 
