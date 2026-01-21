@@ -10,11 +10,13 @@ import java.util.Base64;
  */
 public class DecryptionTool {
     private final String secretKey;
-    private static final String ALGORITHM = "AES";
-    private static final String TRANSFORMATION = "AES/ECB/PKCS5Padding";
+    private final String ALGORITHM;
+    private final String TRANSFORMATION;
 
-    public DecryptionTool(String secretKey) {
+    public DecryptionTool(String secretKey, String ALGORITHM, String TRANSFORMATION) {
         this.secretKey = secretKey;
+        this.ALGORITHM = ALGORITHM;
+        this.TRANSFORMATION = TRANSFORMATION;
     }
 
     public String decrypt(String cipherText) {
@@ -37,7 +39,7 @@ public class DecryptionTool {
             return new String(decryptedBytes, StandardCharsets.UTF_8);
 
         } catch (Exception e) {
-            throw new IllegalArgumentException("Decryption is failed");
+            throw new RuntimeException("Decryption failed", e);
         }
     }
 }
