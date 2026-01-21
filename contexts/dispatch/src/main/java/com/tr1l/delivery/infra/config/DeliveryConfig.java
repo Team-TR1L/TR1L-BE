@@ -7,11 +7,8 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class DeliveryConfig {
-    @Value("${secret-key}") // delivery 전용 키
-    private String deliveryKey;
     @Bean
-    public DecryptionTool deliveryDecrypter() {
-        // 배달용 키를 꽂아서 생성!
+    public DecryptionTool deliveryDecrypt(@Value("${secret-key}") String deliveryKey) {
         return new DecryptionTool(deliveryKey);
     }
 }
