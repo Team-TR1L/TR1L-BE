@@ -4,8 +4,6 @@ spring:
     username: ${PG_SUB_USER:billing}
     password: ${PG_SUB_PASSWORD:billing}
     driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 50
 
   jpa:
     open-in-view: false
