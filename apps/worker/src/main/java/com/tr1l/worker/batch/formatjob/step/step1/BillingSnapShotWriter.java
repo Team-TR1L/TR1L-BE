@@ -6,13 +6,16 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tr1l.billing.application.port.out.BillingTargetS3UpdatePort;
 import com.tr1l.billing.application.port.out.S3UploadPort;
 import com.tr1l.worker.batch.formatjob.domain.RenderedMessage;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
 
 import java.nio.charset.StandardCharsets;
 import java.time.YearMonth;
 
-
+@Slf4j
+@StepScope
 public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
 
     private final String bucket;
@@ -35,25 +38,30 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
     public void write(Chunk<? extends RenderedMessage> chunk) throws Exception {
         for (RenderedMessage msg : chunk) {
 
+            log.warn("resolveBillingYearMonth start");
             // 어댑터에서 Date로 변환
             YearMonth billingYm = resolveBillingYearMonth(msg);
+            log.warn("resolveBillingYearMonth end");
 
             // key -> YYYY-MM + userId + type
             String base = msg.period() + "/" + msg.userId() + "/";
             String emailKey = base + "EMAIL.html";
             String smsKey   = base + "SMS.txt";
+            log.warn("base = {} , {} , {}",base,emailKey,smsKey);
 
             ArrayNode s3Array = om.createArrayNode(); // [] jsonb 형식
+            log.warn("s3Array = {} ",s3Array.toString());
 
             // 1) EMAIL 업로드
             if (hasText(msg.emailHtml())) {
+
                 S3UploadPort.S3PutResult put = s3UploadPort.putBytes(
                         bucket,
                         emailKey,
                         msg.emailHtml().getBytes(StandardCharsets.UTF_8),
                         "text/html; charset=utf-8"
                 );
-
+                log.warn("S3Put Bucket = {} , Key = {}", put.bucket(),put.key());
                 s3Array.add(s3UrlItem("EMAIL", put.bucket(), put.key()));
             }
 
@@ -65,13 +73,16 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
                         msg.smsText().getBytes(StandardCharsets.UTF_8),
                         "text/plain; charset=utf-8"
                 );
+                log.warn("S3Put Bucket = {} , Key = {}", put.bucket(),put.key());
 
                 s3Array.add(s3UrlItem("SMS", put.bucket(), put.key()));
             }
 
             if (s3Array.isEmpty()) {
                 throw new IllegalStateException("RenderedMessage has no contents. userId=" + msg.userId());
+
             }
+
 
             // 3) DB 업데이트(READY + s3_url_jsonb)
             billingTargetS3UpdatePort.updateStatus(
@@ -91,6 +102,7 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
         n.put("key", channelKey);
         n.put("bucket", bucket);
         n.put("s3_key", s3Key);
+        log.warn("ObjectNode = {}",n);
         return n;
     }
 

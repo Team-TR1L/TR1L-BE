@@ -40,17 +40,12 @@ public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort 
     public void save(Billing billing) {
         if (billing == null) return;
 
-        // ✅ snapshotId = BillingId (workId 기반 결정적)
         String snapshotId = billing.billingId().value();
-
         Instant now = Instant.now();
-
-        // ✅ workId는 idempotencyKey에 workId를 넣는다고 했으니 거기서 빼는 걸 추천
-        // (만약 Billing에 workId 필드가 따로 있으면 그걸 쓰면 됨)
         String workId = billing.idempotencyKey().value();
 
-        // ✅ Billing 전체를 payload 도큐먼트로 변환 (필드 단위 조회 가능)
-        Document payloadDoc = toDocumentPayload(billing);
+//        Document payloadDoc = toDocumentPayload(billing);
+        Document payloadDoc = toRenderPayload(billing);
 
         // ✅ 플랫폼별 조회 최적화용 top-level 필드
         String billingMonth = billing.period().value().atDay(1).toString(); // "YYYY-MM-01"
@@ -93,20 +88,60 @@ public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort 
         }
     }
 
-    private Document toDocumentPayload(Billing billing) {
-        // Jackson으로 Map 변환 -> Document
-        Map<String, Object> map = objectMapper.convertValue(billing, new TypeReference<Map<String, Object>>() {});
-        return new Document(map);
+    private Document toRenderPayload(Billing billing) {
+        Document p = new Document();
+
+        // ValueString / ValueInt 형태로 맞추기
+        p.put("period", new Document("value", billing.period().value().toString())); // "2025-12"
+        p.put("customerName", new Document("value", billing.customerName().value()));
+
+        p.put("subtotalAmount", new Document("value", billing.subtotalAmount().amount()));
+        p.put("discountTotalAmount", new Document("value", billing.discountTotalAmount().amount()));
+        p.put("totalAmount", new Document("value", billing.totalAmount().amount()));
+
+        // chargeLines -> name, pricingSnapshot.amount.value
+        List<Document> chargeLines = new ArrayList<>();
+        for (var cl : billing.chargeLines()) {
+            Document line = new Document();
+            line.put("name", cl.displayName()); // 도메인에 맞는 getter로
+            line.put("pricingSnapshot",
+                    new Document("amount",
+                            new Document("value", cl.pricingSnapshot().lineAmount().amount())
+                    )
+            );
+            chargeLines.add(line);
+        }
+        p.put("chargeLines", chargeLines);
+
+        // discountLines -> name, discountType, discountAmount.value
+        List<Document> discountLines = new ArrayList<>();
+        for (var dl : billing.discountLines()) {
+            Document line = new Document();
+            line.put("name", dl.displayName());
+            line.put("discountType", dl.type().name()); // enum이면 name()
+            line.put("discountAmount", new Document("value", dl.discountAmount().amount()));
+            discountLines.add(line);
+        }
+        p.put("discountLines", discountLines);
+
+        return p;
     }
 
-    private String extractBillingMonth(Document payload, Billing billing) {
-        // payload에 period.billingMonth 같은 게 있으면 그 경로에서 꺼내는 게 좋음.
-        // 지금은 가장 단순 fallback: idempotencyKey(workId)=YYYY-MM:userId 라고 가정
-        String workId = billing.idempotencyKey().value();
-        int idx = workId.indexOf(':');
-        if (idx > 0) return workId.substring(0, idx);
-        return safeString(payload.get("billingMonth")); // 혹시 Billing에 billingMonth가 직접 있다면
-    }
+
+//    private Document toDocumentPayload(Billing billing) {
+//        // Jackson으로 Map 변환 -> Document
+//        Map<String, Object> map = objectMapper.convertValue(billing, new TypeReference<Map<String, Object>>() {});
+//        return new Document(map);
+//    }
+
+//    private String extractBillingMonth(Document payload, Billing billing) {
+//        // payload에 period.billingMonth 같은 게 있으면 그 경로에서 꺼내는 게 좋음.
+//        // 지금은 가장 단순 fallback: idempotencyKey(workId)=YYYY-MM:userId 라고 가정
+//        String workId = billing.idempotencyKey().value();
+//        int idx = workId.indexOf(':');
+//        if (idx > 0) return workId.substring(0, idx);
+//        return safeString(payload.get("billingMonth")); // 혹시 Billing에 billingMonth가 직접 있다면
+//    }
 
     private Long extractUserId(Document payload, Billing billing) {
         // 1) payload에 userId/customerId가 있으면 거기서
