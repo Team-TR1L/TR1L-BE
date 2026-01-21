@@ -36,7 +36,6 @@
         { "name": "KAFKA_GROUP_DELIVERY", "value": "delivery-group" },
         { "name": "KAFKA_GROUP_DELIVERY_RESULT_HANDLER", "value": "delivery-result-handler-group" },
         { "name": "SECRET_KEY", "value": "${SECRET_KEY}" }
-
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
