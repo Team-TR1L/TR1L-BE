@@ -47,18 +47,38 @@ jobs:
 
       - name: Deploy on EC2 via SSM (pull & replace container)
         run: |
-          set -e
-          IMAGE="${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}"
-
-          aws ssm send-command \
+          set -euo pipefail
+          
+          INSTANCE_ID="${{ secrets.API_EC2_INSTANCE_ID }}"
+          REGISTRY="${{ steps.ecr.outputs.registry }}"
+          IMAGE="${REGISTRY}/${{ env.ECR_REPO }}:${{ github.sha }}"
+          
+          CMD_ID=$(aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy api-server from GitHub Actions" \
-            --targets "Key=InstanceIds,Values=${{ secrets.API_EC2_INSTANCE_ID }}" \
-            --parameters commands="[
-              \"set -e\",
-              \"aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.ecr.outputs.registry }}\",
-              \"docker pull $IMAGE\",
-              \"docker rm -f ${{ env.CONTAINER_NAME }} || true\",
-              \"docker run -d --name ${{ env.CONTAINER_NAME }} -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} --restart unless-stopped --env-file /opt/billing-api/.env $IMAGE\",
-              \"docker ps | grep ${{ env.CONTAINER_NAME }}\"
-            ]"
+            --instance-ids "$INSTANCE_ID" \
+            --parameters 'commands=[
+              "set -euo pipefail",
+              "echo IMAGE='"$IMAGE"'",
+              "aws ecr get-login-password --region '"${{ env.AWS_REGION }}"' | sudo docker login --username AWS --password-stdin '"$REGISTRY"'",
+              "sudo docker pull '"$IMAGE"'",
+              "test -f /opt/billing-api/.env",
+              "sudo docker rm -f '"${{ env.CONTAINER_NAME }}"' || true",
+              "sudo docker run -d --name '"${{ env.CONTAINER_NAME }}"' -p 127.0.0.1:'"${{ env.HOST_PORT }}"':80 --restart unless-stopped --env-file /opt/billing-api/.env '"$IMAGE"'",
+              "sudo docker ps --no-trunc | grep '"${{ env.CONTAINER_NAME }}"'",
+              "sudo docker inspect '"${{ env.CONTAINER_NAME }}"' --format \"created={{.Created}} image={{.Config.Image}} sha={{.Image}}\""
+            ]' \
+            --query 'Command.CommandId' --output text)
+          
+          echo "SSM CommandId: $CMD_ID"
+          
+          aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID"
+          
+          echo "----- SSM STDOUT -----"
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query 'StandardOutputContent' --output text || true
+          
+          echo "----- SSM STDERR -----"
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query 'StandardErrorContent' --output text || true
+

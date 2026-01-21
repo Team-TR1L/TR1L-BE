@@ -1,9 +1,17 @@
 FROM gradle:8.7-jdk17 AS builder
 WORKDIR /workspace
 
-COPY . .
-RUN chmod +x ./gradlew
+# 1. 의존성 관련 파일만 먼저 복사
+COPY build.gradle settings.gradle gradlew ./
+COPY gradle ./gradle
 
+# 2. 의존성 다운로드 (이 레이어는 자주 캐시됨)
+RUN chmod +x ./gradlew && ./gradlew dependencies --no-daemon
+
+# 3. 전체 소스 코드 복사
+COPY . .
+
+# 4. 애플리케이션 빌드
 RUN ./gradlew :apps:dispatch-server:bootJar -x test --no-daemon
 
 FROM eclipse-temurin:17-jre
