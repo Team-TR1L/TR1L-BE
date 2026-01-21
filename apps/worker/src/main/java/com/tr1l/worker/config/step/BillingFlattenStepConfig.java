@@ -1,4 +1,4 @@
-package com.tr1l.worker.config;
+package com.tr1l.worker.config.step;
 
 import com.tr1l.billing.application.model.BillingTargetBaseRow;
 import com.tr1l.worker.batch.calculatejob.step.step1.BillingTargetFlattenWriter;
@@ -28,8 +28,6 @@ import javax.sql.DataSource;
  *==========================*/
 @Configuration
 public class BillingFlattenStepConfig {
-    @Value("${app.sql.step1.reader.fetchSize}")
-    private int chunkSize;
 
     @Bean
     public JdbcCursorItemReader<BillingTargetBaseRow> billingTargetBaseReader(
@@ -53,12 +51,15 @@ public class BillingFlattenStepConfig {
             JobRepository jobRepository,
             @Qualifier("TX-target") PlatformTransactionManager targetTx,
             JdbcCursorItemReader<BillingTargetBaseRow> billingTargetBaseRowJdbcCursorItemReader,
-            BillingTargetFlattenWriter writer
+            BillingTargetFlattenWriter writer,
+            StepLoggingListener listener,
+            @Value("${app.sql.step1.chunk.chunkSize}") int chunkSize
     ) {
-        return new StepBuilder("billingFlattenStep",jobRepository)
+        return new StepBuilder("billingFlattenStep", jobRepository)
                 .<BillingTargetBaseRow, BillingTargetBaseRow>chunk(chunkSize, targetTx)
                 .reader(billingTargetBaseRowJdbcCursorItemReader)
                 .writer(writer)
+                .listener(listener)
                 .build();
     }
 }

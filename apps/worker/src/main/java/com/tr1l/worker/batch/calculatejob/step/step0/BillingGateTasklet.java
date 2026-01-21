@@ -4,14 +4,17 @@ import com.tr1l.billing.api.usecase.GateBillingCycleUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.StepContribution;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.repeat.RepeatStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 
 /*==========================
  * [ 정산 범위 고정 ]
@@ -27,28 +30,34 @@ import java.time.YearMonth;
 
 @Component
 @RequiredArgsConstructor
+@StepScope
 public class BillingGateTasklet implements Tasklet {
     private final GateBillingCycleUseCase gateUseCase;
     private final ExitStatus NOOP = new ExitStatus("NOOP");
 
-    @Override
-    public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
-        var jobParams = chunkContext.getStepContext().getStepExecution().getJobParameters();
+    private static final DateTimeFormatter YM_FORMATTER = DateTimeFormatter.ofPattern("yyyyMM");
 
-        //정산 대상 월 TODO:이거 삭제하고 cutoff로 통일 후 내부에서 Month 처리
-        String billingMonthParam=jobParams.getString("billingYearMonth");
-        //cutoff 기준
-        String cutoffIso=jobParams.getString("cutoff");
+    @Value("#{jobExecutionContext['cutoff']}")
+    private String cutoff;
+
+    @Value("#{jobExecutionContext['billingYearMonth']}")
+    private String billingYearMonth;
+
+    @Override
+    public RepeatStatus execute(
+            StepContribution contribution,
+            ChunkContext chunkContext
+    ) throws Exception {
 
         //파라미터가 없으면 Job 종료
-        if (billingMonthParam==null || billingMonthParam.isBlank() || cutoffIso==null || cutoffIso.isBlank()){
+        if (billingYearMonth==null || billingYearMonth.isBlank() || cutoff==null || cutoff.isBlank()){
             contribution.setExitStatus(NOOP);
             return RepeatStatus.FINISHED;
         }
 
         //parameter parsing
-        YearMonth billingMonth = YearMonth.parse(billingMonthParam);
-        Instant cutoffAt=Instant.parse(cutoffIso);
+        YearMonth billingMonth = YearMonth.parse(billingYearMonth);
+        Instant cutoffAt=Instant.parse(cutoff);
 
         var result = gateUseCase.gate(new GateBillingCycleUseCase.GateCommand(billingMonth,cutoffAt));
 
@@ -59,13 +68,6 @@ public class BillingGateTasklet implements Tasklet {
             //Tasklet 실행 종료
             return RepeatStatus.FINISHED;
         }
-
-        //다음 Step으로 파라미터 공유
-        ExecutionContext jobCtx=chunkContext.getStepContext()
-                .getStepExecution().getJobExecution().getExecutionContext();
-
-        jobCtx.putString("billingYearMonth",billingMonthParam);
-        jobCtx.putString("cutoff",cutoffIso);
 
         return RepeatStatus.FINISHED;
     }

@@ -20,13 +20,15 @@ public class BillingTargetFlattenWriter implements ItemWriter<BillingTargetBaseR
 
     public BillingTargetFlattenWriter(
             FlattenBillingTargetsUseCase useCase,
-            @Value("#{jobParameters['billingYearMonth']}") String yearMonth
-    ){
-        this.useCase=useCase;
-        this.params=BillingTargetFlatParams.of(yearMonth);
+            @Value("#{jobExecutionContext['billingYearMonth']}") String billingYearMonth,
+            @Value("#{jobExecutionContext['channelOrder']}") String channelOrder
+            ) {
+        this.useCase = useCase;
+        this.params = BillingTargetFlatParams.of(billingYearMonth,channelOrder);
     }
+
     @Override
     public void write(Chunk<? extends BillingTargetBaseRow> chunk) throws Exception {
-        useCase.execute((List<BillingTargetBaseRow>) chunk.getItems(),params);
+        useCase.execute((List<BillingTargetBaseRow>) chunk.getItems(), params);
     }
 }

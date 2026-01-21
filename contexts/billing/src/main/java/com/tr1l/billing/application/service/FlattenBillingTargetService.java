@@ -1,5 +1,6 @@
 package com.tr1l.billing.application.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.tr1l.billing.api.usecase.FlattenBillingTargetsUseCase;
 import com.tr1l.billing.application.model.BillingTargetBaseRow;
 import com.tr1l.billing.application.model.BillingTargetFacts;
@@ -25,7 +26,7 @@ public class FlattenBillingTargetService implements FlattenBillingTargetsUseCase
     //UPSERT를 target DB에 하므로 트랜잭션 처리
     @Transactional(transactionManager = "TX-target")
     @Override
-    public void execute(List<BillingTargetBaseRow> baseRows, BillingTargetFlatParams params) {
+    public void execute(List<BillingTargetBaseRow> baseRows, BillingTargetFlatParams params) throws JsonProcessingException {
         if (baseRows == null || baseRows.isEmpty()) return;
 
         List<Long> userIds = baseRows.stream()
