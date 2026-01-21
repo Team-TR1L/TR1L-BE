@@ -25,9 +25,7 @@ public class ChannelPayloadBuilder {
 
         for (String rawKey : channelOrder){
             if (rawKey ==null || rawKey.isBlank()) continue;
-            String key=rawKey.trim().toLowerCase(Locale.ROOT);
-
-            ChannelHandler handler=registry.get(key);
+            ChannelHandler handler=registry.get(rawKey);
 
             handler.build(contact).ifPresent(result::add);
         }

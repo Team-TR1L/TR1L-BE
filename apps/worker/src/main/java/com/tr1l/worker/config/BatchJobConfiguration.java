@@ -33,8 +33,8 @@ public class BatchJobConfiguration {
     @Value("${batch.job2StartTime:}")
     private String job2StartTime;
 
-    @Value("${batch.channelOrderJson:}")
-    private String channelOrderJson;
+    @Value("${batch.channelOrder:}")
+    private String channelOrder;
 
 
     private final ObjectMapper mapper;
@@ -45,21 +45,19 @@ public class BatchJobConfiguration {
         log.info("jobName: '{}'", jobName);
         log.info("job1StartTime: '{}'", job1StartTime);
         log.info("job2StartTime: '{}'", job2StartTime);
-        log.info("channelOrderJson: '{}'", channelOrderJson);
+        log.info("channelOrder: '{}'", channelOrder);
         log.info("===========================");
     }
 
     /**
      * channelOrder : Json -> String 파싱
      */
-    public String getChannelOrder() throws JsonProcessingException {
-        if (channelOrderJson == null || channelOrderJson.isEmpty()) {
-            return "";
+    public String getChannelOrder()  {
+        if (channelOrder == null || channelOrder.isEmpty()) {
+            throw new IllegalArgumentException("필수 파라미터 값인 channelOrder를 입력하지 않았습니다.");
         }
 
-        ChannelOrderParameter parameter = mapper.readValue(channelOrderJson, ChannelOrderParameter.class);
-
-        return mapper.writeValueAsString(parameter.channelOrder());
+        return channelOrder;
     }
 
     /**

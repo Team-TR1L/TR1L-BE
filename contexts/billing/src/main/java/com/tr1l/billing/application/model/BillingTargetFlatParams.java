@@ -6,6 +6,8 @@ import java.time.LocalDate;
 import java.time.Year;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.List;
 
 /*==========================
  * step01 호출 시 필요한 파라미터 레코드
@@ -20,7 +22,7 @@ public record BillingTargetFlatParams(
         LocalDate startDate,
         LocalDate endDate,
         LocalDate billingMonth,
-        String channelOrder
+        List<String> channelOrder
 ) {
     public static BillingTargetFlatParams of(String yearMonth,String channelOrder){
         YearMonth ym=YearMonth.parse(yearMonth);
@@ -28,6 +30,11 @@ public record BillingTargetFlatParams(
         LocalDate startDate=ym.atDay(1); //월 1일
         LocalDate endDate=ym.atEndOfMonth();        //월 말일
         log.warn("BillingTargetFlatParams : ym = {} channelOrder = {}",ym,channelOrder);
-        return new BillingTargetFlatParams(yearMonth,startDate,endDate,startDate,channelOrder);
+
+        List<String> channels = Arrays.stream(channelOrder.split(","))
+              .map(String::trim)
+              .toList();
+
+        return new BillingTargetFlatParams(yearMonth,startDate,endDate,startDate,channels);
     }
 }
