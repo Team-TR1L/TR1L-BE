@@ -61,14 +61,14 @@ public class DispatchPolicyService {
         // ACTIVE 단일성 처리
         if ("ACTIVE".equals(newStatus) && !"ACTIVE".equals(policy.getStatus())) {
             repository.findCurrentPolicy().ifPresent(activePolicy -> {
-                activePolicy.retire(); // 기존 ACTIVE 정책 RETIRED 처리
+                activePolicy.draft(); // 기존 ACTIVE 정책 DRAFT 처리
                 repository.save(activePolicy);
             });
             policy.activate(); // 현재 정책 ACTIVE 처리
         }
 
         // 채널 정책 수정
-        policy.changeRoutingPolicy(newRoutingPolicyJson, AdminId.of(0L)); // 하드코딩
+        policy.changeRoutingPolicy(newRoutingPolicyJson, policy.getAdminId()); // 하드코딩
 
         // 상태 변경 (DRAFT, RETIRED 등)
         policy.setStatus(PolicyStatus.valueOf(newStatus));

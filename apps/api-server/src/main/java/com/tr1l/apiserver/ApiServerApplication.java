@@ -5,11 +5,18 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-@SpringBootApplication(scanBasePackages = {"com.tr1l.util"})
-@EnableJpaRepositories(basePackages = "com.tr1l")
-@EntityScan(basePackages = "com.tr1l")
+@SpringBootApplication(
+        scanBasePackages = {
+                "com.tr1l.apiserver",
+                "com.tr1l.dispatch",
+                "com.tr1l.util"
+        }
+)
+@EnableJpaRepositories(basePackages = "com.tr1l.dispatch.infra.persistence.repository")
+@EntityScan(basePackages = "com.tr1l.dispatch.infra.persistence.entity")
 public class ApiServerApplication {
     public static void main(String[] args) {
-        SpringApplication.run(ApiServerApplication.class);
+        SpringApplication.run(ApiServerApplication.class, args);
     }
 }
+

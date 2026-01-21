@@ -80,20 +80,13 @@ public class DispatchPolicy {
             AdminId adminId,
             ChannelRoutingPolicy routingPolicy
     ) {
-        if (adminId == null)
-            throw new DispatchDomainException(DispatchErrorCode.ADMIN_ID_NULL);
-
-        if (routingPolicy == null)
-            throw new DispatchDomainException(DispatchErrorCode.ROUTING_POLICY_NULL);
-
-        DispatchPolicy policy = new DispatchPolicy(DispatchPolicyId.generatePolicyId(), adminId);
+        DispatchPolicy policy = new DispatchPolicy();
+        policy.adminId = adminId;
         policy.routingPolicy = routingPolicy;
         policy.status = PolicyStatus.DRAFT;
-        policy.version = PolicyVersion.of(1);
         policy.createdAt = Instant.now();
         return policy;
     }
-
 
     // ==================================================
     // 도메인 행위
@@ -119,6 +112,14 @@ public class DispatchPolicy {
 
         this.status = PolicyStatus.ACTIVE;
         this.activatedAt = Instant.now();
+    }
+
+    public void draft() {
+        if (this.status == PolicyStatus.DRAFT) {
+            throw new DispatchDomainException(DispatchErrorCode.POLICY_ALREADY_DRAFT);
+        }
+
+        this.status = PolicyStatus.DRAFT;
     }
 
     public void retire() {

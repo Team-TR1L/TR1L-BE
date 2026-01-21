@@ -1,17 +1,15 @@
 package com.tr1l.dispatch.infra.persistence.entity;
 
+import com.tr1l.dispatch.domain.model.vo.ChannelRoutingPolicy;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.Instant;
 
 @Entity
 @Table(name = "dispatch_policy")
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Getter @Setter
+@NoArgsConstructor
 @AllArgsConstructor
 public class DispatchPolicyEntity {
 
@@ -28,7 +26,7 @@ public class DispatchPolicyEntity {
     @Column(name = "version", nullable = false)
     private int version;
 
-    @Column(name = "routing_policy_json", columnDefinition = "TEXT")
+    @Column(name = "routing_policy_json", columnDefinition = "TEXT", nullable = false)
     private String routingPolicyJson;
 
     @Column(name = "max_attempt_count", nullable = false)

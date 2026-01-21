@@ -23,7 +23,7 @@ public class DispatchPolicyController {
         Long policyId = service.createPolicy(
                 new CreateDispatchPolicyCommand(
                         request.getAdminId(),
-                        request.getChannelRoutingPolicy()
+                        request.getChannelRoutingPolicy()   
                 )
         );
         return ResponseEntity.ok(policyId);

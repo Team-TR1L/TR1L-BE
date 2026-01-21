@@ -17,6 +17,7 @@ public enum DispatchErrorCode implements ErrorCode {
     POLICY_VERSION_OVERFLOW("DSP-DOM-006", ErrorCategory.DOM, "PolicyVersion이 허용 범위를 초과했습니다."),
     ROUTING_POLICY_NULL("DSP-VAL-006", ErrorCategory.VAL, "RoutingPolicy는 null일 수 없습니다."),
     ENCRYPTED_TEXT_NULL("DSP-VAL-007", ErrorCategory.VAL, "복호화할 암호문이 null이거나 비어있습니다."),
+    POLICY_ALREADY_DRAFT("DSP-VAL-007", ErrorCategory.VAL, "이미 정책 상태가 DRAFT입니다."),
 
 
     // =====================================================================
