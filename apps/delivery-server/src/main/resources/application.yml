@@ -1,4 +1,6 @@
 secret-key: ${SECRET_KEY}
+algorithm: ${ALGORITHM}
+transformation: ${TRANSFORMATION}
 
 kafka:
   topic:
