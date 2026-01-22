@@ -27,7 +27,7 @@ public final class WelfareDiscountPolicy {
                 lineId,
                 DiscountType.WELFARE,
                 DiscountMethod.PERCENT,
-                "복지 할인",
+                in.welfareName(),
                 new SourceRef("welfare_discount", 1L),
                 DiscountBasis.WELFARE_BASE,
                 base,
