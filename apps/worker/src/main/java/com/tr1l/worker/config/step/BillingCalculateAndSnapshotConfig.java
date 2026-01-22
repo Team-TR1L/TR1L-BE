@@ -49,6 +49,7 @@ public class BillingCalculateAndSnapshotConfig {
     ) {
         return new StepBuilder("billingCalculateAndSnapshotStep", jobRepository)
                 .<WorkAndTargetRow, CalculateBillingProcessor.Result>chunk(chunkSize, txManager)
+                .reader(reader)
                 .processor(processor)
                 .listener(listener)
                 .writer(writer)
