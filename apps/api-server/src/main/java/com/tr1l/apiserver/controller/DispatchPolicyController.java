@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/admin/policies")
+@RequestMapping("/api/policies")
 @RequiredArgsConstructor
 public class DispatchPolicyController {
 
@@ -67,7 +67,6 @@ public class DispatchPolicyController {
     public ResponseEntity<DispatchPolicy> getActivePolicy() {
         return ResponseEntity.ok(service.findCurrentActivePolicy());
     }
-
 
     /** 배치 수동 실행 */
     @PostMapping("/start-batch")

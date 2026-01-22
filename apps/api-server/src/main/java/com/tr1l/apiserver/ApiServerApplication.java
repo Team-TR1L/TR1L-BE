@@ -12,8 +12,15 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
                 "com.tr1l.util"
         }
 )
-@EnableJpaRepositories(basePackages = "com.tr1l.dispatch.infra.persistence.repository")
-@EntityScan(basePackages = "com.tr1l.dispatch.infra.persistence.entity")
+@EnableJpaRepositories(basePackages = {
+        "com.tr1l.dispatch.infra.persistence.repository",
+        "com.tr1l.apiserver.auth",           // AdminAuthRepository
+})
+@EntityScan(basePackages = {
+        "com.tr1l.dispatch.infra.persistence.entity",
+        "com.tr1l.apiserver.auth",
+        "com.tr1l.apiserver.persistence.entity"
+})
 public class ApiServerApplication {
     public static void main(String[] args) {
         SpringApplication.run(ApiServerApplication.class, args);
