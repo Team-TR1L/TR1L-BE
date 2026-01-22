@@ -25,7 +25,7 @@ public class DeliveryWorker {
     public void work(DispatchRequestedEvent event) {
         // 비동기 처리
         CompletableFuture.runAsync(() -> {
-            boolean isSuccess = false;
+            boolean isSuccess = true;
             try {
 //                // 복호화
 //                String s3Url = decryptionPort.decrypt(event.getEncryptedS3Url());
@@ -35,12 +35,13 @@ public class DeliveryWorker {
 //                String realContent = contentProvider.downloadContent(s3Url);
 
                 // 1초 대기 발생
-                isSuccess = notificationClient.send(event.getEncryptedDestination(), event.getEncryptedS3Url(), event.getChannelType());
+                notificationClient.send(event.getEncryptedDestination(), event.getEncryptedS3Url(), event.getChannelType());
 
             } catch (Exception e) {
+                // 해당 과정 중에 에러가 발생할 경우 예외를 삼키고 실패(false)로 결과 토픽 발행
                 isSuccess = false;
             } finally {
-                // 결과 보고 (Result Topic)
+                // 결과 발행 (Result Topic)
                 eventPort.publish(new DeliveryResultEvent(event.getUserId(), isSuccess, event.getBillingMonth()));
             }
         }, notificationExecutor);
