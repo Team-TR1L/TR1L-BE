@@ -7,6 +7,7 @@ import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 import com.tr1l.dispatch.infra.kafka.DispatchRequestedEvent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
 /*
  * Producer로부터 받아온 이벤트를 소모
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DispatchEventListener {
@@ -37,6 +39,7 @@ public class DispatchEventListener {
             ack.acknowledge();
         } catch (JsonProcessingException e) {
             // 파싱 실패는 재시도 하지 않음
+            log.error("JSON 파싱 실패");
             ack.acknowledge();
         }
     }

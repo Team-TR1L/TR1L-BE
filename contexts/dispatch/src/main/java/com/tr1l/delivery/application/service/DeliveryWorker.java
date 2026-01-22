@@ -7,11 +7,13 @@ import com.tr1l.delivery.domain.DeliveryResultEvent;
 import com.tr1l.dispatch.infra.kafka.DispatchRequestedEvent;
 import com.tr1l.util.DecryptionTool;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DeliveryWorker {
@@ -42,7 +44,11 @@ public class DeliveryWorker {
                 isSuccess = false;
             } finally {
                 // 결과 발행 (Result Topic)
-                eventPort.publish(new DeliveryResultEvent(event.getUserId(), isSuccess, event.getBillingMonth()));
+                try {
+                    eventPort.publish(new DeliveryResultEvent(event.getUserId(), isSuccess, event.getBillingMonth()));
+                } catch (Exception e){
+                    log.error("결과 이벤트 발행 실패, user_id:{}, billing_month:{}, isSuccess:{}",event.getUserId(),event.getBillingMonth(),isSuccess);
+                }
             }
         }, notificationExecutor);
     }

@@ -4,12 +4,14 @@ import com.tr1l.delivery.application.port.out.DeliveryRepositoryPort;
 import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 
+@Slf4j
 @Repository
 @RequiredArgsConstructor
 public class DeliveryPersistenceAdapter implements DeliveryRepositoryPort {
@@ -28,6 +30,7 @@ public class DeliveryPersistenceAdapter implements DeliveryRepositoryPort {
             return jdbcTemplate.update(sql, userId, billingMonth);
         } catch (DataAccessException e){
             // SENT로 업데이트 하다가 오류 -> 카프카 리트라이 토픽
+            log.error("SENT 업데이트 에러, user_id:{}, billing_month:{}", userId, billingMonth);
             throw new DispatchDomainException(DispatchErrorCode.DB_UPDATE_FAILED, e);
         }
     }
@@ -40,6 +43,7 @@ public class DeliveryPersistenceAdapter implements DeliveryRepositoryPort {
                     " WHERE user_id = ? AND billing_month = ?";
             jdbcTemplate.update(sql, userId, billingMonth);
         } catch (DataAccessException e){
+            log.error("SUCCEED 업데이트 에러, user_id:{}, billing_month:{}", userId, billingMonth);
             throw new DispatchDomainException(DispatchErrorCode.DB_UPDATE_FAILED, e);
         }
     }
@@ -53,6 +57,7 @@ public class DeliveryPersistenceAdapter implements DeliveryRepositoryPort {
                     " WHERE user_id = ? AND billing_month = ?";
             jdbcTemplate.update(sql, userId, billingMonth);
         } catch (DataAccessException e){
+            log.error("FAILED 업데이트 에러, user_id:{}, billing_month:{}", userId, billingMonth);
             throw new DispatchDomainException(DispatchErrorCode.DB_UPDATE_FAILED, e);
         }
     }
