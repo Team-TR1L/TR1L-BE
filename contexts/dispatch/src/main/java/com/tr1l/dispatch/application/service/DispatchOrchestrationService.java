@@ -12,8 +12,10 @@ import com.tr1l.dispatch.domain.model.enums.ChannelType;
 import com.tr1l.dispatch.application.port.out.DispatchEventPublisher;
 import com.tr1l.dispatch.infra.persistence.entity.BillingTargetEntity;
 import com.tr1l.dispatch.infra.persistence.repository.MessageCandidateJpaRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.thirdparty.jackson.core.JsonProcessingException;
@@ -30,46 +32,76 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
     private final DispatchPolicyService dispatchPolicyService;
     private final DispatchEventPublisher eventPublisher;
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private final EntityManager entityManager;
 
     @Transactional
     public void orchestrate(Instant now) {
-        //1. 발송 정책을 조회한다.
+
+        // 1. 발송 정책 조회
         DispatchPolicy policy = dispatchPolicyService.findCurrentActivePolicy();
 
         List<ChannelType> channels =
                 policy.getRoutingPolicy().getPrimaryOrder().channels();
 
-        //2. 현재 발송 가능한 메시지들을 가져온다.
-        int currentHour = LocalDateTime.now(ZoneId.of("Asia/Seoul")).getHour();
+        // 2. 기준 시간 계산 (now 기준으로 통일)
+        LocalDateTime nowKst = LocalDateTime.ofInstant(now, ZoneId.of("Asia/Seoul"));
+        int currentHour = nowKst.getHour();
+        String dayTime = String.format("%02d", nowKst.getDayOfMonth());
+        LocalDate billingMonth = nowKst.toLocalDate().withDayOfMonth(1);
 
-        List<BillingTargetEntity> candidates =
-                candidateRepository.findReadyCandidates(channels.size() - 1,
-                        String.format("%02d", LocalDate.now().getDayOfMonth()),
-                        currentHour);
+        // 3. Cursor 초기화
+        Long lastUserId = 0L;
+        int pageSize = 1000;
 
-        System.out.println("후보군 사이즈: " + candidates.size());
+        while (true) {
+            // 4. Cursor 기반 batch 조회
+            List<BillingTargetEntity> candidates =
+                    candidateRepository.findReadyCandidatesByUserCursor(
+                            billingMonth,
+                            lastUserId,
+                            dayTime,
+                            channels.size() - 1,
+                            currentHour,
+                            PageRequest.of(0, pageSize)
+                    );
 
-        //3.  json 확인하고 Kafka에 이벤트 발행
-        for(BillingTargetEntity candidate : candidates) {
-            ChannelType nowChannel = channels.get(Math.min(channels.size() - 1, candidate.getAttemptCount()));
+            if (candidates.isEmpty()) {
+                break;
+            }
 
-            String s3url = extractLocationValueByChannel(
-                    candidate.getS3UrlJsonb(),
-                    nowChannel
-            );
+            // 5. batch 처리
+            for (BillingTargetEntity candidate : candidates) {
 
-            String destination = extractValueByChannel(
-                    candidate.getSendOptionJsonb(),
-                    nowChannel
-            );
+                ChannelType nowChannel =
+                        channels.get(Math.min(
+                                channels.size() - 1,
+                                candidate.getAttemptCount()
+                        ));
 
-            eventPublisher.publish(
-                    candidate.getId().getUserId(),  //유저 아이디
-                    candidate.getId().getBillingMonth(), // billing month
-                    nowChannel,
-                    s3url,
-                    destination
-            );
+                String s3url = extractLocationValueByChannel(
+                        candidate.getS3UrlJsonb(),
+                        nowChannel
+                );
+
+                String destination = extractValueByChannel(
+                        candidate.getSendOptionJsonb(),
+                        nowChannel
+                );
+
+                eventPublisher.publish(
+                        candidate.getId().getUserId(),
+                        candidate.getId().getBillingMonth(),
+                        nowChannel,
+                        s3url,
+                        destination
+                );
+
+                // Cursor 이동
+                lastUserId = candidate.getId().getUserId();
+            }
+
+            // 6. 영속성 컨텍스트 정리 (OOM 방지)
+            entityManager.clear();
         }
     }
     private String extractValueByChannel(String json, ChannelType channelType) {
