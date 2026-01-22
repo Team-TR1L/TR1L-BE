@@ -33,11 +33,12 @@ public class DeliveryWorker {
 //                String s3Url = decryptionPort.decrypt(event.getEncryptedS3Url());
 //                String destination = decryptionTool.decrypt(event.getEncryptedDestination());
 //
-//                // S3 다운로드
-//                String realContent = contentProvider.downloadContent(s3Url);
+                // S3 다운로드
+                String realContent = contentProvider.downloadContent(event.getEncryptedS3Url());
+                log.info("S3 조회 성공, realContent:{}", realContent);
 
                 // 1초 대기 발생
-                notificationClient.send(event.getEncryptedDestination(), event.getEncryptedS3Url(), event.getChannelType());
+                notificationClient.send(event.getEncryptedDestination(), realContent, event.getChannelType());
 
             } catch (Exception e) {
                 // 해당 과정 중에 에러가 발생할 경우 예외를 삼키고 실패(false)로 결과 토픽 발행
