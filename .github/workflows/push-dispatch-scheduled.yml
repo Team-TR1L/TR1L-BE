@@ -46,17 +46,17 @@ jobs:
       - name: Render taskdef template vars (envsubst)
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
-
           TASK_ROLE_ARN: ${{ secrets.TASK_ROLE_ARN }}
           AWS_EXE_ROLE_ARN: ${{ secrets.AWS_EXE_ROLE_ARN }}
 
           SPRING_KAFKA_BOOTSTRAP_SERVERS: ${{ secrets.SPRING_KAFKA_BOOTSTRAP_SERVERS }}
 
+          PG_SUB_HOST: ${{ secrets.PG_SUB_HOST }}
           PG_SUB_DB: ${{ secrets.PG_SUB_DB }}
           PG_SUB_USER: ${{ secrets.PG_SUB_USER }}
-          PG_SUB_HOST: ${{ secrets.PG_SUB_HOST }}
           PG_SUB_PASSWORD: ${{ secrets.PG_SUB_PASSWORD }}
 
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
           ALGORITHM: ${{ secrets.ALGORITHM }}
           TRANSFORMATION: ${{ secrets.TRANSFORMATION }}
 
