@@ -55,6 +55,7 @@ jobs:
           INSTANCE_ID="${{ secrets.API_EC2_INSTANCE_ID }}"
           REGISTRY="${{ steps.ecr.outputs.registry }}"
           IMAGE="${REGISTRY}/${{ env.ECR_REPO }}:${{ github.sha }}"
+
           NAME="${{ env.CONTAINER_NAME }}"
           HOST_PORT="${{ env.HOST_PORT }}"
           CONTAINER_PORT="${{ env.CONTAINER_PORT }}"
@@ -68,7 +69,10 @@ jobs:
             "commands": [
               "set -eu",
               "unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY no_proxy NO_PROXY",
-              "export AWS_REGION=$REGION AWS_DEFAULT_REGION=$REGION",
+              "echo 'WHOAMI='\\\$(whoami)",
+              "echo 'HOSTNAME='\\\$(hostname)",
+              "echo 'INSTANCE_ID='\\\$(curl -s http://169.254.169.254/latest/meta-data/instance-id || true)",
+              "echo '[0] /opt listing'; ls -al /opt || true",
 
               "echo '[1] ECR login'",
               "aws ecr get-login-password --region $REGION > /tmp/ecr_pass",
@@ -79,13 +83,13 @@ jobs:
               "timeout 300 sudo docker pull $IMAGE",
 
               "echo '[3] Check env file'",
-              "if [ ! -f $ENV_FILE ]; then echo \"ENV_FILE missing: $ENV_FILE\"; ls -al \$(dirname $ENV_FILE) || true; exit 1; fi",
+              "if [ ! -f $ENV_FILE ]; then echo \"ENV_FILE missing: $ENV_FILE\"; ls -al \\\$(dirname $ENV_FILE) || true; exit 1; fi",
 
               "echo '[4] Replace container'",
               "sudo docker rm -f $NAME || true",
               "sudo docker run -d --name $NAME -p 127.0.0.1:$HOST_PORT:$CONTAINER_PORT --restart unless-stopped --env-file $ENV_FILE $IMAGE",
 
-              "echo '[5] Verify (print status + logs if not running)'",
+              "echo '[5] Verify (status + logs if not running)'",
               "sleep 2",
               "sudo docker ps -a --no-trunc --filter \"name=^/$NAME$\"",
               "sudo docker inspect $NAME --format 'status={{.State.Status}} exit={{.State.ExitCode}}'",
