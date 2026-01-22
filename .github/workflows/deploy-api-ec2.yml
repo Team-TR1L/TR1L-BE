@@ -64,36 +64,38 @@ jobs:
           echo "Deploy image: $IMAGE"
           echo "Target instance: $INSTANCE_ID"
 
+          # ✅ JSON을 깨는 \$(...) 같은 백슬래시 이스케이프를 절대 넣지 말 것
+          # ✅ 여기서는 값(리전/레지스트리/이미지)만 치환하고, 나머지는 그대로 문자열로 보냄
           cat > ssm-params.json <<EOF
           {
             "commands": [
               "set -eu",
               "unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY no_proxy NO_PROXY",
-              "echo 'WHOAMI='\\\$(whoami)",
-              "echo 'HOSTNAME='\\\$(hostname)",
-              "echo 'INSTANCE_ID='\\\$(curl -s http://169.254.169.254/latest/meta-data/instance-id || true)",
+              "echo WHOAMI=$(whoami)",
+              "echo HOSTNAME=$(hostname)",
+              "echo INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id || true)",
               "echo '[0] /opt listing'; ls -al /opt || true",
 
               "echo '[1] ECR login'",
-              "aws ecr get-login-password --region $REGION > /tmp/ecr_pass",
-              "sudo docker login --username AWS --password-stdin $REGISTRY < /tmp/ecr_pass",
+              "aws ecr get-login-password --region ${REGION} > /tmp/ecr_pass",
+              "sudo docker login --username AWS --password-stdin ${REGISTRY} < /tmp/ecr_pass",
               "rm -f /tmp/ecr_pass",
 
               "echo '[2] Pull image'",
-              "timeout 300 sudo docker pull $IMAGE",
+              "timeout 300 sudo docker pull ${IMAGE}",
 
               "echo '[3] Check env file'",
-              "if [ ! -f $ENV_FILE ]; then echo \"ENV_FILE missing: $ENV_FILE\"; ls -al \\\$(dirname $ENV_FILE) || true; exit 1; fi",
+              "if [ ! -f ${ENV_FILE} ]; then echo 'ENV_FILE missing: ${ENV_FILE}'; ls -al $(dirname ${ENV_FILE}) || true; exit 1; fi",
 
               "echo '[4] Replace container'",
-              "sudo docker rm -f $NAME || true",
-              "sudo docker run -d --name $NAME -p 127.0.0.1:$HOST_PORT:$CONTAINER_PORT --restart unless-stopped --env-file $ENV_FILE $IMAGE",
+              "sudo docker rm -f ${NAME} || true",
+              "sudo docker run -d --name ${NAME} -p 127.0.0.1:${HOST_PORT}:${CONTAINER_PORT} --restart unless-stopped --env-file ${ENV_FILE} ${IMAGE}",
 
               "echo '[5] Verify (status + logs if not running)'",
               "sleep 2",
-              "sudo docker ps -a --no-trunc --filter \"name=^/$NAME$\"",
-              "sudo docker inspect $NAME --format 'status={{.State.Status}} exit={{.State.ExitCode}}'",
-              "sudo docker inspect $NAME --format '{{.State.Running}}' | grep -q true || { echo \"$NAME not running\"; sudo docker logs --tail 200 $NAME || true; exit 1; }",
+              "sudo docker ps -a --no-trunc --filter name=^/${NAME}$",
+              "sudo docker inspect ${NAME} --format 'status={{.State.Status}} exit={{.State.ExitCode}}'",
+              "sudo docker inspect ${NAME} --format '{{.State.Running}}' | grep -q true || { echo '${NAME} not running'; sudo docker logs --tail 200 ${NAME} || true; exit 1; }",
 
               "echo '[OK] Deploy finished'"
             ]
