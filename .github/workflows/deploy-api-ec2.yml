@@ -17,7 +17,7 @@ env:
   ECR_REPO: api
   CONTAINER_NAME: api
   HOST_PORT: "8080"
-  CONTAINER_PORT: "80"
+  CONTAINER_PORT: "8080"
   ENV_FILE: /opt/billing-api/.env
 
 jobs:
@@ -70,16 +70,28 @@ jobs:
               "unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY no_proxy NO_PROXY",
               "export AWS_REGION=$REGION AWS_DEFAULT_REGION=$REGION",
 
-              "aws ecr get-login-password --region $REGION --cli-connect-timeout 3 --cli-read-timeout 5 > /tmp/ecr_pass",
+              "echo '[1] ECR login'",
+              "aws ecr get-login-password --region $REGION > /tmp/ecr_pass",
               "sudo docker login --username AWS --password-stdin $REGISTRY < /tmp/ecr_pass",
               "rm -f /tmp/ecr_pass",
 
+              "echo '[2] Pull image'",
               "timeout 300 sudo docker pull $IMAGE",
-              "test -f $ENV_FILE",
 
+              "echo '[3] Check env file'",
+              "if [ ! -f $ENV_FILE ]; then echo \"ENV_FILE missing: $ENV_FILE\"; ls -al \$(dirname $ENV_FILE) || true; exit 1; fi",
+
+              "echo '[4] Replace container'",
               "sudo docker rm -f $NAME || true",
               "sudo docker run -d --name $NAME -p 127.0.0.1:$HOST_PORT:$CONTAINER_PORT --restart unless-stopped --env-file $ENV_FILE $IMAGE",
-              "sudo docker ps --no-trunc | grep $NAME"
+
+              "echo '[5] Verify (print status + logs if not running)'",
+              "sleep 2",
+              "sudo docker ps -a --no-trunc --filter \"name=^/$NAME$\"",
+              "sudo docker inspect $NAME --format 'status={{.State.Status}} exit={{.State.ExitCode}}'",
+              "sudo docker inspect $NAME --format '{{.State.Running}}' | grep -q true || { echo \"$NAME not running\"; sudo docker logs --tail 200 $NAME || true; exit 1; }",
+
+              "echo '[OK] Deploy finished'"
             ]
           }
           EOF
@@ -94,9 +106,8 @@ jobs:
 
           echo "SSM CommandId: $CMD_ID"
 
-          # 최대 2분만 체크(15초*8) — 너무 느려지는거 방지
           STATUS="Pending"
-          for i in {1..8}; do
+          for i in {1..18}; do
             STATUS=$(aws ssm get-command-invocation \
               --region "$REGION" \
               --command-id "$CMD_ID" \
@@ -104,17 +115,17 @@ jobs:
               --query "Status" --output text 2>/dev/null || echo "Pending")
             echo "status=$STATUS"
             [[ "$STATUS" =~ ^(Success|Failed|Cancelled|TimedOut)$ ]] && break
-            sleep 15
+            sleep 10
           done
 
           echo "Final status=$STATUS"
 
-          if [[ "$STATUS" != "Success" ]]; then
-            echo "----- STDOUT -----"
-            aws ssm get-command-invocation --region "$REGION" --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
-              --query "StandardOutputContent" --output text || true
-            echo "----- STDERR -----"
-            aws ssm get-command-invocation --region "$REGION" --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
-              --query "StandardErrorContent" --output text || true
-            exit 1
-          fi
+          echo "----- SSM STDOUT -----"
+          aws ssm get-command-invocation --region "$REGION" --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query "StandardOutputContent" --output text || true
+
+          echo "----- SSM STDERR -----"
+          aws ssm get-command-invocation --region "$REGION" --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query "StandardErrorContent" --output text || true
+
+          [[ "$STATUS" == "Success" ]]
