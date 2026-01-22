@@ -13,16 +13,14 @@ public class SmsSender implements NotificationSender{
     }
 
     @Override
-    public boolean send(String destination, String content) {
+    public void send(String destination, String content) {
         try {
             // 1초 딜레이
             TimeUnit.SECONDS.sleep(1);
 
-            // SMS은 모두 성공 처리
-            return true;
         } catch (InterruptedException e) {
+            // sleep에서 에러가 발생해도 그냥 성공처리
             Thread.currentThread().interrupt();
-            return true;
         }
     }
 }
