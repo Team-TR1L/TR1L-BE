@@ -37,6 +37,7 @@ public enum DispatchErrorCode implements ErrorCode {
     POLICY_NOT_EQUAL("DSP-APP-004",ErrorCategory.ADA, "발송 정책의 전송 매체와 메시지의 전송 매체가 다릅니다."),
     NO_MORE_RETRY("DSP-APP-005", ErrorCategory.ADA, "발송 정책의 maxAttemptCount보다 높은 attemptCount입니다."),
     JSON_MAPPING_ERROR("DSP-APP-006", ErrorCategory.ADA, "json 변환에 실패했습니다."),
+    ADMIN_ID_DUPLICATED("DSP-APP-007", ErrorCategory.ADA, "중복된 관리자 Id입니다."),
 
     // =====================================================================
     // INFRA - Infrastructure (DB, S3, Network)

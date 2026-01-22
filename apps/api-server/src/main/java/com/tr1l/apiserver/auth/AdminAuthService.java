@@ -1,5 +1,7 @@
 package com.tr1l.apiserver.auth;
 
+import com.tr1l.dispatch.application.exception.DispatchDomainException;
+import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,6 +28,10 @@ public class AdminAuthService {
     }
 
     public AdminAuthEntity register(String email, String rawPassword) {
+        if (adminAuthRepository.findByEmail(email).isPresent()) {
+            throw new DispatchDomainException(DispatchErrorCode.ADMIN_ID_DUPLICATED);
+        }
+
         AdminAuthEntity auth = new AdminAuthEntity();
         auth.setEmail(email);
         auth.setPassword(passwordEncoder.encode(rawPassword));
