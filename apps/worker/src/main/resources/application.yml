@@ -50,8 +50,8 @@ app:
 
   billing:
     step3:
-      chunk: 200
-      fetch-size: 200
+      chunk: 1000
+      fetch-size: 1000
       lease-seconds: 3000
 
   liquibase:
