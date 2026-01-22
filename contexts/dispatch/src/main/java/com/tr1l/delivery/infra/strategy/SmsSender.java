@@ -20,6 +20,7 @@ public class SmsSender implements NotificationSender{
 
         } catch (InterruptedException e) {
             // sleep에서 에러가 발생해도 그냥 성공처리
+            Thread.currentThread().interrupt();
         }
     }
 }

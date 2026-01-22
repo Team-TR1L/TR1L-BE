@@ -42,6 +42,7 @@ public class DeliveryWorker {
 
             } catch (Exception e) {
                 // 해당 과정 중에 에러가 발생할 경우 예외를 삼키고 실패(false)로 결과 토픽 발행
+                log.error("발송 작업 실패. userId: {}, billingMonth: {}", event.getUserId(), event.getBillingMonth(), e);
                 isSuccess = false;
             } finally {
                 // 결과 발행 (Result Topic)
