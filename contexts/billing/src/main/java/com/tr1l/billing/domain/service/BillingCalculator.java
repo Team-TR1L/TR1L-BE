@@ -54,10 +54,13 @@ public final class BillingCalculator {
         // 1) Charge Lines
         // =========================
         // 요금제 P
+        String disPlayName = in.planName().trim();
+
+
         billing.addChargeLine(new ChargeLine(
                 lineIdProvider.next(),
                 ChargeType.PLAN_MONTHLY_FEE,
-                "요금제 월정액",
+                disPlayName,
                 new SourceRef("plan", 1L),
                 PricingSnapshot.of(in.planMonthlyPriceP())
         ));
@@ -130,12 +133,10 @@ public final class BillingCalculator {
             billing.addDiscountLine(dl);
 
             Money amt = dl.effectiveDiscountAmount();
-            runningTotal = runningTotal.minusNonNegative(amt);
+            runningTotal.minusNonNegative(amt);
         }
 
-        // (4) 결합(정액) - 기준은 runningTotal
-//        Optional<DiscountLine> bundleOpt = bundlePolicy.apply(lineIdProvider.next(), in, runningTotal);
-//        bundleOpt.ifPresent(billing::addDiscountLine);
+
 
         // =========================
         // 3) Totals

@@ -15,7 +15,6 @@
       "essential": true,
       "environment": [
         { "name": "PG_SUB_DB", "value": "${PG_SUB_DB}" },
-        { "name": "S3_BUCKET", "value": "${S3_BUCKET}" },
         { "name": "PG_SUB_USER", "value": "${PG_SUB_USER}" },
         { "name": "PG_MAIN_PASSWORD", "value": "${PG_MAIN_PASSWORD}" },
         { "name": "PG_SUB_HOST", "value": "${PG_SUB_HOST}" },
@@ -26,6 +25,10 @@
         { "name": "PG_MAIN_DB", "value": "${PG_MAIN_DB}" },
         { "name": "PG_MAIN_USER", "value": "${PG_MAIN_USER}" },
 
+        { "name": "S3_BUCKET", "value": "${S3_BUCKET}" },
+        { "name": "AWS_ACCESS_KEY_ID", "value": "${AWS_ACCESS_KEY_ID}" },
+        { "name": "AWS_SECRET_ACCESS_KEY", "value": "${AWS_SECRET_ACCESS_KEY}" },
+
         { "name": "SPRING_PROFILES_ACTIVE", "value": "prod" },
         { "name": "BATCH_JOB1_STEP1_FETCH_SIZE", "value": "1000" },
         { "name": "BATCH_JOB1_STEP1_CHUNK_SIZE", "value": "1000" },
@@ -33,8 +36,11 @@
         { "name": "SPRING_JPA_SHOW_SQL", "value": "false" },
         { "name": "SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL", "value": "false" },
 
+        { "name": "SECRET_KEY", "value": "${SECRET_KEY}" },
         { "name": "ALGORITHM", "value": "${ALGORITHM}" },
-        { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" }
+        { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" },
+
+        { "name": "CHANNEL_ORDER", "value": "${CHANNEL_ORDER}" }
       ],
       "secrets": [
         {

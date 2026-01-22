@@ -6,16 +6,16 @@ import com.tr1l.billing.error.BillingErrorCode;
 import java.util.Optional;
 
 public record Recipient(
-        Optional<EncryptedEmail> encryptedEmail,
-        Optional<EncryptedPhone> encryptedPhone
+        Optional<EncryptedEmail> email,
+        Optional<EncryptedPhone> phone
 ) {
     public Recipient {
-        if (encryptedEmail == null || encryptedPhone == null) {
+        if (email == null || phone == null) {
             throw new BillingDomainException(BillingErrorCode.INVALID_RECIPIENT);
         }
     }
 
     public boolean hasAnyContact() {
-        return encryptedEmail.isPresent() || encryptedPhone.isPresent();
+        return email.isPresent() || phone.isPresent();
     }
 }
