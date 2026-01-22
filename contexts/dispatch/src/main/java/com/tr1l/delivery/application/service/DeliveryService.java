@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DeliveryService {
@@ -22,8 +21,6 @@ public class DeliveryService {
 
         // 발송 상태로 변경 시도
         int updatedCount = deliveryRepository.updateStatusToSent(userId, event.getBillingMonth());
-
-        log.info("Delivery process has been called for userId={}", userId);
 
         if (updatedCount == 0) {
             return;
@@ -41,6 +38,5 @@ public class DeliveryService {
             // 실패 상태로 변경
             deliveryRepository.updateStatusToFailed(userId, billingMonth);
         }
-        log.info("발송 완료 UserID: {}, isSuccess: {}", userId, isSuccess);
     }
 }
