@@ -48,6 +48,12 @@ app:
       chunk:
         chunkSize: ${BATCH_JOB1_STEP1_CHUNK_SIZE:}
 
+  billing:
+    step3:
+      chunk: 200
+      fetch-size: 200
+      lease-seconds: 3000
+
   liquibase:
     target:
       enabled: true
