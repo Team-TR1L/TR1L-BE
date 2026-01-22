@@ -76,13 +76,8 @@ time:
 #Log setting
 logging:
   level:
-    root: info
-    org.springframework.batch: INFO
-    org.hibernate.sql: WARN
-    #Jdbc template
-    org.springframework.jdbc.core: WARN
-    #driver
-    org.postgresql: WARN
+    root: ERROR
+
 
 # S3 설정값
 s3:
