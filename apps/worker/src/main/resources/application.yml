@@ -65,7 +65,7 @@ app:
 batch:
   job1StartTime:
   job2StartTime:
-  channelOrder:
+  channelOrder: ${CHANNEL_ORDER}
 
 time:
   zone: Asia/Seoul
