@@ -17,7 +17,7 @@ public record RenderedMessageResult(
         String period,// "2026-01" (S3 경로/표시용, 없어도 됨)
         long userId,
 
-        String recipientPhoneEmail,
+        String recipientEmail,
         String recipientPhone,
 
         String emailSubject,// optional
