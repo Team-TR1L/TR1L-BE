@@ -10,19 +10,16 @@ import java.util.List;
 
 public record BillingCalculationInput(
 
+        String planName, // 요금제 이름
         Money planMonthlyPriceP, // 요금제
         Money additionalUsageFeeM, // 추가 데이터 과금
-
         boolean hasContract, // 선택 약정 여부
         Rate contractRate, // 선택 약정 할인률 -> 0.25 고정
-
         boolean soldierEligible, // 군인 여부
-
         boolean welfareEligible, // 복지 유무
         WelfareType welfareTypeOrNull, // 복지 타입 -> 장애인, 국가기초수급자 등
         Rate welfareRateOrNull,        // 복지 할인률
         Money welfareCapOrNull, // 할인 상한선(최대 12100원 까지 할인)
-
         List<AddonLine> addonLines      // 부가서비스
 ) {
     public BillingCalculationInput {

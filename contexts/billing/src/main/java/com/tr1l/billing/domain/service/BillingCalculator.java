@@ -54,10 +54,13 @@ public final class BillingCalculator {
         // 1) Charge Lines
         // =========================
         // 요금제 P
+        String disPlayName = in.planName().trim();
+
+
         billing.addChargeLine(new ChargeLine(
                 lineIdProvider.next(),
                 ChargeType.PLAN_MONTHLY_FEE,
-                "요금제 월정액",
+                disPlayName,
                 new SourceRef("plan", 1L),
                 PricingSnapshot.of(in.planMonthlyPriceP())
         ));

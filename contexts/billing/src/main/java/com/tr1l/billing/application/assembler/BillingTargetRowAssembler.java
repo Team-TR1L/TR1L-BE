@@ -129,6 +129,7 @@ public final class BillingTargetRowAssembler {
 
         log.warn("==================== toCalculationInput End ============================");
         return new BillingCalculationInput(
+                row.planName(),
                 planP,
                 usageM,
                 row.hasContract(),
