@@ -3,7 +3,7 @@ package com.tr1l.billing.application.dto;
 import java.math.BigDecimal;
 
 public record BillingTargetRow(
-        String billingMonth,          // "2026-01-01"
+        String billingMonth,          // "2026-01"
         String userName, // "박준희"
         long userId, // userID -> 01.17 추가
         String userBirthDate,         // "1999-03-01"

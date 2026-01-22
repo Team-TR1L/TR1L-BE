@@ -130,12 +130,10 @@ public final class BillingCalculator {
             billing.addDiscountLine(dl);
 
             Money amt = dl.effectiveDiscountAmount();
-            runningTotal = runningTotal.minusNonNegative(amt);
+            runningTotal.minusNonNegative(amt);
         }
 
-        // (4) 결합(정액) - 기준은 runningTotal
-//        Optional<DiscountLine> bundleOpt = bundlePolicy.apply(lineIdProvider.next(), in, runningTotal);
-//        bundleOpt.ifPresent(billing::addDiscountLine);
+
 
         // =========================
         // 3) Totals

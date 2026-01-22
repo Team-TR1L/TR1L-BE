@@ -32,7 +32,7 @@ public class MongoWorkDocClaimAdapter implements WorkDocClaimPort {
 
     private static final String F_ID = "_id";
     private static final String F_BILLING_MONTH = "billingMonth";
-    private static final String F_STATUS = "status";
+    private static final String F_STATUS = "status"; // target, processing, calculated, (failed)
     private static final String F_USER_ID = "userId";
     private static final String F_WORKER_ID = "workerId";
     private static final String F_LEASE_UNTIL = "leaseUntil";

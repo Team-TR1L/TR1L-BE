@@ -14,7 +14,7 @@ public record BillingCalculationInput(
         Money additionalUsageFeeM, // 추가 데이터 과금
 
         boolean hasContract, // 선택 약정 여부
-        Rate contractRate, // 선택 약정 할인률 -> 0.25
+        Rate contractRate, // 선택 약정 할인률 -> 0.25 고정
 
         boolean soldierEligible, // 군인 여부
 
@@ -23,18 +23,12 @@ public record BillingCalculationInput(
         Rate welfareRateOrNull,        // 복지 할인률
         Money welfareCapOrNull, // 할인 상한선(최대 12100원 까지 할인)
 
-//        Money bundleDiscountAmount, // 결합 총 할인금액
-
-        // --- JSONB (부가서비스만) ---
-        List<AddonLine> addonLines      // 부가서비스 -> name, monthlyPrice만
+        List<AddonLine> addonLines      // 부가서비스
 ) {
     public BillingCalculationInput {
         if (planMonthlyPriceP == null) throw new BillingDomainException(BillingErrorCode.INVALID_MONEY);
         if (additionalUsageFeeM == null) throw new BillingDomainException(BillingErrorCode.INVALID_MONEY);
-//        if (bundleDiscountAmount == null) throw new BillingDomainException(BillingErrorCode.INVALID_MONEY);
-
         if (contractRate == null) throw new BillingDomainException(BillingErrorCode.INVALID_RATE);
-
 
         addonLines = (addonLines == null) ? List.of() : List.copyOf(addonLines);
 
