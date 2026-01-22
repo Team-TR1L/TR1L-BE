@@ -66,6 +66,8 @@ jobs:
           ALGORITHM: ${{ secrets.ALGORITHM }}
           TRANSFORMATION: ${{ secrets.TRANSFORMATION }}
 
+          CHANNEL_ORDER: ${{ secrets.CHANNEL_ORDER }}
+
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
 
           WORKER_IMAGE_URI: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.TAG }}

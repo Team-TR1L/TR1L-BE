@@ -34,7 +34,9 @@
         { "name": "SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL", "value": "false" },
 
         { "name": "ALGORITHM", "value": "${ALGORITHM}" },
-        { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" }
+        { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" },
+
+        { "name": "CHANNEL_ORDER", "value": "${CHANNEL_ORDER}" }
       ],
       "secrets": [
         {
