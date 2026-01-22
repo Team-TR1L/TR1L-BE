@@ -163,7 +163,7 @@ public final class Billing implements Serializable {
         }
 
         // totals는 issue 직전에 항상 재계산 (결정성/정합성)
-        recalculateTotals();
+        //        recalculateTotals(); -> 배포 환경에서 제외
 
         // 상태 변경 및 시간 기록
         this.status = BillingStatus.ISSUED;
