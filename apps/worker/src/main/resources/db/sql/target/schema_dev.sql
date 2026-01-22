@@ -5,10 +5,10 @@ CREATE TABLE IF NOT EXISTS billing_targets
     user_id bigint NOT NULL ,--
     created_at timestamp NOT NULL DEFAULT now(),--
 
-    user_name varchar(50) NOT NULL ,--
+    user_name varchar(100) NOT NULL ,--
     user_birth_date date NOT NULL ,--
-    recipient_email varchar(50) NOT NULL ,--
-    recipient_phone varchar(50) NOT NULL ,--
+    recipient_email varchar(150) NOT NULL ,--
+    recipient_phone varchar(150) NOT NULL ,--
 
     --요금제 이름
     plan_name varchar(100) NOT NULL,--

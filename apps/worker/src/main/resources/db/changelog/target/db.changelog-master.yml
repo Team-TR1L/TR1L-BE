@@ -5,7 +5,7 @@ databaseChangeLog:
       context: prod
       changes:
         - sqlFile:
-            path: db/sql/target/schema_prod.yml
+            path: db/sql/target/schema_prod.sql
             relativeToChangelogFile: false
             splitStatements: true
             stripComments: true
