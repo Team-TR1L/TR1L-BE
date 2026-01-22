@@ -1,12 +1,14 @@
 package com.tr1l.worker.config.step;
 
+import com.tr1l.billing.application.model.WorkAndTargetRow;
+import com.tr1l.billing.application.port.out.BillingSnapshotSavePort;
 import com.tr1l.billing.application.port.out.BillingTargetLoadPort;
 import com.tr1l.billing.application.port.out.WorkDocClaimPort;
 import com.tr1l.billing.application.port.out.WorkDocStatusPort;
 import com.tr1l.billing.application.service.IssueBillingService;
 import com.tr1l.worker.batch.calculatejob.step.step3.CalculateAndSnapshotWriter;
-import com.tr1l.worker.batch.calculatejob.step.step3.WorkDocClaimReader;
-import com.tr1l.worker.batch.calculatejob.step.step3.WorkToTargetRowProcessor;
+import com.tr1l.worker.batch.calculatejob.step.step3.WorkDocClaimAndTargetRowReader;
+import com.tr1l.worker.batch.calculatejob.step.step3.CalculateBillingProcessor;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.repository.JobRepository;
@@ -21,9 +23,15 @@ import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.time.YearMonth;
 
+/**
+ * Job1 step3 설정
+ * autor : 박준희
+ * 2026-01-21
+ */
 @Configuration
 public class BillingCalculateAndSnapshotConfig {
 
+    // 추후 멀티스레드, 파티션 도입시 해당 id 유니크하게 변환 필요
     @Bean(name = "billingWorkerId")
     public String billingWorkerId() {
         return ManagementFactory.getRuntimeMXBean().getName();
@@ -33,56 +41,68 @@ public class BillingCalculateAndSnapshotConfig {
     public Step billingCalculateAndSnapshotStep(
             JobRepository jobRepository,
             @Qualifier("TX-target") PlatformTransactionManager txManager,
-            WorkDocClaimReader reader,
-            WorkToTargetRowProcessor processor,
+            WorkDocClaimAndTargetRowReader reader,
+            CalculateBillingProcessor processor,
             CalculateAndSnapshotWriter writer,
             StepLoggingListener listener,
             @Value("${app.billing.step3.chunk-size:200}") int chunkSize
     ) {
         return new StepBuilder("billingCalculateAndSnapshotStep", jobRepository)
-                .<WorkDocClaimPort.ClaimedWorkDoc, WorkToTargetRowProcessor.WorkAndTargetRow>chunk(chunkSize, txManager)
-                .reader(reader)
+                .<WorkAndTargetRow, CalculateBillingProcessor.Result>chunk(chunkSize, txManager)
                 .processor(processor)
                 .listener(listener)
                 .writer(writer)
                 .build();
     }
 
+    /**
+     * 유저 선점 및 조회
+     */
     @Bean
     @StepScope
-    public WorkDocClaimReader workDocClaimReader(
+    public WorkDocClaimAndTargetRowReader workDocClaimAndTargetRowReader(
             WorkDocClaimPort claimPort,
-            @Value("#{jobExecutionContext['billingYearMonth']}") String billingYearMonth, // 변환 필요
-            @Value("${app.billing.step3.fetch-size:200}") int fetchSize, // reader 반복 횟수, 선점 버퍼 단위
-            @Value("${app.billing.step3.lease-seconds:1000}") long leaseSeconds, // 몇초 이후 target으로 회수할지, 트랜잭션 커밋 단위
+            BillingTargetLoadPort targetLoadPort,
+            @Value("#{jobExecutionContext['billingYearMonth']}") String billingYearMonth,
+            @Value("${app.billing.step3.fetch-size:200}") int fetchSize,
+            @Value("${app.billing.step3.lease-seconds:1000}") long leaseSeconds,
             @Qualifier("billingWorkerId") String workerId
     ) {
-        YearMonth billingMonth = YearMonth.parse(billingYearMonth); // YYYY-MM -> YearMonth로 변환함
+        YearMonth billingMonth = YearMonth.parse(billingYearMonth); // YYYY-MM
 
-        return new WorkDocClaimReader(
+        return new WorkDocClaimAndTargetRowReader(
                 claimPort,
-                billingMonth, //  YearMonth YYYY-MM
+                targetLoadPort,
+                billingMonth,
                 fetchSize,
                 Duration.ofSeconds(leaseSeconds),
                 workerId
         );
     }
 
+    /**
+     * 계산 준비 / 변환
+     * port로 변경 필요
+     */
     @Bean
     @StepScope
-    public WorkToTargetRowProcessor workToTargetRowProcessor( // 실제 계산
-            BillingTargetLoadPort loadPort
+    public CalculateBillingProcessor workToTargetRowProcessor(
+            IssueBillingService issueBillingService
     ) {
-        return new WorkToTargetRowProcessor(loadPort);
+        return new CalculateBillingProcessor(issueBillingService);
     }
 
+
+    /**
+     * 청구 데이터 발생 및 스냅샷 저장
+     */
     @Bean
     @StepScope
-    public CalculateAndSnapshotWriter calculateAndSnapshotWriter( // MongDB 적재
-            IssueBillingService issueBillingService,
+    public CalculateAndSnapshotWriter calculateAndSnapshotWriter(
+            BillingSnapshotSavePort snapshotSavePort,
             WorkDocStatusPort statusPort
     ) {
-        return new CalculateAndSnapshotWriter(issueBillingService, statusPort);
+        return new CalculateAndSnapshotWriter(snapshotSavePort, statusPort);
     }
 }
 
