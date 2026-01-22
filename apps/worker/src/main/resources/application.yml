@@ -48,6 +48,12 @@ app:
       chunk:
         chunkSize: ${BATCH_JOB1_STEP1_CHUNK_SIZE:}
 
+  billing:
+    step3:
+      chunk: 200
+      fetch-size: 200
+      lease-seconds: 3000
+
   liquibase:
     target:
       enabled: true
@@ -59,7 +65,7 @@ app:
 batch:
   job1StartTime:
   job2StartTime:
-  channelOrder:
+  channelOrder: ${CHANNEL_ORDER}
 
 time:
   zone: Asia/Seoul
@@ -70,13 +76,8 @@ time:
 #Log setting
 logging:
   level:
-    root: info
-    org.springframework.batch: INFO
-    org.hibernate.sql: WARN
-    #Jdbc template
-    org.springframework.jdbc.core: WARN
-    #driver
-    org.postgresql: WARN
+    root: ERROR
+
 
 # S3 설정값
 s3:

@@ -71,6 +71,15 @@ public class UserEntity {
     @Comment("유저 수정일")
     private Instant updatedAt;
 
+    @Column(name = "to_time",nullable = true,length = 2)
+    private String toTime;
+
+    @Column(name = "from_time",nullable = true,length = 2)
+    private String fromTime;
+
+    @Column(name = "day_time",nullable = true,length = 2)
+    private String dayTime;
+
     //======== 참조 키 ==========
     @Column(name = "welfare_code",length = 10)
     @Comment("복지 할인 코드")

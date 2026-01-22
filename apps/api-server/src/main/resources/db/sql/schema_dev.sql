@@ -155,9 +155,9 @@ CREATE TABLE users
     welfare_code varchar(10),
     phone_number varchar(150)                 NOT NULL UNIQUE,
     user_role    varchar(255)                NOT NULL,
-    from_time    varchar(2)                  NULL,
-    to_time      varchar(2)                  NULL,
-    day_time     varchar(2)                  NULL
+    from_time    varchar(2)                  ,
+    to_time      varchar(2)                  ,
+    day_time     varchar(2)
         CONSTRAINT users_user_role_check
             CHECK ((user_role)::text = ANY
                    ((ARRAY ['ADMIN'::character varying, 'GUEST'::character varying, 'USER'::character varying])::text[])),

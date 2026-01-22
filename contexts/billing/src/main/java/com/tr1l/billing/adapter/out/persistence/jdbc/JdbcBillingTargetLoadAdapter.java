@@ -14,6 +14,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * RDB -> billing_targets에서 billingMonth와 userId를 keyset으로 빠르게 조회
+ *
+ */
 @Slf4j
 @Component
 public class JdbcBillingTargetLoadAdapter implements BillingTargetLoadPort {
@@ -29,9 +33,10 @@ public class JdbcBillingTargetLoadAdapter implements BillingTargetLoadPort {
 
         if (userIds == null || userIds.isEmpty()) return Map.of();
 
-        log.error("loadByUserIds : {}",userIds.size());
+        log.info("loadByUserIds : {}, billingMonth: {}",userIds.size(), billingMonth);
 
 
+        // DB는 YYYY-MM-01 형식이기에 변환
         LocalDate date=billingMonth.atDay(1);
         String sql = """
                 SELECT
@@ -69,6 +74,9 @@ public class JdbcBillingTargetLoadAdapter implements BillingTargetLoadPort {
                 "userIds", userIds
         );
 
+        /**
+         * null 타입 체크 필요함
+         */
         List<BillingTargetRow> rows = jdbc.query(sql, params, (rs, n) -> new BillingTargetRow(
                 rs.getString("billing_month"), //"YYYY-MM" 형식임
                 rs.getString("user_name"),

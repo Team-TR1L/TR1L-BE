@@ -45,28 +45,31 @@ jobs:
 
       - name: Render taskdef template vars (envsubst)
         env:
-          # taskdef 상단 ARN들
           TASK_ROLE_ARN: ${{ secrets.TASK_ROLE_ARN }}
           AWS_EXE_ROLE_ARN: ${{ secrets.AWS_EXE_ROLE_ARN }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
 
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-
-          # app env
-          PG_SUB_DB: ${{ secrets.PG_SUB_DB }}
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          PG_SUB_USER: ${{ secrets.PG_SUB_USER }}
-          PG_MAIN_PASSWORD: ${{ secrets.PG_MAIN_PASSWORD }}
-          PG_SUB_HOST: ${{ secrets.PG_SUB_HOST }}
           PG_MAIN_HOST: ${{ secrets.PG_MAIN_HOST }}
-          PG_SUB_PASSWORD: ${{ secrets.PG_SUB_PASSWORD }}
           PG_MAIN_DB: ${{ secrets.PG_MAIN_DB }}
           PG_MAIN_USER: ${{ secrets.PG_MAIN_USER }}
+          PG_MAIN_PASSWORD: ${{ secrets.PG_MAIN_PASSWORD }}
 
+          PG_SUB_HOST: ${{ secrets.PG_SUB_HOST }}
+          PG_SUB_DB: ${{ secrets.PG_SUB_DB }}
+          PG_SUB_USER: ${{ secrets.PG_SUB_USER }}
+          PG_SUB_PASSWORD: ${{ secrets.PG_SUB_PASSWORD }}
+
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
           ALGORITHM: ${{ secrets.ALGORITHM }}
           TRANSFORMATION: ${{ secrets.TRANSFORMATION }}
 
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          CHANNEL_ORDER: ${{ secrets.CHANNEL_ORDER }}
 
           WORKER_IMAGE_URI: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.TAG }}
         run: |

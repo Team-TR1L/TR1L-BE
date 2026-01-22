@@ -32,7 +32,8 @@
         { "name": "KAFKA_ACKS", "value": "all" },
 
         { "name": "ALGORITHM", "value": "${ALGORITHM}" },
-        { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" }
+        { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" },
+        { "name": "SECRET_KEY", "value": "${SECRET_KEY}" }
 
       ],
       "logConfiguration": {
