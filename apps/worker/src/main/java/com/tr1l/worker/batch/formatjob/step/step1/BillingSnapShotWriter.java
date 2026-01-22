@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tr1l.billing.application.port.out.BillingTargetS3UpdatePort;
 import com.tr1l.billing.application.port.out.S3UploadPort;
-import com.tr1l.worker.batch.formatjob.domain.RenderedMessage;
+import com.tr1l.billing.application.model.RenderedMessageResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.Chunk;
@@ -16,7 +16,7 @@ import java.time.YearMonth;
 
 @Slf4j
 @StepScope
-public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
+public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> {
 
     private final String bucket;
     private final S3UploadPort s3UploadPort;
@@ -35,8 +35,8 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
     }
 
     @Override
-    public void write(Chunk<? extends RenderedMessage> chunk) throws Exception {
-        for (RenderedMessage msg : chunk) {
+    public void write(Chunk<? extends RenderedMessageResult> chunk) throws Exception {
+        for (RenderedMessageResult msg : chunk) {
 
             log.warn("resolveBillingYearMonth start");
             // 어댑터에서 Date로 변환
@@ -113,7 +113,7 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
 
 
     // String -> YearMonth로 변환
-    private YearMonth resolveBillingYearMonth(RenderedMessage msg) {
+    private YearMonth resolveBillingYearMonth(RenderedMessageResult msg) {
         if (hasText(msg.period())) return YearMonth.parse(msg.period());
         throw new IllegalArgumentException("RenderedMessage period/billingMonth missing. userId=" + msg.userId());
     }

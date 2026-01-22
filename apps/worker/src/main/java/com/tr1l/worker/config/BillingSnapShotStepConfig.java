@@ -2,10 +2,12 @@ package com.tr1l.worker.config;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tr1l.billing.api.usecase.RenderBillingMessageUseCase;
 import com.tr1l.billing.application.port.out.BillingTargetS3UpdatePort;
 import com.tr1l.billing.application.port.out.S3UploadPort;
+import com.tr1l.util.DecryptionTool;
 import com.tr1l.worker.batch.formatjob.domain.BillingSnapshotDoc;
-import com.tr1l.worker.batch.formatjob.domain.RenderedMessage;
+import com.tr1l.billing.application.model.RenderedMessageResult;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotProcessor;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotReader;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotWriter;
@@ -24,7 +26,7 @@ import org.thymeleaf.TemplateEngine;
 /**
  * ==========================
  * BillingSnapShotStepConfig
- *
+ * Job2의 step1
  * BillingSnapShotStep들을 모아 step 연결하는곳
  *
  * @author nonstop
@@ -39,11 +41,10 @@ import org.thymeleaf.TemplateEngine;
 public class BillingSnapShotStepConfig {
 
     private final MongoTemplate mongoTemplate;
-    private final TemplateEngine templateEngine;
 
-    public BillingSnapShotStepConfig(MongoTemplate mongoTemplate, TemplateEngine templateEngine) {
+
+    public BillingSnapShotStepConfig(MongoTemplate mongoTemplate) {
         this.mongoTemplate = mongoTemplate;
-        this.templateEngine = templateEngine;
     }
 
     @Bean
@@ -56,7 +57,7 @@ public class BillingSnapShotStepConfig {
             @Value("${app.billing.step2.chunk-size:1000}") int chunkSize
     ){
         return new StepBuilder("billingSnapShotStep",jobRepository)
-                .<BillingSnapshotDoc, RenderedMessage>chunk(chunkSize,transactionManager)
+                .<BillingSnapshotDoc, RenderedMessageResult>chunk(chunkSize,transactionManager)
                 .reader(reader)
                 .processor(processor)
                 .writer(writer)
@@ -73,8 +74,12 @@ public class BillingSnapShotStepConfig {
     }
 
     @Bean
-    public BillingSnapShotProcessor billingSnapShotProcessor (){
-        return new BillingSnapShotProcessor(templateEngine);
+    @StepScope
+    public BillingSnapShotProcessor billingSnapShotProcessor (
+            RenderBillingMessageUseCase useCase,
+            DecryptionTool decryptionTool
+    ){
+        return new BillingSnapShotProcessor(useCase, decryptionTool);
     }
 
     @Bean

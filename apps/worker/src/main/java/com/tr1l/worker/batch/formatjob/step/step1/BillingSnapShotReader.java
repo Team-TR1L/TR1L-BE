@@ -5,6 +5,7 @@ import com.tr1l.worker.batch.formatjob.domain.BillingSnapshotDoc;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.data.MongoCursorItemReader;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -14,6 +15,7 @@ import java.time.YearMonth;
 /**
  * ==========================
  * BillingSnapShotReader
+ * Job2의 step1
  * billing snapshot 에서 요금서에 필요한 정보들을 읽어서 Processor에 전달
  *
  * @author nonstop
@@ -39,12 +41,13 @@ public class BillingSnapShotReader extends MongoCursorItemReader<BillingSnapshot
 
 
         query.fields()
+                .include("_id")
                 .include("billingMonth")
                 .include("userId")
                 .include("status")
                 .include("issuedAt")
-//                .include("recipientEmailEnc")   // Enc면 recipientEmailEnc로 수정
-//                .include("recipientPhoneEnc")
+                .include("payload.recipient.email.value")   // Enc면 recipientEmailEnc로 수정
+                .include("payload.recipient.phone.value")
                 .include("payload.period.value")
                 .include("payload.customerName.value")
                 .include("payload.subtotalAmount.value")
@@ -55,6 +58,7 @@ public class BillingSnapShotReader extends MongoCursorItemReader<BillingSnapshot
                 .include("payload.discountLines.name")
                 .include("payload.discountLines.discountType")
                 .include("payload.discountLines.discountAmount.value");
+        query.with(Sort.by(Sort.Direction.ASC,"_id"));
         log.warn(" ============== query finished ===========");
 
         this.setName("billingSnapshotReader");   // restart 시 필요
