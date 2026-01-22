@@ -48,6 +48,13 @@ public class DispatchPolicyController {
         return ResponseEntity.ok().build();
     }
 
+    /** 정책 생성*/
+    @PatchMapping("/{id}/activate")
+    public ResponseEntity<Void> activatePolicy(@PathVariable("id") Long policyId) {
+        service.activatePolicy(policyId);
+        return ResponseEntity.ok().build();
+    }
+
     /** 정책 수정 (채널 + 상태) */
     @PutMapping("/{id}")
     public ResponseEntity<DispatchPolicy> updatePolicy(
