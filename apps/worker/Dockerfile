@@ -98,7 +98,7 @@ RUN set -eux; \
 '# 기존 JAVA_TOOL_OPTIONS 유지 + truststore 옵션 append' \
 'export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Djavax.net.ssl.trustStore=${DOCDB_TRUSTSTORE_PATH} -Djavax.net.ssl.trustStorePassword=${DOCDB_TRUSTSTORE_PASSWORD}"' \
 '' \
-'exec java -javaagent:/otel/opentelemetry-javaagent.jar -javaagent:/pyroscope/pyroscope.jar -jar /app/app.jar' \
+'exec java -javaagent:/otel/opentelemetry-javaagent.jar -javaagent:/pyroscope/pyroscope.jar -jar /app/app.jar "$@"' \
 > /entrypoint.sh; \
   chmod +x /entrypoint.sh
 
