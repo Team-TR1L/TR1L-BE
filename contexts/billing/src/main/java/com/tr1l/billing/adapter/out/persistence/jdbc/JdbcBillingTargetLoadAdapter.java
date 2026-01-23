@@ -1,6 +1,6 @@
 package com.tr1l.billing.adapter.out.persistence.jdbc;
 
-import com.tr1l.billing.application.dto.BillingTargetRow;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetRow;
 import com.tr1l.billing.application.port.out.BillingTargetLoadPort;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;

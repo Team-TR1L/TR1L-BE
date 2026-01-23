@@ -1,15 +1,13 @@
-package com.tr1l.billing.adapter.out.persistence;
+package com.tr1l.billing.adapter.out.persistence.jdbc;
 
 
 import com.tr1l.billing.application.port.out.BillingCycleFinalizedJdbcPort;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
-import java.time.YearMonth;
 
 /*==========================
  * BillingCycle Finalize JDBC Adapter

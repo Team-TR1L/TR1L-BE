@@ -1,7 +1,10 @@
-package com.tr1l.billing.adapter.out.jdbc;
+package com.tr1l.billing.adapter.out.persistence.jdbc;
 
 import com.tr1l.billing.application.port.out.BillingCycleGatePort;
+import com.tr1l.util.SqlResourceReader;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Component;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -21,32 +24,26 @@ import java.time.*;
 @Component
 public class BillingCycleGateJdbcAdapter implements BillingCycleGatePort {
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final SqlResourceReader resourceReader;
+    private final Resource upsertGateSql;
 
-    public BillingCycleGateJdbcAdapter(@Qualifier("targetNamedJdbcTemplate") NamedParameterJdbcTemplate template) {
+    public BillingCycleGateJdbcAdapter(
+            @Qualifier("targetNamedJdbcTemplate") NamedParameterJdbcTemplate template,
+            SqlResourceReader resourceReader,
+            @Value("${app.sql.step0.targetBase}/insert_billing_cycle.sql")Resource upsertGateSql
+            ) {
+        this.resourceReader=resourceReader;
         this.jdbcTemplate = template;
+        this.upsertGateSql=upsertGateSql;
     }
 
     @Override
     public GateRow upsertGateAndReturn(YearMonth billingMonth, Instant cutoffAt) {
         LocalDate bm = billingMonth.atDay(1);
-
-        //upsert 쿼리
-        String sql = """
-                INSERT INTO
-                    billing_cycle (billing_month, status, cutoff_at)
-                VALUES
-                    (:billingMonth, 'RUNNING', :cutoffAt)
-                ON CONFLICT (billing_month)
-                DO UPDATE SET
-                    cutoff_at = billing_cycle.cutoff_at,
-                    status = CASE
-                                WHEN billing_cycle.status = 'FINISHED' THEN billing_cycle.status
-                                ELSE 'RUNNING'
-                             END
-                RETURNING billing_month, status, cutoff_at
-                """;
-
         OffsetDateTime cutoffOdt = OffsetDateTime.ofInstant(cutoffAt, ZoneOffset.UTC);
+
+        //UPSERT Query
+        String query = resourceReader.read(upsertGateSql);
 
         //파라미터 설정
         var parameters = new MapSqlParameterSource()
@@ -54,7 +51,7 @@ public class BillingCycleGateJdbcAdapter implements BillingCycleGatePort {
                 .addValue("cutoffAt", cutoffOdt);
 
         //파라미터 주입 및 쿼리 실행
-        return jdbcTemplate.queryForObject(sql, parameters, (rs, rowNum) -> {
+        return jdbcTemplate.queryForObject(query, parameters, (rs, rowNum) -> {
             YearMonth yearMonth = YearMonth.from(rs.getDate("billing_month").toLocalDate());
             Instant persistenceCutOff = rs.getObject("cutoff_at", OffsetDateTime.class).toInstant();
             String status = rs.getString("status");

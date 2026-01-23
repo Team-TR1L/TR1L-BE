@@ -1,4 +1,4 @@
-package com.tr1l.billing.adapter.out.persistence;
+package com.tr1l.billing.adapter.out.persistence.mongo;
 
 import com.tr1l.billing.application.port.out.WorkDocFinalizeQueryPort;
 import lombok.RequiredArgsConstructor;

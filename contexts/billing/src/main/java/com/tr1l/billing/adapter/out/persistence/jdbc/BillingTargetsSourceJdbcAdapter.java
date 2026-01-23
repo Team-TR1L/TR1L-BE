@@ -1,10 +1,10 @@
-package com.tr1l.billing.adapter.out.jdbc;
+package com.tr1l.billing.adapter.out.persistence.jdbc;
 
-import com.tr1l.billing.application.model.BillingTargetFacts;
-import com.tr1l.billing.application.model.BillingTargetFlatParams;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetFacts;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetFlatParams;
 import com.tr1l.billing.application.port.out.BillingTargetSourcePort;
-import com.tr1l.billing.application.model.ContractFact;
-import com.tr1l.billing.application.model.OptionItemRow;
+import com.tr1l.billing.adapter.out.persistence.model.ContractFact;
+import com.tr1l.billing.adapter.out.persistence.model.OptionItemRow;
 import com.tr1l.util.SqlResourceReader;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;

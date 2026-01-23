@@ -1,7 +1,6 @@
-package com.tr1l.billing.adapter.out.persistence.jdbc;
+package com.tr1l.billing.adapter.out.persistence.s3;
 
 import com.tr1l.billing.application.port.out.BillingTargetS3UpdatePort;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;

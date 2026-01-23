@@ -1,13 +1,11 @@
-package com.tr1l.billing.adapter.out.jdbc;
+package com.tr1l.billing.adapter.out.persistence.jdbc;
 
-import com.tr1l.billing.application.model.BillingTargetFlatRow;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetFlatRow;
 import com.tr1l.billing.application.port.out.BillingTargetSinkPort;
 import com.tr1l.util.SqlResourceReader;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSourceUtils;
 import org.springframework.stereotype.Repository;
