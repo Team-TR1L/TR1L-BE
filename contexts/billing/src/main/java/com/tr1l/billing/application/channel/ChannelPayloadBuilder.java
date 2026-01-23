@@ -1,15 +1,14 @@
 package com.tr1l.billing.application.channel;
 
 import com.tr1l.billing.application.exception.BillingApplicationException;
-import com.tr1l.billing.application.model.ChannelValue;
-import com.tr1l.billing.application.model.UserContact;
+import com.tr1l.billing.adapter.out.persistence.model.ChannelValue;
+import com.tr1l.billing.adapter.out.persistence.model.UserContact;
 import com.tr1l.billing.error.BillingErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 @RequiredArgsConstructor
 @Component

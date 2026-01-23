@@ -1,6 +1,6 @@
 package com.tr1l.billing.application.port.out;
 
-import com.tr1l.billing.application.dto.BillingTargetRow;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetRow;
 
 import java.time.YearMonth;
 import java.util.List;

@@ -1,8 +1,8 @@
 package com.tr1l.billing.api.usecase;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.tr1l.billing.application.model.BillingTargetBaseRow;
-import com.tr1l.billing.application.model.BillingTargetFlatParams;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetBaseRow;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetFlatParams;
 
 import java.util.List;
 

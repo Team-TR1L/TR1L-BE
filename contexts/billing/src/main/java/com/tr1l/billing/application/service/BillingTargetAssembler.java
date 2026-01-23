@@ -1,10 +1,9 @@
 package com.tr1l.billing.application.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tr1l.billing.adapter.out.persistence.model.*;
 import com.tr1l.billing.application.channel.ChannelPayloadBuilder;
-import com.tr1l.billing.application.model.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

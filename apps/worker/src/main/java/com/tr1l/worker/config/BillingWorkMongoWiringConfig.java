@@ -1,7 +1,7 @@
 package com.tr1l.worker.config;
 
-import com.tr1l.billing.adapter.out.persistence.MongoWorkDocUpsertAdapter;
-import com.tr1l.billing.adapter.out.persistence.WorkDocFinalizeMongoAdapter;
+import com.tr1l.billing.adapter.out.persistence.mongo.MongoWorkDocUpsertAdapter;
+import com.tr1l.billing.adapter.out.persistence.mongo.WorkDocFinalizeMongoAdapter;
 import com.tr1l.billing.application.port.out.WorkDocFinalizeQueryPort;
 import com.tr1l.billing.application.port.out.WorkDocUpsertPort;
 import org.springframework.beans.factory.annotation.Value;

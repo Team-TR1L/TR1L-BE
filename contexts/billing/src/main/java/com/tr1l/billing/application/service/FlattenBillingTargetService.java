@@ -2,10 +2,10 @@ package com.tr1l.billing.application.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.tr1l.billing.api.usecase.FlattenBillingTargetsUseCase;
-import com.tr1l.billing.application.model.BillingTargetBaseRow;
-import com.tr1l.billing.application.model.BillingTargetFacts;
-import com.tr1l.billing.application.model.BillingTargetFlatParams;
-import com.tr1l.billing.application.model.BillingTargetFlatRow;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetBaseRow;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetFacts;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetFlatParams;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetFlatRow;
 import com.tr1l.billing.application.port.out.BillingTargetSinkPort;
 import com.tr1l.billing.application.port.out.BillingTargetSourcePort;
 import lombok.RequiredArgsConstructor;

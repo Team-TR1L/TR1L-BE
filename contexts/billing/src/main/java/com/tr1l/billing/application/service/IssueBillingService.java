@@ -1,7 +1,7 @@
 package com.tr1l.billing.application.service;
 
 import com.tr1l.billing.application.assembler.BillingTargetRowAssembler;
-import com.tr1l.billing.application.dto.BillingTargetRow;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetRow;
 import com.tr1l.billing.application.port.out.BillingIdGenerator;
 import com.tr1l.billing.application.port.out.BillingSnapshotSavePort;
 import com.tr1l.billing.domain.event.DomainEvent;

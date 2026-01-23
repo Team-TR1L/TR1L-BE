@@ -1,7 +1,7 @@
 package com.tr1l.billing.application.channel;
 
-import com.tr1l.billing.application.model.ChannelValue;
-import com.tr1l.billing.application.model.UserContact;
+import com.tr1l.billing.adapter.out.persistence.model.ChannelValue;
+import com.tr1l.billing.adapter.out.persistence.model.UserContact;
 
 import java.util.Optional;
 

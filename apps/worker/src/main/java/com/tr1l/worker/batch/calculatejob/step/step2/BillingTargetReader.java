@@ -1,6 +1,6 @@
 package com.tr1l.worker.batch.calculatejob.step.step2;
 
-import com.tr1l.worker.batch.calculatejob.model.BillingTargetKey;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetKey;
 import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.Order;
 import org.springframework.batch.item.database.PagingQueryProvider;

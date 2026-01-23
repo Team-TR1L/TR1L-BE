@@ -1,6 +1,6 @@
 package com.tr1l.worker.batch.calculatejob.step.step3;
 
-import com.tr1l.billing.application.dto.BillingTargetRow;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetRow;
 import com.tr1l.billing.application.port.out.BillingTargetLoadPort;
 import com.tr1l.billing.application.port.out.WorkDocClaimPort;
 import org.springframework.batch.core.configuration.annotation.StepScope;

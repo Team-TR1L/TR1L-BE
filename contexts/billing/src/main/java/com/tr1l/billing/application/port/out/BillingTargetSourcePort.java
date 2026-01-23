@@ -1,14 +1,9 @@
 package com.tr1l.billing.application.port.out;
 
-import com.tr1l.billing.application.model.BillingTargetFacts;
-import com.tr1l.billing.application.model.BillingTargetFlatParams;
-import com.tr1l.billing.application.model.ContractFact;
-import com.tr1l.billing.application.model.OptionItemRow;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetFacts;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetFlatParams;
 
-import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /*==========================
  * Main DB READ를 실행하는 port

@@ -2,7 +2,7 @@ package com.tr1l.billing.application.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tr1l.billing.application.exception.BillingApplicationException;
-import com.tr1l.billing.application.model.OptionItemRow;
+import com.tr1l.billing.adapter.out.persistence.model.OptionItemRow;
 import com.tr1l.billing.error.BillingErrorCode;
 import org.springframework.stereotype.Component;
 
@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /*==========================
  * 부가 서비스 목록 Jsonb로 변환 클래스

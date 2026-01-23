@@ -2,7 +2,7 @@ package com.tr1l.billing.application.assembler;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tr1l.billing.application.dto.BillingTargetRow;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetRow;
 import com.tr1l.billing.domain.model.enums.WelfareType;
 import com.tr1l.billing.domain.exception.BillingDomainException;
 import com.tr1l.billing.domain.model.aggregate.Billing;
@@ -19,7 +19,6 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * BillingTargetRow(RDB MV 결과 DTO) -> Billing(DRAFT Aggregate) 조립기(Assembler)

@@ -1,9 +1,8 @@
 package com.tr1l.worker.batch.calculatejob.step.step1;
 
 import com.tr1l.billing.api.usecase.FlattenBillingTargetsUseCase;
-import com.tr1l.billing.application.model.BillingTargetBaseRow;
-import com.tr1l.billing.application.model.BillingTargetFlatParams;
-import lombok.RequiredArgsConstructor;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetBaseRow;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetFlatParams;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;

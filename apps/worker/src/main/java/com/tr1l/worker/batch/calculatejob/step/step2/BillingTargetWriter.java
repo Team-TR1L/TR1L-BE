@@ -2,7 +2,7 @@ package com.tr1l.worker.batch.calculatejob.step.step2;
 
 import com.tr1l.billing.application.port.out.WorkDocUpsertCommand;
 import com.tr1l.billing.application.port.out.WorkDocUpsertPort;
-import com.tr1l.worker.batch.calculatejob.model.WorkDoc;
+import com.tr1l.billing.adapter.out.persistence.model.WorkDoc;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
 import java.time.Instant;

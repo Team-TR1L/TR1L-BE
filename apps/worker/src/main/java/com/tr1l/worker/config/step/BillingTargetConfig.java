@@ -2,8 +2,8 @@ package com.tr1l.worker.config.step;
 
 
 import com.tr1l.billing.application.port.out.WorkDocUpsertPort;
-import com.tr1l.worker.batch.calculatejob.model.BillingTargetKey;
-import com.tr1l.worker.batch.calculatejob.model.WorkDoc;
+import com.tr1l.billing.adapter.out.persistence.model.BillingTargetKey;
+import com.tr1l.billing.adapter.out.persistence.model.WorkDoc;
 import com.tr1l.worker.batch.calculatejob.step.step2.BillingTargetProcessor;
 import com.tr1l.worker.batch.calculatejob.step.step2.BillingTargetReader;
 import com.tr1l.worker.batch.calculatejob.step.step2.BillingTargetWriter;
