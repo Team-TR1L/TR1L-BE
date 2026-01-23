@@ -51,7 +51,7 @@ app:
   billing:
     step3:
       chunk: ${BATCH_JOB1_STEP3_CHUNK_SIZE:}
-      fetch-size: ${BATCH_JOB1_STEP3_fetch_SIZE:}
+      fetch-size: ${BATCH_JOB1_STEP3_FETCH_SIZE:}
       lease-seconds: ${BATCH_JOB1_STEP3_LEASE-SECONDS:}
 
   #Job2 step1
