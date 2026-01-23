@@ -34,5 +34,9 @@ public class BillingTargetEntity {
 
     @Column(name = "s3_url_jsonb") // 종착지
     private String s3UrlJsonb;
+
+    public void setSendStatus(String sendStatus) {
+        this.sendStatus = sendStatus;
+    }
 }
 

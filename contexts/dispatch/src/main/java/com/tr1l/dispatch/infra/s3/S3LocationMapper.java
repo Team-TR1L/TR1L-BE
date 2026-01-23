@@ -8,10 +8,12 @@ import com.tr1l.dispatch.application.exception.DispatchDomainException;
 import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 import com.tr1l.dispatch.domain.model.enums.ChannelType;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Slf4j
+@Component
 public class S3LocationMapper {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
