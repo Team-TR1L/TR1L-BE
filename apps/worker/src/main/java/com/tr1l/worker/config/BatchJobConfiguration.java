@@ -42,10 +42,10 @@ public class BatchJobConfiguration {
     @PostConstruct
     public void logConfiguration() {
         log.info("=== Batch Configuration ===");
-        log.info("jobName: '{}'", jobName);
-        log.info("job1StartTime: '{}'", job1StartTime);
-        log.info("job2StartTime: '{}'", job2StartTime);
-        log.info("channelOrder: '{}'", channelOrder);
+        log.error("jobName: '{}'", jobName);
+        log.error("job1StartTime: '{}'", job1StartTime);
+        log.error("job2StartTime: '{}'", job2StartTime);
+        log.error("channelOrder: '{}'", channelOrder);
         log.info("===========================");
     }
 
