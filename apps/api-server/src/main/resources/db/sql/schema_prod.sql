@@ -1,6 +1,7 @@
 /* =========================================================
                     테이블 셋업
    ========================================================= */
+BEGIN;
 
 -- 1) 계약(선택약정) 할인 정책
 CREATE TABLE IF NOT EXISTS contract_discount
@@ -299,3 +300,4 @@ CREATE TABLE  IF NOT EXISTS monthly_data_usage
     CONSTRAINT uk_monthly_data_usage_user_month UNIQUE (user_id, usage_year_month)
 );
 
+COMMIT;

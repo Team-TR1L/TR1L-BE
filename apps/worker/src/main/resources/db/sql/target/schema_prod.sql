@@ -1,4 +1,6 @@
 -- step1 step2 중간 테이블 -> 데이터 평탄화 테이블
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS billing_targets
 (
     billing_month date NOT NULL ,
@@ -86,3 +88,18 @@ CREATE TABLE IF NOT EXISTS billing_cycle
     CONSTRAINT uk_month_status
         UNIQUE (billing_month,status)
 );
+
+CREATE TABLE IF NOT EXISTS dispatch_policy (
+    id BIGSERIAL PRIMARY KEY,
+    admin_id BIGINT NOT NULL,
+    status VARCHAR(20) NOT NULL
+        CHECK (status IN ('DRAFT', 'ACTIVE', 'RETIRED')),
+    version INTEGER NOT NULL,
+    routing_policy_json jsonb default '{}',
+    max_attempt_count INTEGER NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    activated_at TIMESTAMPTZ,
+    retired_at TIMESTAMPTZ
+);
+
+COMMIT;
