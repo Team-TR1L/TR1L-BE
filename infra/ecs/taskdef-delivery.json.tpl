@@ -41,7 +41,15 @@
 
         { "name": "SECRET_KEY", "value": "${SECRET_KEY}" },
         { "name": "ALGORITHM", "value": "${ALGORITHM}" },
-        { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" }
+        { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" },
+
+        { "name": "OTEL_SERVICE_NAME", "value": "delivery" },
+        { "name": "OTEL_EXPORTER_OTLP_ENDPOINT", "value": "http://10.0.1.156:4318" },
+        { "name": "OTEL_EXPORTER_OTLP_PROTOCOL", "value": "http/protobuf" },
+        { "name": "OTEL_TRACES_EXPORTER", "value": "otlp" },
+        { "name": "OTEL_METRICS_EXPORTER", "value": "none" },
+        { "name": "OTEL_LOGS_EXPORTER", "value": "none" },
+        { "name": "OTEL_RESOURCE_ATTRIBUTES", "value": "deployment.environment=prod,service.namespace=tr1l" }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",

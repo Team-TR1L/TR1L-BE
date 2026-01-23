@@ -16,7 +16,14 @@ RUN ./gradlew :apps:delivery-server:bootJar -x test --no-daemon
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-COPY --from=builder /workspace/apps/delivery-server/build/libs/*.jar app.jar
+COPY --from=builder /workspace/apps/worker/build/libs/*.jar app.jar
+
+RUN mkdir -p /otel \
+ && apt-get update \
+ && apt-get install -y curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && curl -L -o /otel/opentelemetry-javaagent.jar \
+    https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
 
 EXPOSE 8080
-ENTRYPOINT ["java","-jar","/app/app.jar"]
+ENTRYPOINT ["java","-javaagent:/otel/opentelemetry-javaagent.jar","-jar","/app/app.jar"]
