@@ -51,14 +51,14 @@ app:
   billing:
     step3:
       chunk: 1000
-      fetch-size: 1000
+      fetch-size: 2000
       lease-seconds: 3000
 
   #Job2 step1
   mongo:
     snapshot:
-      batch-size: ${BILLING_SNAPSHOT_BATCH_SIZE:200}
-      chunk-size: ${BILLING_SNAPSHOT_CHUNK_SIZE:200}
+      batch-size: ${BILLING_SNAPSHOT_BATCH_SIZE:2000}
+      chunk-size: ${BILLING_SNAPSHOT_CHUNK_SIZE:1000}
 
   liquibase:
     target:
