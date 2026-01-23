@@ -58,7 +58,7 @@ app:
   mongo:
     snapshot:
       batch-size: ${BILLING_SNAPSHOT_BATCH_SIZE:200}
-      chunk-size: 200
+      chunk-size: ${BILLING_SNAPSHOT_CHUNK_SIZE:200}
 
   liquibase:
     target:
