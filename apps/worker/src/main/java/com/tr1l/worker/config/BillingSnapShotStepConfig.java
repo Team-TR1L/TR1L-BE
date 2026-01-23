@@ -53,7 +53,7 @@ public class BillingSnapShotStepConfig {
             BillingSnapShotReader reader,
             BillingSnapShotProcessor processor,
             BillingSnapShotWriter writer,
-            @Value("${app.billing.step2.chunk-size:1000}") int chunkSize
+            @Value("${app.mongo.snapshot.chunk-size:200}") int chunkSize
     ){
         return new StepBuilder("billingSnapShotStep",jobRepository)
                 .<BillingSnapshotDoc, RenderedMessage>chunk(chunkSize,transactionManager)
@@ -68,8 +68,9 @@ public class BillingSnapShotStepConfig {
     public BillingSnapShotReader billingSnapShotReader(
             MongoTemplate mongoTemplate,
             @Value("${app.format.snapshot-collection:billing_snapshot}") String collectionName,
-            @Value("#{jobExecutionContext['billingYearMonth']}") String billingMonth){
-        return new BillingSnapShotReader(mongoTemplate,collectionName,billingMonth);
+            @Value("#{jobExecutionContext['billingYearMonth']}") String billingMonth,
+            @Value("${app.mongo.snapshot.batch-size:200}") int batchSize){
+        return new BillingSnapShotReader(mongoTemplate,collectionName,billingMonth,batchSize);
     }
 
     @Bean
