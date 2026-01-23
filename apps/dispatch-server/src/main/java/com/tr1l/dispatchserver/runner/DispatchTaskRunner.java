@@ -26,7 +26,6 @@ public class DispatchTaskRunner implements ApplicationRunner {
 
         try {
             orchestrationUseCase.orchestrate(Instant.now());
-            log.info("✅ Kafka Job Completed Successfully.");
         } catch (Exception e) {
             log.error("❌ Batch Job Failed.", e);
             exitCode = 1; // Step Functions가 'Fail'로 인식하도록 1 설정

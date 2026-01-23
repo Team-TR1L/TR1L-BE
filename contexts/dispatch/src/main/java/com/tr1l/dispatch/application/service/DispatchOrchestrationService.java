@@ -33,7 +33,11 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
 
     @Transactional
     public void orchestrate(Instant now) {
+        Instant startTime = Instant.now();
+        log.warn("🕒 Step 0: 오케스트레이션 시작 - {}", startTime);
+
         //1. 발송 정책을 조회한다.
+        log.warn("🔍 Step 1: 활성 발송 정책 조회 중...");
         DispatchPolicy policy = dispatchPolicyService.findCurrentActivePolicy();
 
         List<ChannelType> channels =
@@ -42,12 +46,13 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
         //2. 현재 발송 가능한 메시지들을 가져온다.
         int currentHour = LocalDateTime.now(ZoneId.of("Asia/Seoul")).getHour();
 
+        log.warn("📦 Step 2: 후보 조회 시작...");
         List<BillingTargetEntity> candidates =
                 candidateRepository.findReadyCandidates(channels.size() - 1,
                         String.format("%02d", LocalDate.now().getDayOfMonth()),
                         currentHour);
 
-        System.out.println("후보군 사이즈: " + candidates.size());
+        log.warn("후보군 사이즈: {}", candidates.size());
 
         //3.  json 확인하고 Kafka에 이벤트 발행
         for(BillingTargetEntity candidate : candidates) {
@@ -71,6 +76,9 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
                     destination
             );
         }
+        Instant endTime = Instant.now();
+        log.warn("✅ 오케스트레이션 시작: {}, 종료: {}, 소요 시간(ms): {}"
+                , startTime, endTime, Duration.between(startTime, endTime).toMillis());
     }
     private String extractValueByChannel(String json, ChannelType channelType) {
         if (json == null || json.isBlank()) {
