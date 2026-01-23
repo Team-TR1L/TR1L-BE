@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -17,6 +18,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.zip.GZIPOutputStream;
 
 @Slf4j
@@ -27,121 +30,165 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
     private final S3UploadPort s3UploadPort;
     private final BillingTargetS3UpdatePort billingTargetS3UpdatePort;
     private final ObjectMapper om;
-
+    private final Executor s3UploadExecutor;
 
     public BillingSnapShotWriter(String bucket,
                                  S3UploadPort s3UploadPort,
                                  ObjectMapper om,
-                                 BillingTargetS3UpdatePort billingTargetS3UpdatePort) {
+                                 BillingTargetS3UpdatePort billingTargetS3UpdatePort,
+                                 @Qualifier("s3UploadExecutor") Executor s3UploadExecutor) {
         this.bucket = bucket;
         this.s3UploadPort = s3UploadPort;
         this.om = om;
         this.billingTargetS3UpdatePort = billingTargetS3UpdatePort;
+        this.s3UploadExecutor = s3UploadExecutor;
     }
+    // 한 유저에 대한 레코드 (email, sms)
+    private record MsgCtx(int index, YearMonth billingYm, long userId, ArrayNode s3Array) {}
+
+    private record UploadOutcome(MsgCtx ctx, String channelKey, int channelIndex, S3UploadPort.S3PutResult put) {}
+
+    // 병렬 실패 시
+    private record UploadTask(MsgCtx ctx, String channelKey, int channelIndex, String key, CompletableFuture<UploadOutcome> future) {}
 
     @Override
     public void write(Chunk<? extends RenderedMessage> chunk) throws Exception {
+        long t0 = System.nanoTime();
 
-        // for문에서 update 객체를 누적하여 bulk 연산으로 일괄 처리
-        List<BillingTargetS3UpdatePort.UpdateRequest> updates = new ArrayList<>(chunk.size());
-
+        List<MsgCtx> contexts = new ArrayList<>(chunk.size());
+        List<UploadTask> uploadTasks = new ArrayList<>(chunk.size() * 2);
+        int index = 0;
 
         for (RenderedMessage msg : chunk) {
             YearMonth billingYm = resolveBillingYearMonth(msg);
 
-            // key -> YYYY-MM + userId + type
             String base = msg.period() + "/" + msg.userId() + "/";
-            String emailKey = base + "EMAIL.html.gz"; // 2025-12/122/EMAIL.html
-            String smsKey = base + "SMS.txt.gz"; // 2025-12/122/SMS.txt
-            log.warn("base = {} , {} , {}", base, emailKey, smsKey);
 
-            ArrayNode s3Array = om.createArrayNode(); // [] jsonb 형식
+            String emailKey = base + "EMAIL.gz";
+            String smsKey   = base + "SMS.gz";
 
+            MsgCtx ctx = new MsgCtx(index++, billingYm, msg.userId(), om.createArrayNode());
+            contexts.add(ctx);
 
-            // 1) EMAIL 업로드
+            // EMAIL 업로드(병렬)
             if (hasText(msg.emailHtml())) {
-                byte[] raw = msg.emailHtml().getBytes(StandardCharsets.UTF_8);
-                byte[] gz  = gzip(raw);
+                final String emailHtml = msg.emailHtml();
+                CompletableFuture<UploadOutcome> future = CompletableFuture.supplyAsync(() -> {
+                    byte[] raw = emailHtml.getBytes(StandardCharsets.UTF_8);
+                    byte[] gz  = gzip(raw);
+                    S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
+                            bucket, emailKey, gz, "text/html; charset=utf-8"
+                    );
+                    return new UploadOutcome(ctx, "EMAIL", 0, put);
+                }, s3UploadExecutor);
 
-                S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
-                        bucket,
-                        emailKey,
-                        gz,
-                        "text/html; charset=utf-8"
-                );
-                log.warn("S3Put Bucket = {} , Key = {}", put.bucket(), put.key());
-                s3Array.add(s3UrlItem("EMAIL", put.bucket(), put.key()));
+                uploadTasks.add(new UploadTask(ctx, "EMAIL", 0, emailKey, future));
             }
 
-            // 2) SMS 업로드
+            // SMS 업로드(병렬)
             if (hasText(msg.smsText())) {
-                byte[] raw = msg.smsText().getBytes(StandardCharsets.UTF_8);
-                byte[] gz  = gzip(raw); // 압축된 바이트
+                final String smsText = msg.smsText();
+                CompletableFuture<UploadOutcome> future = CompletableFuture.supplyAsync(() -> {
+                    byte[] raw = smsText.getBytes(StandardCharsets.UTF_8);
+                    byte[] gz  = gzip(raw);
+                    S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
+                            bucket, smsKey, gz, "text/plain; charset=utf-8"
+                    );
+                    return new UploadOutcome(ctx, "SMS", 1, put);
+                }, s3UploadExecutor);
 
-                S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
-                        bucket,
-                        smsKey,
-                        gz,
-                        "text/plain; charset=utf-8"
-                );
-                log.warn("S3Put Bucket = {} , Key = {}", put.bucket(), put.key());
-
-                s3Array.add(s3UrlItem("SMS", put.bucket(), put.key()));
+                uploadTasks.add(new UploadTask(ctx, "SMS", 1, smsKey, future));
             }
+        }
 
-            if (s3Array.isEmpty()) {
-                throw new IllegalStateException("RenderedMessage has no contents. userId=" + msg.userId());
+
+        // 1) 먼저 한번에 완료 대기 -> 병렬성 유지
+        CompletableFuture<?>[] futures = uploadTasks.stream()
+                .map(UploadTask::future)
+                .toArray(CompletableFuture[]::new);
+
+        try {
+            CompletableFuture.allOf(futures).join();
+        } catch (RuntimeException ignore) {
+            // 아래에서 에러 제어
+        }
+
+        // 2) 개별 join로 결과 수집, 실패 시 에러 로그
+        S3UploadPort.S3PutResult[][] results = new S3UploadPort.S3PutResult[contexts.size()][2];
+        Throwable firstFailure = null;
+
+        for (UploadTask task : uploadTasks) {
+            try {
+                UploadOutcome out = task.future().join();
+                results[out.ctx().index()][out.channelIndex()] = out.put();
+            } catch (RuntimeException e) {
+                Throwable cause = (e.getCause() != null) ? e.getCause() : e;
+                if (firstFailure == null) firstFailure = cause;
+
+                log.error("S3 upload failed. userId={}, billingYm={}, channel={}, key={}",
+                        task.ctx().userId(), task.ctx().billingYm(), task.channelKey(), task.key(), cause);
             }
+        }
 
-            // updates 요청 객체를 저장 chunk개수만큼 적재 후 일괄 처리
+        if (firstFailure != null) {
+            throw new IllegalStateException("S3 upload failed", firstFailure);
+        }
+
+        // 결과를 단일 스레드에서 JSON ArrayNode에 반영
+        for (MsgCtx ctx : contexts) {
+            S3UploadPort.S3PutResult emailPut = results[ctx.index()][0];
+            if (emailPut != null) {
+                ctx.s3Array().add(s3UrlItem("EMAIL", emailPut.bucket(), emailPut.key()));
+            }
+            S3UploadPort.S3PutResult smsPut = results[ctx.index()][1];
+            if (smsPut != null) {
+                ctx.s3Array().add(s3UrlItem("SMS", smsPut.bucket(), smsPut.key()));
+            }
+        }
+
+        // 업데이트 요청 bulk 생성(Chunk 당 1회)
+        List<BillingTargetS3UpdatePort.UpdateRequest> updates = new ArrayList<>(contexts.size());
+        for (MsgCtx ctx : contexts) {
+            if (ctx.s3Array().isEmpty()) {
+                throw new IllegalStateException("RenderedMessage has no contents. userId=" + ctx.userId());
+            }
             updates.add(new BillingTargetS3UpdatePort.UpdateRequest(
-                    billingYm,
-                    msg.userId(),
-                    om.writeValueAsString(s3Array)
+                    ctx.billingYm(),
+                    ctx.userId(),
+                    om.writeValueAsString(ctx.s3Array())
             ));
         }
 
-        // chunked 1회 반영
         billingTargetS3UpdatePort.updateStatusBulk(updates);
+
     }
 
-
-    /**
-     * jsonb 형식으로 변환
-     */
     private ObjectNode s3UrlItem(String channelKey, String bucket, String s3Key) {
         ObjectNode n = om.createObjectNode();
         n.put("key", channelKey);
         n.put("bucket", bucket);
         n.put("s3_key", s3Key);
-        log.warn("ObjectNode = {}", n);
+
         return n;
     }
-
 
     private boolean hasText(String s) {
         return s != null && !s.isBlank();
     }
 
-
-    // String -> YearMonth로 변환
     private YearMonth resolveBillingYearMonth(RenderedMessage msg) {
         if (hasText(msg.period())) return YearMonth.parse(msg.period());
         throw new IllegalArgumentException("RenderedMessage period/billingMonth missing. userId=" + msg.userId());
     }
 
-
-    // gzip 변환
     private static byte[] gzip(byte[] raw) {
         if (raw == null || raw.length == 0) return new byte[0];
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              GZIPOutputStream gos = new GZIPOutputStream(baos)) {
-
             gos.write(raw);
             gos.finish();
             return baos.toByteArray();
-
         } catch (IOException e) {
             throw new IllegalStateException("gzip compression failed", e);
         }
