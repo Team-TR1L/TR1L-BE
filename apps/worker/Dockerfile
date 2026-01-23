@@ -92,23 +92,19 @@ EXPOSE 8080
 ENV DOCDB_TRUSTSTORE_PATH=/opt/certs/rds-truststore.jks
 ENV DOCDB_TRUSTSTORE_PASSWORD=changeit
 
-# 엔트리포인트 스크립트: JAVA_TOOL_OPTIONS에 "추가(append)" 형태로 truststore 옵션 주입
 RUN set -eux; \
-  cat > /entrypoint.sh <<'EOF' \
-#!/usr/bin/env sh
-set -eu
-
-: "${DOCDB_TRUSTSTORE_PATH:=/opt/certs/rds-truststore.jks}"
-: "${DOCDB_TRUSTSTORE_PASSWORD:=changeit}"
-
-# ✅ 기존 JAVA_TOOL_OPTIONS가 있으면 유지 + 뒤에 추가(append)
-export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Djavax.net.ssl.trustStore=${DOCDB_TRUSTSTORE_PATH} -Djavax.net.ssl.trustStorePassword=${DOCDB_TRUSTSTORE_PASSWORD}"
-
-exec java \
-  -javaagent:/otel/opentelemetry-javaagent.jar \
-  -javaagent:/pyroscope/pyroscope.jar \
-  -jar /app/app.jar
-EOF
+  printf '%s\n' \
+'#!/usr/bin/env sh' \
+'set -eu' \
+'' \
+': "${DOCDB_TRUSTSTORE_PATH:=/opt/certs/rds-truststore.jks}"' \
+': "${DOCDB_TRUSTSTORE_PASSWORD:=changeit}"' \
+'' \
+'# 기존 JAVA_TOOL_OPTIONS 유지 + truststore 옵션 append' \
+'export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Djavax.net.ssl.trustStore=${DOCDB_TRUSTSTORE_PATH} -Djavax.net.ssl.trustStorePassword=${DOCDB_TRUSTSTORE_PASSWORD}"' \
+'' \
+'exec java -javaagent:/otel/opentelemetry-javaagent.jar -javaagent:/pyroscope/pyroscope.jar -jar /app/app.jar' \
+> /entrypoint.sh; \
   chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
