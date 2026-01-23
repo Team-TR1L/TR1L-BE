@@ -1,4 +1,4 @@
-package com.tr1l.billing.application.model;
+package com.tr1l.billing.adapter.out.persistence.model;
 
 import java.util.List;
 

@@ -1,4 +1,4 @@
-package com.tr1l.billing.application.dto;
+package com.tr1l.billing.adapter.out.persistence.model;
 
 import java.math.BigDecimal;
 

@@ -1,11 +1,9 @@
-package com.tr1l.billing.application.model;
+package com.tr1l.billing.adapter.out.persistence.model;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
-import java.time.Year;
 import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 
