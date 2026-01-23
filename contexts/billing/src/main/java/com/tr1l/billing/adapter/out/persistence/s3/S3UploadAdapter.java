@@ -31,7 +31,6 @@ public class S3UploadAdapter  implements S3UploadPort {
         return new S3PutResult(bucket, key);
     }
 
-
     @Override
     public S3PutResult putGzipBytes(String bucket, String key, byte[] body, String contentType) {
         log.info("[s3 gzip start] bucket={}, key={}, len={}", bucket, key, body.length);
