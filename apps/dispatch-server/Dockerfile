@@ -14,16 +14,25 @@ COPY . .
 # 4. 애플리케이션 빌드
 RUN ./gradlew :apps:dispatch-server:bootJar -x test --no-daemon
 
+
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=builder /workspace/apps/dispatch-server/build/libs/*.jar app.jar
 
-RUN mkdir -p /otel \
+# ===== Agents (OTel + Pyroscope) =====
+RUN mkdir -p /otel /pyroscope \
  && apt-get update \
  && apt-get install -y curl ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
- && curl -L -o /otel/opentelemetry-javaagent.jar \
-    https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+ && curl -fsSL -o /otel/opentelemetry-javaagent.jar \
+    https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar \
+ && curl -fsSL -o /pyroscope/pyroscope.jar \
+    https://github.com/grafana/pyroscope-java/releases/latest/download/pyroscope.jar
 
 EXPOSE 8080
-ENTRYPOINT ["java","-javaagent:/otel/opentelemetry-javaagent.jar","-jar","/app/app.jar"]
+
+# ✅ 둘 다 javaagent로 로드
+ENTRYPOINT ["java", \
+  "-javaagent:/otel/opentelemetry-javaagent.jar", \
+  "-javaagent:/pyroscope/pyroscope.jar", \
+  "-jar","/app/app.jar"]
