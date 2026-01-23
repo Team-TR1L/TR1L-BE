@@ -17,7 +17,7 @@ public class S3UploadAdapter  implements S3UploadPort {
 
     @Override
     public S3PutResult putBytes(String bucket, String key, byte[] body, String contentType) {
-        log.warn("[s3 start]");
+        log.warn("[s3 원본 start] bucket={}, key={}, len={}", bucket, key, body.length);
         s3Client.putObject(
                 PutObjectRequest.builder()
                         .bucket(bucket) // 버킷 이름
@@ -26,8 +26,28 @@ public class S3UploadAdapter  implements S3UploadPort {
                         .build(),
                 RequestBody.fromBytes(body) // 실제 청구서
         );
-        log.warn("[s3 end]");
+        log.warn("[s3 원본 end]");
 
         return new S3PutResult(bucket, key);
+    }
+
+
+    @Override
+    public S3PutResult putGzipBytes(String bucket, String key, byte[] body, String contentType) {
+        log.info("[s3 gzip start] bucket={}, key={}, len={}", bucket, key, body.length);
+        s3Client.putObject(
+                PutObjectRequest.builder()
+                        .bucket(bucket)
+                        .key(key)
+                        .contentType(contentType)
+                        .contentEncoding("gzip")
+                        .build(),
+                RequestBody.fromBytes(body)
+        );
+
+        log.info("[s3 gzip end] bucket={}, key={}, len={}", bucket, key, body.length);
+        return new S3PutResult(bucket, key);
+
+
     }
 }
