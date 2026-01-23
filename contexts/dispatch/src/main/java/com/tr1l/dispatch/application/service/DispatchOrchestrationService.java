@@ -1,31 +1,23 @@
 package com.tr1l.dispatch.application.service;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tr1l.dispatch.application.exception.DispatchDomainException;
-import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 import com.tr1l.dispatch.application.port.in.DispatchOrchestrationUseCase;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
 import com.tr1l.dispatch.domain.model.enums.ChannelType;
 import com.tr1l.dispatch.application.port.out.DispatchEventPublisher;
-import com.tr1l.dispatch.domain.model.enums.MessageStatus;
 import com.tr1l.dispatch.infra.persistence.entity.BillingTargetEntity;
 import com.tr1l.dispatch.infra.persistence.repository.MessageCandidateJpaRepository;
 import com.tr1l.dispatch.infra.s3.S3LocationMapper;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import software.amazon.awssdk.thirdparty.jackson.core.JsonProcessingException;
 
 import java.time.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Service
@@ -39,7 +31,7 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
     private final S3LocationMapper s3LocationMapper;
 
     @Transactional
-    public void orchestrate(Instant now) {
+    public void orchestrate(Instant now) throws InterruptedException {
         Instant startTime = Instant.now();
         log.warn("🕒 Step 0: 오케스트레이션 시작 - {}", startTime);
 
@@ -62,8 +54,8 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
 
         // 4. 카프카에 발행할 메시지 개수 카운터
         int candidatesCnt = 0;
-        int messagesCnt = 0;
-        int failedMessagesCnt = 0;
+        AtomicInteger messagesCnt = new AtomicInteger();
+        AtomicInteger failedMessagesCnt = new AtomicInteger();
 
         // 5. Cursor 기반 배치 조회 (✅ 동시 실행 시 Cursor 충돌 가능 문제 해결)
         log.warn("📦 Step 4: 후보 배치 처리 시작...");
@@ -85,10 +77,11 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
 
             candidatesCnt += candidates.size();
 
-            //6.
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-            for (BillingTargetEntity candidate : candidates) {
+            // ExecutorService 생성 (병렬 처리용)
+            ExecutorService executor = Executors.newFixedThreadPool(10); // 필요 시 스레드 수 조정
+            List<Future<?>> futures = new ArrayList<>();
 
+            for (BillingTargetEntity candidate : candidates) {
                 ChannelType nowChannel = channels.get(
                         Math.min(channels.size() - 1, candidate.getAttemptCount())
                 );
@@ -96,17 +89,27 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
                 String s3url = s3LocationMapper.extractLocationValueByChannel(candidate.getS3UrlJsonb(), nowChannel);
                 String destination = s3LocationMapper.extractValueByChannel(candidate.getSendOptionJsonb(), nowChannel);
 
-                // Async 발송: CompletableFuture로 비동기 실행
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                // ExecutorService에 Runnable 제출
+                Future<?> future = executor.submit(() -> {
                     try {
-                        eventPublisher.publish(candidate.getId().getUserId(), candidate.getId().getBillingMonth(),
-                                nowChannel, s3url, destination
-                        );
+                        // Kafka 전송 완료까지 대기
+                        eventPublisher.publish(
+                                candidate.getId().getUserId(),
+                                candidate.getId().getBillingMonth(),
+                                nowChannel, s3url, destination);
 
+                        // 메시지 발행 성공 시 카운트 증가
+                        synchronized (this) {
+                            messagesCnt.getAndIncrement();
+                        }
                     } catch (Exception e) {
                         log.warn("❌ 카프카 메시지 발행 실패 userId: {}", candidate.getId().getUserId());
                         candidate.setSendStatus("FAILED");
                         candidateRepository.save(candidate);
+
+                        synchronized (this) {
+                            failedMessagesCnt.getAndIncrement();
+                        }
                     }
                 });
 
@@ -116,8 +119,18 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
                 lastUserId = candidate.getId().getUserId();
             }
 
-            // 모든 Async 발송 완료 대기
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            // 제출된 모든 작업 완료 대기
+            for (Future<?> future : futures) {
+                try {
+                    future.get(); // 모든 메시지 발송 완료까지 블록
+                } catch (Exception ignored) {
+                    // 이미 개별 작업에서 실패 처리했으므로 여기서는 무시
+                }
+            }
+
+            // Executor 종료
+            executor.shutdown();
+            executor.awaitTermination(10, TimeUnit.MINUTES);
 
             // 버퍼에 남은 메시지 flush
             eventPublisher.flush();

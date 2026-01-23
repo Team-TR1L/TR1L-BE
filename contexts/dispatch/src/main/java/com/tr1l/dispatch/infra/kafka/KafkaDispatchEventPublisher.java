@@ -8,6 +8,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.util.concurrent.ExecutionException;
 
 @Component
 @RequiredArgsConstructor
@@ -34,8 +35,15 @@ public class KafkaDispatchEventPublisher implements DispatchEventPublisher {
                 encryptedDestination
         );
 
-        // 채널 구분 없이 설정된 단일 토픽으로 발송
-        kafkaTemplate.send(dispatchTopic, event);
+        try {
+            // 🔹 Kafka 전송 완료까지 블록
+            kafkaTemplate.send(dispatchTopic, event).get(); // get() 호출 → Kafka ACK 기다림
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // interrupted 상태 복원
+            throw new RuntimeException("Kafka 메시지 발송 중 인터럽트 발생", e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException("Kafka 메시지 발송 실패", e.getCause());
+        }
     }
 
     @Override
