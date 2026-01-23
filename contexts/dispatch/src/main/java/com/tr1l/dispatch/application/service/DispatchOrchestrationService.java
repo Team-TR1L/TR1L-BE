@@ -65,17 +65,17 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
         int messagesCnt = 0;
         int failedMessagesCnt = 0;
 
-        // 5. Cursor 기반 배치 조회
+        // 5. Cursor 기반 배치 조회 (✅ 동시 실행 시 Cursor 충돌 가능 문제 해결)
         log.warn("📦 Step 4: 후보 배치 처리 시작...");
         while (true) {
             List<BillingTargetEntity> candidates =
-                    candidateRepository.findReadyCandidatesByUserCursor(
+                    candidateRepository.findReadyCandidatesByUserCursorNative(
                             billingMonth,
                             lastUserId,
                             dayTime,
                             channels.size() - 1,
                             currentHour,
-                            PageRequest.of(0, pageSize)
+                            pageSize
                     );
 
             if (candidates.isEmpty()) {
@@ -85,7 +85,7 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
 
             candidatesCnt += candidates.size();
 
-            //7.
+            //6.
             List<CompletableFuture<Void>> futures = new ArrayList<>();
             for (BillingTargetEntity candidate : candidates) {
 
@@ -116,7 +116,11 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
                 lastUserId = candidate.getId().getUserId();
             }
 
+            // 모든 Async 발송 완료 대기
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+            // 버퍼에 남은 메시지 flush
+            eventPublisher.flush();
 
             // 7. 영속성 컨텍스트 정리 (OOM 방지)
             entityManager.clear();

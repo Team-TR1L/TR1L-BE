@@ -37,4 +37,9 @@ public class KafkaDispatchEventPublisher implements DispatchEventPublisher {
         // 채널 구분 없이 설정된 단일 토픽으로 발송
         kafkaTemplate.send(dispatchTopic, event);
     }
+
+    @Override
+    public void flush() {
+        kafkaTemplate.flush();
+    }
 }

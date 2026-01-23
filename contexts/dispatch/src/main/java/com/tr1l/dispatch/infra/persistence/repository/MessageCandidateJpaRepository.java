@@ -8,36 +8,37 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.awt.*;
 import java.time.LocalDate;
 import java.util.List;
+
 
 @Repository
 public interface MessageCandidateJpaRepository
         extends JpaRepository<BillingTargetEntity, BillingTargetId> {
 
-    @Query("""
-        select c
-        from BillingTargetEntity c
-        where c.id.userId > :lastUserId
-          and c.id.billingMonth = :billingMonth
-          and (c.dayTime = :dayTime or c.dayTime is null)
-          and c.sendStatus in ('READY', 'FAILED')
-          and c.attemptCount <= :maxAttemptCount
-          and (
-              (c.fromTime is null and c.toTime is null)
-              or (
-                  :currentHour < cast(c.fromTime as integer)
-                  or :currentHour >= cast(c.toTime as integer)
-              )
-          )
-        order by c.id.userId asc
-    """)
-    List<BillingTargetEntity> findReadyCandidatesByUserCursor(
+    @Query(value = """
+    SELECT *
+    FROM billing_targets
+    WHERE user_id > :lastUserId
+      AND billing_month = :billingMonth
+      AND (day_time = :dayTime OR day_time IS NULL)
+      AND send_status IN ('READY','FAILED')
+      AND attempt_count <= :maxAttemptCount
+      AND ((from_time IS NULL AND to_time IS NULL)
+           OR (:currentHour < CAST(from_time AS INTEGER) OR :currentHour >= CAST(to_time AS INTEGER)))
+    ORDER BY user_id ASC
+    FOR UPDATE SKIP LOCKED
+    LIMIT :pageSize
+    """, nativeQuery = true)
+
+    List<BillingTargetEntity> findReadyCandidatesByUserCursorNative(
             @Param("billingMonth") LocalDate billingMonth,
             @Param("lastUserId") Long lastUserId,
             @Param("dayTime") String dayTime,
             @Param("maxAttemptCount") Integer maxAttemptCount,
             @Param("currentHour") Integer currentHour,
-            Pageable pageable
+            @Param("pageSize") int pageSize
     );
 }
+
