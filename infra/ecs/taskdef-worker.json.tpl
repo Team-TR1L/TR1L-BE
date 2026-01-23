@@ -33,8 +33,8 @@
         { "name": "S3_UPLOAD_QUEUE_CAPACITY", "value": "5000" },
 
         { "name": "SPRING_PROFILES_ACTIVE", "value": "prod" },
-        { "name": "BATCH_JOB1_STEP1_FETCH_SIZE", "value": "1000" },
-        { "name": "BATCH_JOB1_STEP1_CHUNK_SIZE", "value": "1000" },
+        { "name": "BATCH_JOB1_STEP1_FETCH_SIZE", "value": "2000" },
+        { "name": "BATCH_JOB1_STEP1_CHUNK_SIZE", "value": "2000" },
         { "name": "BATCH_JOB1_STEP3_FETCH_SIZE", "value": "6000" },
         { "name": "BATCH_JOB1_STEP3_CHUNK_SIZE", "value": "3000" },
         { "name": "BATCH_JOB2_STEP1_BATCH_SIZE", "value": "6000" },
