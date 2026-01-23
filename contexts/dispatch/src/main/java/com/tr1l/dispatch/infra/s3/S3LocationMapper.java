@@ -42,7 +42,7 @@ public class S3LocationMapper {
         // 1. 데이터가 null이거나 빈 배열인 경우 조기 리턴 (또는 null 반환)
         if (jsonb == null || jsonb.trim().equals("[]") || jsonb.isBlank()) {
             log.warn("S3 URL JSON 데이터가 비어 있습니다. Skip 처리합니다.");
-            return null; // 호출부에서 null 체크 후 발송 대상에서 제외하도록 설계
+            return null;
         }
 
         try {

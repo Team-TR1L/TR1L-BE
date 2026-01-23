@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "billing_targets")
@@ -29,10 +31,12 @@ public class BillingTargetEntity {
     @Column(name = "send_status")
     private String sendStatus;
 
-    @Column(name = "send_option_jsonb") // 발송 상태
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "send_option_jsonb", columnDefinition = "jsonb") // 발송 상태
     private String sendOptionJsonb;
 
-    @Column(name = "s3_url_jsonb") // 종착지
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "s3_url_jsonb", columnDefinition = "jsonb")// 종착지
     private String s3UrlJsonb;
 
     public void setSendStatus(String sendStatus) {

@@ -30,6 +30,7 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
     private final EntityManager entityManager;
     private final S3LocationMapper s3LocationMapper;
 
+
     @Transactional
     public void orchestrate(Instant now) throws InterruptedException {
         Instant startTime = Instant.now();
@@ -58,7 +59,10 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
         AtomicInteger failedMessagesCnt = new AtomicInteger();
 
         // 5. Cursor 기반 배치 조회 (✅ 동시 실행 시 Cursor 충돌 가능 문제 해결)
-        log.warn("📦 Step 4: 후보 배치 처리 시작...");
+        log.warn("📦 Step 2: 후보 배치 처리 시작...");
+        // ExecutorService 생성 (병렬 처리용)
+        ExecutorService executor = Executors.newFixedThreadPool(10); // 필요 시 스레드 수 조정
+
         while (true) {
             List<BillingTargetEntity> candidates =
                     candidateRepository.findReadyCandidatesByUserCursorNative(
@@ -76,9 +80,6 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
             }
 
             candidatesCnt += candidates.size();
-
-            // ExecutorService 생성 (병렬 처리용)
-            ExecutorService executor = Executors.newFixedThreadPool(10); // 필요 시 스레드 수 조정
             List<Future<?>> futures = new ArrayList<>();
 
             for (BillingTargetEntity candidate : candidates) {
@@ -98,18 +99,14 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
                                 candidate.getId().getBillingMonth(),
                                 nowChannel, s3url, destination);
 
-                        // 메시지 발행 성공 시 카운트 증가
-                        synchronized (this) {
-                            messagesCnt.getAndIncrement();
-                        }
+                        messagesCnt.incrementAndGet();
                     } catch (Exception e) {
                         log.warn("❌ 카프카 메시지 발행 실패 userId: {}", candidate.getId().getUserId());
+
                         candidate.setSendStatus("FAILED");
                         candidateRepository.save(candidate);
 
-                        synchronized (this) {
-                            failedMessagesCnt.getAndIncrement();
-                        }
+                        failedMessagesCnt.getAndIncrement();
                     }
                 });
 
@@ -128,18 +125,17 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
                 }
             }
 
-            // Executor 종료
-            executor.shutdown();
-            executor.awaitTermination(10, TimeUnit.MINUTES);
-
             // 버퍼에 남은 메시지 flush
             eventPublisher.flush();
 
             // 7. 영속성 컨텍스트 정리 (OOM 방지)
             entityManager.clear();
         }
+        // Executor 종료
+        executor.shutdown();
+        executor.awaitTermination(10, TimeUnit.MINUTES);
 
-        log.warn("🏁 Step 5: 오케스트레이션 완료. 총 후보: {}, 총 발행 메시지 수: {}, 총 발행 실패 메시지수: {}",
+        log.warn("🏁 Step 3: 오케스트레이션 완료. 총 후보: {}, 총 발행 메시지 수: {}, 총 발행 실패 메시지수: {}",
                 candidatesCnt, messagesCnt, failedMessagesCnt);
 
         Instant endTime = Instant.now();
