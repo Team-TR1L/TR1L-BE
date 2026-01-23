@@ -11,10 +11,13 @@ import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.zip.GZIPOutputStream;
 
 @Slf4j
 @StepScope
@@ -44,37 +47,44 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
 
 
         for (RenderedMessage msg : chunk) {
-
-            // 어댑터에서 Date로 변환
             YearMonth billingYm = resolveBillingYearMonth(msg);
 
             // key -> YYYY-MM + userId + type
             String base = msg.period() + "/" + msg.userId() + "/";
-            String emailKey = base + "EMAIL.html";
-            String smsKey   = base + "SMS.txt";
+            String emailKey = base + "EMAIL.html.gz"; // 2025-12/122/EMAIL.html
+            String smsKey = base + "SMS.txt.gz"; // 2025-12/122/SMS.txt
+            log.warn("base = {} , {} , {}", base, emailKey, smsKey);
 
             ArrayNode s3Array = om.createArrayNode(); // [] jsonb 형식
 
+
             // 1) EMAIL 업로드
             if (hasText(msg.emailHtml())) {
+                byte[] raw = msg.emailHtml().getBytes(StandardCharsets.UTF_8);
+                byte[] gz  = gzip(raw);
 
-                S3UploadPort.S3PutResult put = s3UploadPort.putBytes(
+                S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
                         bucket,
                         emailKey,
-                        msg.emailHtml().getBytes(StandardCharsets.UTF_8),
+                        gz,
                         "text/html; charset=utf-8"
                 );
+                log.warn("S3Put Bucket = {} , Key = {}", put.bucket(), put.key());
                 s3Array.add(s3UrlItem("EMAIL", put.bucket(), put.key()));
             }
 
             // 2) SMS 업로드
             if (hasText(msg.smsText())) {
-                S3UploadPort.S3PutResult put = s3UploadPort.putBytes(
+                byte[] raw = msg.smsText().getBytes(StandardCharsets.UTF_8);
+                byte[] gz  = gzip(raw); // 압축된 바이트
+
+                S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
                         bucket,
                         smsKey,
-                        msg.smsText().getBytes(StandardCharsets.UTF_8),
+                        gz,
                         "text/plain; charset=utf-8"
                 );
+                log.warn("S3Put Bucket = {} , Key = {}", put.bucket(), put.key());
 
                 s3Array.add(s3UrlItem("SMS", put.bucket(), put.key()));
             }
@@ -104,6 +114,7 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
         n.put("key", channelKey);
         n.put("bucket", bucket);
         n.put("s3_key", s3Key);
+        log.warn("ObjectNode = {}", n);
         return n;
     }
 
@@ -117,5 +128,22 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
     private YearMonth resolveBillingYearMonth(RenderedMessage msg) {
         if (hasText(msg.period())) return YearMonth.parse(msg.period());
         throw new IllegalArgumentException("RenderedMessage period/billingMonth missing. userId=" + msg.userId());
+    }
+
+
+    // gzip 변환
+    private static byte[] gzip(byte[] raw) {
+        if (raw == null || raw.length == 0) return new byte[0];
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             GZIPOutputStream gos = new GZIPOutputStream(baos)) {
+
+            gos.write(raw);
+            gos.finish();
+            return baos.toByteArray();
+
+        } catch (IOException e) {
+            throw new IllegalStateException("gzip compression failed", e);
+        }
     }
 }

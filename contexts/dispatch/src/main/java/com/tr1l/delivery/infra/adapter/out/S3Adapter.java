@@ -12,8 +12,10 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.zip.GZIPInputStream;
 
 @Slf4j
 @Component
@@ -46,8 +48,10 @@ public class S3Adapter implements ContentProviderPort {
             // ResponseInputStream은 S3에서 데이터를 조금씩 흘려보내주는 통로
             try (ResponseInputStream<GetObjectResponse> s3Stream = s3Client.getObject(request)) {
 
+                InputStream targetStream = new GZIPInputStream(s3Stream);
+
                 // 문자열로 변환하여 반환
-                return StreamUtils.copyToString(s3Stream, StandardCharsets.UTF_8);
+                return StreamUtils.copyToString(targetStream, StandardCharsets.UTF_8);
             }
         } catch (Exception e) {
             log.error("S3 다운로드 실패. URL: {}, Error: {}", s3Url, e.getMessage(), e);
