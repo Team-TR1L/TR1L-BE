@@ -8,6 +8,6 @@ public interface NotificationSender {
     // 해당 채널 타입을 지원하는지 확인
     boolean supports(ChannelType channelType);
 
-    // 실제 발송 로직 수행 : 성공 여부 반환
-    boolean send(String destination, String content);
+    // 실제 발송 로직 수행
+    void send(String destination, String content);
 }

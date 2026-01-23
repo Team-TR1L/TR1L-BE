@@ -3,7 +3,7 @@
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "1024",
-  "memory": "3072",
+  "memory": "8192",
   "taskRoleArn": "${TASK_ROLE_ARN}",
   "executionRoleArn": "${AWS_EXE_ROLE_ARN}",
   "containerDefinitions": [
@@ -40,7 +40,19 @@
         { "name": "ALGORITHM", "value": "${ALGORITHM}" },
         { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" },
 
-        { "name": "CHANNEL_ORDER", "value": "${CHANNEL_ORDER}" }
+        { "name": "CHANNEL_ORDER", "value": "${CHANNEL_ORDER}" },
+
+        { "name": "OTEL_SERVICE_NAME", "value": "worker" },
+        { "name": "OTEL_EXPORTER_OTLP_ENDPOINT", "value": "http://10.0.1.156:4318" },
+        { "name": "OTEL_EXPORTER_OTLP_PROTOCOL", "value": "http/protobuf" },
+        { "name": "OTEL_TRACES_EXPORTER", "value": "otlp" },
+        { "name": "OTEL_METRICS_EXPORTER", "value": "none" },
+        { "name": "OTEL_LOGS_EXPORTER", "value": "none" },
+        { "name": "OTEL_RESOURCE_ATTRIBUTES", "value": "deployment.environment=prod,service.namespace=tr1l" },
+
+        { "name": "PYROSCOPE_SERVER_ADDRESS", "value": "http://10.0.1.156:4040" },
+        { "name": "PYROSCOPE_APPLICATION_NAME", "value": "worker" },
+        { "name": "PYROSCOPE_PROFILING_INTERVAL", "value": "10s" }
       ],
       "secrets": [
         {

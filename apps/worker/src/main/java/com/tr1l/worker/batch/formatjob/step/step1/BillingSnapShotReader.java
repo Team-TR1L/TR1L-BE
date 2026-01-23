@@ -5,6 +5,7 @@ import com.tr1l.worker.batch.formatjob.domain.BillingSnapshotDoc;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.data.MongoCursorItemReader;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -30,11 +31,15 @@ public class BillingSnapShotReader extends MongoCursorItemReader<BillingSnapshot
     public BillingSnapShotReader(
             MongoTemplate mongoTemplate,
             String collectionName,
-            String billingMonth
+            String billingMonth,
+            int batchSize
     ) {
         String billingMonthDay = YearMonth.parse(billingMonth).atDay(1).toString();
         Query query = new Query();
         query.addCriteria(Criteria.where("billingMonth").is(billingMonthDay));
+        query.with(Sort.by(Sort.Direction.ASC, "_id"));
+        query.noCursorTimeout();
+        query.cursorBatchSize(batchSize);
         //query.addCriteria(Criteria.where("status").is("ISSUED"));
 
 
@@ -63,6 +68,7 @@ public class BillingSnapShotReader extends MongoCursorItemReader<BillingSnapshot
         this.setCollection(collectionName);
         this.setQuery(query);
         this.setTargetType(BillingSnapshotDoc.class);
+        this.setBatchSize(batchSize);
 
         log.info("BillingSnapShotReader query prepared. billingMonthDay={}, status=ISSUED", billingMonthDay);
 

@@ -30,3 +30,6 @@ spring:
 logging:
   level:
     root: INFO
+
+aws:
+  region:${AWS_REGION}

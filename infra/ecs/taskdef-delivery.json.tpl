@@ -41,7 +41,19 @@
 
         { "name": "SECRET_KEY", "value": "${SECRET_KEY}" },
         { "name": "ALGORITHM", "value": "${ALGORITHM}" },
-        { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" }
+        { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" },
+
+        { "name": "OTEL_SERVICE_NAME", "value": "delivery" },
+        { "name": "OTEL_EXPORTER_OTLP_ENDPOINT", "value": "http://10.0.1.156:4318" },
+        { "name": "OTEL_EXPORTER_OTLP_PROTOCOL", "value": "http/protobuf" },
+        { "name": "OTEL_TRACES_EXPORTER", "value": "otlp" },
+        { "name": "OTEL_METRICS_EXPORTER", "value": "none" },
+        { "name": "OTEL_LOGS_EXPORTER", "value": "none" },
+        { "name": "OTEL_RESOURCE_ATTRIBUTES", "value": "deployment.environment=prod,service.namespace=tr1l" },
+
+        { "name": "PYROSCOPE_SERVER_ADDRESS", "value": "http://10.0.1.156:4040" },
+        { "name": "PYROSCOPE_APPLICATION_NAME", "value": "delivery" },
+        { "name": "PYROSCOPE_PROFILING_INTERVAL", "value": "10s" }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
