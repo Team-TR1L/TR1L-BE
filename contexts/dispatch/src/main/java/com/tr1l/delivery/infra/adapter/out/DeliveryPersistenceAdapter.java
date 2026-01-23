@@ -26,7 +26,8 @@ public class DeliveryPersistenceAdapter implements DeliveryRepositoryPort {
             // send_status 컬럼 사용, 복합키(user_id + billing_month) 조건
             String sql = "UPDATE " + TABLE_NAME +
                     " SET send_status = 'SENT' " +
-                    " WHERE user_id = ? AND billing_month = ?";
+                    " WHERE user_id = ? AND billing_month = ? " +
+                    " AND send_status = 'READY'";
             return jdbcTemplate.update(sql, userId, billingMonth);
         } catch (DataAccessException e){
             // SENT로 업데이트 하다가 오류 -> 카프카 리트라이 토픽
@@ -40,7 +41,8 @@ public class DeliveryPersistenceAdapter implements DeliveryRepositoryPort {
         try{
             String sql = "UPDATE " + TABLE_NAME +
                     " SET send_status = 'SUCCEED' " +
-                    " WHERE user_id = ? AND billing_month = ?";
+                    " WHERE user_id = ? AND billing_month = ?" +
+                    " AND send_status = 'SENT'";
             jdbcTemplate.update(sql, userId, billingMonth);
         } catch (DataAccessException e){
             log.error("SUCCEED 업데이트 에러, user_id:{}, billing_month:{}", userId, billingMonth);
@@ -54,7 +56,8 @@ public class DeliveryPersistenceAdapter implements DeliveryRepositoryPort {
         try{
             String sql = "UPDATE " + TABLE_NAME +
                     " SET send_status = 'FAILED', attempt_count = attempt_count + 1 " +
-                    " WHERE user_id = ? AND billing_month = ?";
+                    " WHERE user_id = ? AND billing_month = ?" +
+                    " AND send_status = 'SENT'";;
             jdbcTemplate.update(sql, userId, billingMonth);
         } catch (DataAccessException e){
             log.error("FAILED 업데이트 에러, user_id:{}, billing_month:{}", userId, billingMonth);
