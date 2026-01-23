@@ -45,19 +45,15 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
 
         for (RenderedMessage msg : chunk) {
 
-            log.warn("resolveBillingYearMonth start");
             // 어댑터에서 Date로 변환
             YearMonth billingYm = resolveBillingYearMonth(msg);
-            log.warn("resolveBillingYearMonth end");
 
             // key -> YYYY-MM + userId + type
             String base = msg.period() + "/" + msg.userId() + "/";
             String emailKey = base + "EMAIL.html";
             String smsKey   = base + "SMS.txt";
-            log.warn("base = {} , {} , {}",base,emailKey,smsKey);
 
             ArrayNode s3Array = om.createArrayNode(); // [] jsonb 형식
-            log.warn("s3Array = {} ",s3Array.toString());
 
             // 1) EMAIL 업로드
             if (hasText(msg.emailHtml())) {
@@ -68,7 +64,6 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
                         msg.emailHtml().getBytes(StandardCharsets.UTF_8),
                         "text/html; charset=utf-8"
                 );
-                log.warn("S3Put Bucket = {} , Key = {}", put.bucket(),put.key());
                 s3Array.add(s3UrlItem("EMAIL", put.bucket(), put.key()));
             }
 
@@ -80,7 +75,6 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
                         msg.smsText().getBytes(StandardCharsets.UTF_8),
                         "text/plain; charset=utf-8"
                 );
-                log.warn("S3Put Bucket = {} , Key = {}", put.bucket(),put.key());
 
                 s3Array.add(s3UrlItem("SMS", put.bucket(), put.key()));
             }
@@ -110,7 +104,6 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
         n.put("key", channelKey);
         n.put("bucket", bucket);
         n.put("s3_key", s3Key);
-        log.warn("ObjectNode = {}",n);
         return n;
     }
 
