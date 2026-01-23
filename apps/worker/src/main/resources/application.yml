@@ -38,6 +38,8 @@ server:
 #Target DB
 app:
   sql:
+    step0:
+      targetBase: classpath:sql/job1/step0/target
     step1:
       mainBase: classpath:sql/job1/step1/main
       targetBase: classpath:sql/job1/step1/target
