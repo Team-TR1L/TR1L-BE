@@ -12,6 +12,7 @@ import com.tr1l.dispatch.domain.model.enums.ChannelType;
 import com.tr1l.dispatch.application.port.out.DispatchEventPublisher;
 import com.tr1l.dispatch.infra.persistence.entity.BillingTargetEntity;
 import com.tr1l.dispatch.infra.persistence.repository.MessageCandidateJpaRepository;
+import com.tr1l.dispatch.infra.s3.S3LocationMapper;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,13 +32,16 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
     private final MessageCandidateJpaRepository candidateRepository;
     private final DispatchPolicyService dispatchPolicyService;
     private final DispatchEventPublisher eventPublisher;
-    private static final ObjectMapper objectMapper = new ObjectMapper();
     private final EntityManager entityManager;
+    private final S3LocationMapper s3LocationMapper;
 
     @Transactional
     public void orchestrate(Instant now) {
+        Instant startTime = Instant.now();
+        log.warn("🕒 Step 0: 오케스트레이션 시작 - {}", startTime);
 
         // 1. 발송 정책 조회
+        log.warn("🔍 Step 1: 활성 발송 정책 조회 중...");
         DispatchPolicy policy = dispatchPolicyService.findCurrentActivePolicy();
 
         List<ChannelType> channels =
@@ -53,8 +57,13 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
         Long lastUserId = 0L;
         int pageSize = 1000;
 
+        // 4. 카프카에 발행할 메시지 개수 카운터
+        int candidatesCnt = 0;
+        int messagesCnt = 0;
+
+        // 5. Cursor 기반 배치 조회
+        log.warn("📦 Step 4: 후보 배치 처리 시작...");
         while (true) {
-            // 4. Cursor 기반 batch 조회
             List<BillingTargetEntity> candidates =
                     candidateRepository.findReadyCandidatesByUserCursor(
                             billingMonth,
@@ -66,10 +75,13 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
                     );
 
             if (candidates.isEmpty()) {
+                log.warn("✅ 더 이상 후보가 없습니다. 배치 처리 종료.");
                 break;
             }
 
-            // 5. batch 처리
+            candidatesCnt += candidates.size();
+
+            // 6. 배치 처리
             for (BillingTargetEntity candidate : candidates) {
 
                 ChannelType nowChannel =
@@ -78,15 +90,16 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
                                 candidate.getAttemptCount()
                         ));
 
-                String s3url = extractLocationValueByChannel(
+                String s3url = s3LocationMapper.extractLocationValueByChannel(
                         candidate.getS3UrlJsonb(),
                         nowChannel
                 );
 
-                String destination = extractValueByChannel(
+                String destination = s3LocationMapper.extractValueByChannel(
                         candidate.getSendOptionJsonb(),
                         nowChannel
                 );
+                messagesCnt++;
 
                 eventPublisher.publish(
                         candidate.getId().getUserId(),
@@ -100,64 +113,15 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
                 lastUserId = candidate.getId().getUserId();
             }
 
-            // 6. 영속성 컨텍스트 정리 (OOM 방지)
+            // 7. 영속성 컨텍스트 정리 (OOM 방지)
             entityManager.clear();
         }
+
+        log.warn("🏁 Step 5: 오케스트레이션 완료. 총 후보: {}, 총 발행 메시지 수: {}",
+                candidatesCnt, messagesCnt);
+
+        Instant endTime = Instant.now();
+        log.warn("✅ 오케스트레이션 시작: {}, 종료: {}, 소요 시간(ms): {}"
+                , startTime, endTime, Duration.between(startTime, endTime).toMillis());
     }
-    private String extractValueByChannel(String json, ChannelType channelType) {
-        if (json == null || json.isBlank()) {
-            return null;
-        }
-
-        try {
-            JsonNode root = objectMapper.readTree(json);
-
-            for (JsonNode node : root) {
-                String key = node.path("key").asText();
-                if (key.equalsIgnoreCase(channelType.name())) {
-                    return node.path("value").asText();
-                }
-            }
-            return null;
-
-        } catch (Exception e) {
-            throw new DispatchDomainException(DispatchErrorCode.JSON_MAPPING_ERROR, e);
-        }
-    }
-
-    public String extractLocationValueByChannel(String jsonb, ChannelType nowChannel) {
-        // 1. 데이터가 null이거나 빈 배열인 경우 조기 리턴 (또는 null 반환)
-        if (jsonb == null || jsonb.trim().equals("[]") || jsonb.isBlank()) {
-            log.warn("S3 URL JSON 데이터가 비어 있습니다. Skip 처리합니다.");
-            return null; // 호출부에서 null 체크 후 발송 대상에서 제외하도록 설계
-        }
-
-        try {
-            List<S3Location> locations = objectMapper.readValue(jsonb, new TypeReference<List<S3Location>>() {});
-
-            return locations.stream()
-                    .filter(loc -> loc.key().equalsIgnoreCase(nowChannel.name()))
-                    .findFirst()
-                    .map(loc -> {
-                        String bucketName = loc.bucket();
-                        return String.format("https://%s.s3.ap-northeast-2.amazonaws.com/%s",
-                                bucketName, loc.s3Key());
-                    })
-                    // 2. 해당 채널(EMAIL/SMS)만 없는 경우
-                    .orElseGet(() -> {
-                        log.warn("해당 채널[{}]에 대한 S3 설정을 찾을 수 없습니다. 데이터: {}", nowChannel, jsonb);
-                        return null;
-                    });
-
-        } catch (Exception e) {
-            log.error("S3 URL 생성 중 예상치 못한 오류: {}", e.getMessage());
-            throw new DispatchDomainException(DispatchErrorCode.S3_URL_FAILED);
-        }
-    }
-
-    public static record S3Location(
-            String key,
-            String bucket,
-            @JsonProperty("s3_key") String s3Key
-    ) {}
 }
