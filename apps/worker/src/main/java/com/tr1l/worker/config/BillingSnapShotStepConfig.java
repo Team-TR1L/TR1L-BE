@@ -23,6 +23,8 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.thymeleaf.TemplateEngine;
 
+import java.util.concurrent.Executor;
+
 /**
  * ==========================
  * BillingSnapShotStepConfig
@@ -99,8 +101,9 @@ public class BillingSnapShotStepConfig {
             @Value("${s3.bucket}") String bucket,
             S3UploadPort s3UploadPort,
             ObjectMapper om,
-            BillingTargetS3UpdatePort billingTargetS3UpdatePort
+            BillingTargetS3UpdatePort billingTargetS3UpdatePort,
+            @Qualifier("s3UploadExecutor")Executor s3UploadExecutor
     ) {
-        return new BillingSnapShotWriter(bucket, s3UploadPort, om, billingTargetS3UpdatePort);
+        return new BillingSnapShotWriter(bucket, s3UploadPort, om, billingTargetS3UpdatePort,s3UploadExecutor);
     }
 }
