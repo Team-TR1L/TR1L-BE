@@ -54,6 +54,12 @@ app:
       fetch-size: 1000
       lease-seconds: 3000
 
+  #Job2 step1
+  mongo:
+    snapshot:
+      batch-size: ${BILLING_SNAPSHOT_BATCH_SIZE:200}
+      chunk-size: 200
+
   liquibase:
     target:
       enabled: true
