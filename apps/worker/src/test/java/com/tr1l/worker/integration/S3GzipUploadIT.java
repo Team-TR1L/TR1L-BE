@@ -11,7 +11,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 
-import java.time.Instant;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 @Slf4j
@@ -32,10 +32,26 @@ class S3GzipUploadIT {
 
             S3UploadAdapter adapter = new S3UploadAdapter(s3Client);
 
-            String key = "test/" + UUID.randomUUID() + ".txt.gz";
-            byte[] anyBytes = "ping".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            String key = "test/" + UUID.randomUUID() + ".gz";
 
-                adapter.putGzipBytes(bucket, key, anyBytes, "text/plain; charset=utf-8");
+
+            String html = """
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ping</title>
+</head>
+<body>
+  <h1>ping</h1>
+</body>
+</html>
+""";
+
+            byte[] anyBytes = html.getBytes(StandardCharsets.UTF_8);
+
+                adapter.putGzipBytes(bucket, key, anyBytes, "text/html; charset=utf-8");
             }
         }
     }
