@@ -41,7 +41,7 @@ public class S3LocationMapper {
     public String extractLocationValueByChannel(String jsonb, ChannelType nowChannel) {
         // 1. 데이터가 null이거나 빈 배열인 경우 조기 리턴 (또는 null 반환)
         if (jsonb == null || jsonb.trim().equals("[]") || jsonb.isBlank()) {
-            log.warn("S3 URL JSON 데이터가 비어 있습니다. Skip 처리합니다.");
+//            log.warn("S3 URL JSON 데이터가 비어 있습니다. Skip 처리합니다.");
             return null;
         }
 
