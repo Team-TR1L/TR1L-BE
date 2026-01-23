@@ -45,7 +45,7 @@ public class BillingCalculateAndSnapshotConfig {
             CalculateBillingProcessor processor,
             CalculateAndSnapshotWriter writer,
             StepLoggingListener listener,
-            @Value("${app.billing.step3.chunk-size:200}") int chunkSize
+            @Value("${app.billing.step3.chunk-size:3000}") int chunkSize
     ) {
         return new StepBuilder("billingCalculateAndSnapshotStep", jobRepository)
                 .<WorkAndTargetRow, CalculateBillingProcessor.Result>chunk(chunkSize, txManager)
@@ -65,8 +65,8 @@ public class BillingCalculateAndSnapshotConfig {
             WorkDocClaimPort claimPort,
             BillingTargetLoadPort targetLoadPort,
             @Value("#{jobExecutionContext['billingYearMonth']}") String billingYearMonth,
-            @Value("${app.billing.step3.fetch-size:200}") int fetchSize,
-            @Value("${app.billing.step3.lease-seconds:1000}") long leaseSeconds,
+            @Value("${app.billing.step3.fetch-size:6000}") int fetchSize,
+            @Value("${app.billing.step3.lease-seconds:3000}") long leaseSeconds,
             @Qualifier("billingWorkerId") String workerId
     ) {
         YearMonth billingMonth = YearMonth.parse(billingYearMonth); // YYYY-MM
