@@ -52,7 +52,7 @@
         { "name": "OTEL_RESOURCE_ATTRIBUTES", "value": "deployment.environment=prod,service.namespace=tr1l" },
 
         { "name": "PYROSCOPE_SERVER_ADDRESS", "value": "http://10.0.1.156:4040" },
-        { "name": "PYROSCOPE_APPLICATION_NAME", "value": "worker" },
+        { "name": "PYROSCOPE_APPLICATION_NAME", "value": "delivery" },
         { "name": "PYROSCOPE_PROFILING_INTERVAL", "value": "10s" }
       ],
       "logConfiguration": {
