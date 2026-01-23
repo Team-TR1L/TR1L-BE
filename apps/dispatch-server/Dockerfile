@@ -16,7 +16,7 @@ RUN ./gradlew :apps:dispatch-server:bootJar -x test --no-daemon
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-COPY --from=builder /workspace/apps/worker/build/libs/*.jar app.jar
+COPY --from=builder /workspace/apps/dispatch-server/build/libs/*.jar app.jar
 
 RUN mkdir -p /otel \
  && apt-get update \
