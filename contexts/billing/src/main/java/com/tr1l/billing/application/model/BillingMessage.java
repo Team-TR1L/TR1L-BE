@@ -16,7 +16,10 @@ import java.util.List;
 
 public record BillingMessage(
         String period,
+        String workId,
+        String planName,
         String customerName,
+        String customerBirthDate,
         String email,
         String phone,
         String subtotalAmount,

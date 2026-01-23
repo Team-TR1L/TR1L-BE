@@ -49,6 +49,9 @@ public class TemplateRenderAdapter implements TemplateRenderPort {
         // 템플릿에서 쓰는 변수명과 1:1로 매칭
         ctx.setVariable("period", model.period());
         ctx.setVariable("customerName", model.customerName());
+        ctx.setVariable("customerBirthDate",model.customerBirthDate());
+        ctx.setVariable("planName", model.planName());
+        ctx.setVariable("workId",model.workId());
 
         ctx.setVariable("email", model.email());
         ctx.setVariable("phone", model.phone());

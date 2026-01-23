@@ -61,6 +61,7 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
         var p = doc.payload();
         String period = safeStr(p.period()); //기간
         String customerName = safeStr(p.customerName()); //이름
+        String customerBirthDate = safeStr(p.customerBirthDate()); //생일
 
         //복호화
         String recipientEmailEnc = safeStr(p.recipient() != null ? p.recipient().email() : null);
@@ -68,6 +69,8 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
 
         String recipientEmail = decryptionTool.decrypt(recipientEmailEnc);
         String recipientPhone = decryptionTool.decrypt(recipientPhoneEnc);
+
+        String workId = doc.workId();
 
         //subtotal = 플러스 요금 합  discount = 할인된 요금 총합  total = subtotal - discount 총합
         // (Mongo snapshot에 이미 계산되어 저장된 값을 그대로 사용)
@@ -113,8 +116,10 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
         return new RenderBillingMessageQuery(
                 doc.billingMonth(),
                 doc.userId(),
+                workId,
                 period,
                 customerName,
+                customerBirthDate,
                 recipientEmail,
                 recipientPhone,
                 subtotal,

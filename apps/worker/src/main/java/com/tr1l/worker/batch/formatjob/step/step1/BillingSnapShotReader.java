@@ -46,8 +46,10 @@ public class BillingSnapShotReader extends MongoCursorItemReader<BillingSnapshot
                 .include("userId")
                 .include("status")
                 .include("issuedAt")
+                .include("workId")
                 .include("payload.recipient.email.value")   // Enc면 recipientEmailEnc로 수정
                 .include("payload.recipient.phone.value")
+                .include("payload.customerBirthDate.value")
                 .include("payload.period.value")
                 .include("payload.customerName.value")
                 .include("payload.subtotalAmount.value")

@@ -1,53 +1,37 @@
 <!doctype html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="x-apple-disable-message-reformatting">
     <title>TR1L 청구서</title>
 </head>
 
-<body style="margin:0;padding:0;background:#f6f7f9;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;">
+<body style="margin:0;padding:0;background:#f3f6f8;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent; background:#bd4ea7">
+    이번 달 요금 상세 내역과 납부 기한을 확인하세요.
+</div>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f3f6f8;">
     <tr>
-        <td align="center" style="padding:24px;">
-            <table role="presentation" width="640" cellpadding="0" cellspacing="0"
-                   style="width:640px;max-width:640px;background:#ffffff;border:1px solid #e6e8ee;border-radius:14px;">
-                <!-- HEADER -->
+        <td align="center" style="padding:24px 12px;">
+
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="640"
+                   style="width:640px;max-width:640px;background:#ffffff;border:1px solid #e6ebef;border-radius:14px;overflow:hidden;">
+
+                <!-- Header -->
                 <tr>
-                    <td style="padding:24px 24px 10px 24px;">
-                        <div style="font-size:18px;font-weight:700;color:#111827;">
-                            <span th:text="${period}">2026-01</span> 청구서 안내
-                        </div>
-
-                        <div style="margin-top:6px;font-size:13px;color:#6b7280;">
-                            안녕하세요, <b th:text="${customerName}">박준희</b>님. 청구서가 발행되었습니다.
-                        </div>
-
-                        <!-- 수신 정보(마스킹) -->
-                        <div style="margin-top:10px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-                            <div style="font-size:12px;color:#64748b;">수신 정보</div>
-                            <div style="margin-top:6px;font-size:12px;color:#334155;line-height:1.6;">
-                                이메일: <span th:text="${email}">ab**@gmail.com</span><br/>
-                                전화번호: <span th:text="${phone}">010-1234-****</span>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-
-                <!-- TOTAL -->
-                <tr>
-                    <td style="padding:0 24px 16px 24px;">
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                               style="background:#f3f6ff;border:1px solid #dfe7ff;border-radius:12px;">
+                    <td style="background:#0ea5a4;padding:22px 24px ; ">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
-                                <td style="padding:16px;">
-                                    <div style="font-size:12px;color:#334155;">총 청구금액</div>
-                                    <div style="margin-top:6px;font-size:28px;font-weight:800;color:#111827;">
-                                        <span th:text="${totalAmount}">41,121</span>원
-                                    </div>
-                                    <div style="margin-top:6px;font-size:12px;color:#475569;">
-                                        요금 합계 <span th:text="${subtotalAmount}">91,410</span>원 ·
-                                        할인 합계 <span th:text="${discountTotalAmount}">50,289</span>원
+                                <td align="left" valign="middle" style="color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+                                    <div style="font-size:22px;line-height:26px;font-weight:800;letter-spacing:0.2px;">TR1L-TELECOM</div>
+                                    <div style="font-size:12px;line-height:16px;color:#dff7f7;margin-top:4px;">GOOD PARTNER</div>
+                                </td>
+                                <td align="right" valign="middle" style="color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+                                    <div style="font-size:12px;line-height:16px;color:#dff7f7;">청구서 번호</div>
+                                    <div style="font-size:16px;line-height:20px;font-weight:800;margin-top:3px;">
+                                        <span th:text="${workId}">2025-01:123123123</span>
                                     </div>
                                 </td>
                             </tr>
@@ -55,52 +39,275 @@
                     </td>
                 </tr>
 
-                <!-- CHARGE LINES -->
+                <!-- Body -->
                 <tr>
-                    <td style="padding:0 24px 8px 24px;">
-                        <div style="font-size:14px;font-weight:700;color:#111827;margin:8px 0;">
-                            요금 내역
-                        </div>
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                               style="border-collapse:collapse;">
-                            <tr th:each="c : ${chargeLines}">
-                                <td style="padding:10px 6px;border-bottom:1px solid #eef2f7;color:#111827;font-size:13px;"
-                                    th:text="${c.name}">요금제 월정액</td>
-                                <td style="padding:10px 6px;border-bottom:1px solid #eef2f7;color:#111827;font-size:13px;text-align:right;"
-                                    th:text="${c.amount} + '원'">77,000원</td>
+                    <td style="padding:22px 24px;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+
+                        <!-- 계정 요약 -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:14px;">
+                            <tr>
+                                <td valign="middle" style="width:26px;padding-right:10px;">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                                         xmlns="http://www.w3.org/2000/svg" style="display:block;">
+                                        <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.42 0-8 2-8 4.5V20h16v-1.5C20 16 16.42 14 12 14Z"
+                                              fill="#0ea5a4"/>
+                                    </svg>
+                                </td>
+                                <td style="font-size:18px;line-height:22px;font-weight:800;color:#0f172a;">계정 요약</td>
                             </tr>
                         </table>
-                    </td>
-                </tr>
 
-                <!-- DISCOUNT LINES -->
-                <tr>
-                    <td style="padding:0 24px 8px 24px;">
-                        <div style="font-size:14px;font-weight:700;color:#111827;margin:18px 0 8px 0;">
-                            할인 내역
-                        </div>
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                               style="border-collapse:collapse;">
-                            <tr th:each="d : ${discountLines}">
-                                <td style="padding:10px 6px;border-bottom:1px solid #eef2f7;color:#111827;font-size:13px;"
-                                    th:text="${d.name}">선택약정 할인</td>
-                                <td style="padding:10px 6px;border-bottom:1px solid #eef2f7;color:#111827;font-size:13px;text-align:right;"
-                                    th:text="'-' + ${d.amount} + '원'">-19,250원</td>
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-top:1px solid #eef2f6;">
+                            <tr>
+                                <td style="padding:14px 0;border-bottom:1px solid #eef2f6;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;">고객명</td>
+                                            <td align="right" style="color:#0f172a;font-size:13px;font-weight:800;">
+                                                <span th:text="${customerName}">김민준</span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="padding:14px 0;border-bottom:1px solid #eef2f6;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;">전화번호</td>
+                                            <td align="right" style="color:#0f172a;font-size:13px;font-weight:800;">
+                                                <span th:text="${phone}">010-1234-5678</span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="padding:14px 0;border-bottom:1px solid #eef2f6;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;">생년월일</td>
+                                            <td align="right" style="color:#0f172a;font-size:13px;font-weight:900;">
+                                                <span th:text="${customerBirthDate}">9999.99.99</span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="padding:14px 0;border-bottom:1px solid #eef2f6;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;">요금제</td>
+                                            <td align="right" style="color:#0f172a;font-size:13px;font-weight:800;">
+                                                <span th:text="${planName}">프리미엄 무제한</span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="padding:14px 0;border-bottom:1px solid #eef2f6;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;">청구 년월</td>
+                                            <td align="right" style="color:#0f172a;font-size:13px;font-weight:800;">
+                                                <span th:text="${period}">2025-01</span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
                             </tr>
                         </table>
+
+                        <!-- Total highlight -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+                               style="margin-top:16px;background:#e8fbfb;border:1px solid #c8f1f1;border-radius:12px;">
+                            <tr>
+                                <td style="padding:16px 16px;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td valign="middle">
+                                                <div style="color:#334155;font-size:12px;font-weight:800;margin-bottom:6px;">이번 달 총 청구 금액</div>
+                                                <div style="color:#0ea5a4;font-size:32px;line-height:36px;font-weight:900;">
+                                                    <span th:text="'₩' + ${totalAmount}">₩89,500</span>
+                                                </div>
+                                            </td>
+                                            <td align="right" valign="middle" style="width:56px;">
+                                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background:#0ea5a4;border-radius:999px;">
+                                                    <tr>
+                                                        <td style="padding:14px;">
+                                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                                                                 xmlns="http://www.w3.org/2000/svg" style="display:block;">
+                                                                <path d="M6 2h9l3 3v17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"
+                                                                      fill="#ffffff" opacity="0.95"/>
+                                                                <path d="M8 9h8M8 13h8M8 17h6" stroke="#0ea5a4" stroke-width="2" stroke-linecap="round"/>
+                                                            </svg>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <div style="height:18px;line-height:18px;">&nbsp;</div>
+                        <div style="border-top:1px solid #eef2f6;"></div>
+                        <div style="height:18px;line-height:18px;">&nbsp;</div>
+
+                        <!-- 요금 상세 내역 -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:10px;">
+                            <tr>
+                                <td valign="middle" style="width:26px;padding-right:10px;">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                                         xmlns="http://www.w3.org/2000/svg" style="display:block;">
+                                        <path d="M7 6h14M7 12h14M7 18h14" stroke="#0ea5a4" stroke-width="2" stroke-linecap="round"/>
+                                        <path d="M3 6h.01M3 12h.01M3 18h.01" stroke="#0ea5a4" stroke-width="3" stroke-linecap="round"/>
+                                    </svg>
+                                </td>
+                                <td style="font-size:18px;line-height:22px;font-weight:800;color:#0f172a;">요금 상세 내역</td>
+                            </tr>
+                        </table>
+
+                        <!-- Detail Items (여기부터 표 구조 유지) -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+                               style="border:1px solid #eef2f6;border-radius:12px;overflow:hidden;">
+                            <tr>
+                                <td style="padding:14px 14px;border-bottom:1px solid #eef2f6;font-weight:900;color:#334155;font-size:14px;">기본 요금</td>
+                            </tr>
+
+                            <tr th:if="${chargeLines != null and !#lists.isEmpty(chargeLines)}">
+                                <td style="padding:12px 14px;border-bottom:1px solid #eef2f6;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td style="color:#0f172a;font-size:13px;font-weight:700;">
+                                                <span th:text="${chargeLines[0].name}">프리미엄 무제한</span>
+                                            </td>
+                                            <td align="right" style="color:#0f172a;font-size:13px;font-weight:900;">
+                                                <span th:text="'₩' + ${chargeLines[0].amount}">₩55,000</span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="padding:14px 14px;border-bottom:1px solid #eef2f6;font-weight:900;color:#334155;font-size:14px;">부가 요금</td>
+                            </tr>
+
+                            <th:block th:each="l, stat : ${chargeLines}">
+                                <tr th:if="${stat.index > 0}">
+                                    <td style="padding:12px 14px;border-bottom:1px solid #eef2f6;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="color:#0f172a;font-size:13px;font-weight:700;" th:text="${l.name}">부가서비스 - 티빙</td>
+                                                <td align="right" style="color:#0f172a;font-size:13px;font-weight:900;" th:text="'₩' + ${l.amount}">₩4,950</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </th:block>
+
+                            <tr>
+                                <td style="padding:14px 14px;border-bottom:1px solid #eef2f6;font-weight:900;color:#334155;font-size:14px;">할인</td>
+                            </tr>
+
+                            <th:block th:each="l : ${discountLines}">
+                                <tr>
+                                    <td style="padding:12px 14px;border-bottom:1px solid #eef2f6;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="color:#0f172a;font-size:13px;font-weight:700;" th:text="${l.name}">하하하하</td>
+                                                <td align="right" style="color:#16a34a;font-size:13px;font-weight:900;" th:text="'-₩' + ${l.amount}">-₩1,000</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </th:block>
+
+                            <!-- ✅ Totals는 반드시 tr/td 안에 -->
+                            <tr>
+                                <td style="padding:14px 14px;">
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                                        <tr>
+                                            <td style="padding:10px 0;border-top:1px solid #eef2f6;">
+                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                                    <tr>
+                                                        <td style="color:#64748b;font-size:13px;font-weight:800;">소계</td>
+                                                        <td align="right" style="color:#0f172a;font-size:13px;font-weight:900;">
+                                                            <span th:text="'₩' + ${subtotalAmount}">₩41,950</span>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td style="padding:10px 0;">
+                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                                    <tr>
+                                                        <td style="color:#16a34a;font-size:13px;font-weight:900;">총 할인</td>
+                                                        <td align="right" style="color:#16a34a;font-size:13px;font-weight:900;">
+                                                            <span th:text="'-₩' + ${discountTotalAmount}">-₩0</span>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td style="padding:14px;border-radius:12px;background:#e8fbfb;border:1px solid #c8f1f1;">
+                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                                    <tr>
+                                                        <td style="color:#0f172a;font-size:16px;font-weight:900;">최종 청구 금액</td>
+                                                        <td align="right" style="color:#0ea5a4;font-size:22px;font-weight:900;">
+                                                            <span th:text="'₩' + ${totalAmount}">₩41,950</span>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Footer Support -->
+                        <div style="height:18px;line-height:18px;">&nbsp;</div>
+                        <div style="border-top:1px solid #eef2f6;"></div>
+                        <div style="height:18px;line-height:18px;">&nbsp;</div>
+
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:8px;">
+                            <tr><td style="font-size:14px;font-weight:900;color:#0f172a;">고객지원</td></tr>
+                        </table>
+
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td style="padding:10px 0;color:#334155;font-size:12px;">
+                                    전화: <span style="font-weight:900;">1588-0000</span> &nbsp;|&nbsp;
+                                    이메일: <span style="font-weight:900;">support@mobile.com</span> &nbsp;|&nbsp;
+                                    운영: <span style="font-weight:900;">24시간</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding-top:8px;color:#94a3b8;font-size:11px;line-height:16px;">
+                                    본 메일은 발신전용입니다. 문의는 고객센터를 이용해주세요.<br>
+                                    © 2025 TR1L Telecom. All rights reserved.
+                                </td>
+                            </tr>
+                        </table>
+
                     </td>
                 </tr>
-
-                <!-- FOOTER -->
-                <tr>
-                    <td style="padding:18px 24px 24px 24px;">
-                        <div style="font-size:11px;color:#94a3b8;">
-                            © TR1L · 본 메일은 발신전용입니다.
-                        </div>
-                    </td>
-                </tr>
-
             </table>
+
         </td>
     </tr>
 </table>

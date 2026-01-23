@@ -37,14 +37,17 @@ public record BillingSnapshotDoc(
 
 
         @Field("payload")
-        Payload payload
+        Payload payload,
+
+        @Field("workId")
+        String workId
 ) {
     public record Payload(
             @Field("period") ValueString period,
             @Field("customerName") ValueString customerName,
 
             @Field("recipient") Recipient recipient,
-
+            @Field("customerBirthDate") ValueString customerBirthDate,
             @Field("subtotalAmount") ValueInt subtotalAmount,
             @Field("discountTotalAmount") ValueInt discountTotalAmount,
             @Field("totalAmount") ValueInt totalAmount,

@@ -17,8 +17,10 @@ import java.util.List;
 public record RenderBillingMessageQuery(
         String billingMonth,
         long userId,
+        String workId,
         String period,
         String customerName,
+        String customerBirthDate,
         String recipientEmail,
         String recipientPhone,
         int subtotalAmount,

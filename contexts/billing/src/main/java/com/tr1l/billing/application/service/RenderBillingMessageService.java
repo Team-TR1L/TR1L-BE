@@ -29,7 +29,7 @@ public class RenderBillingMessageService implements RenderBillingMessageUseCase 
     private final TemplateRenderPort templateRenderPort;
 
     private static final String EMAIL_TEMPLATE = "bill-email";
-    private static final String SMS_TEMPLATE   = "bill-sms";
+    private static final String SMS_TEMPLATE = "bill-sms";
 
     public RenderBillingMessageService(TemplateRenderPort templateRenderPort) {
         this.templateRenderPort = templateRenderPort;
@@ -37,13 +37,17 @@ public class RenderBillingMessageService implements RenderBillingMessageUseCase 
 
     @Override
     public RenderedMessageResult render(RenderBillingMessageQuery q) {
-        String maskedName  = MaskingUtil.maskingName(q.customerName());
+        String maskedName = MaskingUtil.maskingName(q.customerName());
         String maskedEmail = MaskingUtil.maskEmail(q.recipientEmail());
         String maskedPhone = MaskingUtil.maskingPhone(q.recipientPhone());
 
+        String planName = extractPlanName(q);
+        String customerBirthDate = nullToEmpty(q.customerBirthDate());
+        String workId = q.workId();
+
         String subtotalStr = money(q.subtotalAmount());
         String discountStr = money(q.discountTotalAmount());
-        String totalStr    = money(q.totalAmount());
+        String totalStr = money(q.totalAmount());
 
         List<BillingMessage.LineRow> chargeRows =
                 q.chargeLines() == null ? List.of()
@@ -60,7 +64,10 @@ public class RenderBillingMessageService implements RenderBillingMessageUseCase 
 
         BillingMessage model = new BillingMessage(
                 q.period(),
+                workId,
+                planName,
                 maskedName,
+                customerBirthDate,
                 maskedEmail,
                 maskedPhone,
                 subtotalStr,
@@ -87,6 +94,12 @@ public class RenderBillingMessageService implements RenderBillingMessageUseCase 
                 emailHtml,
                 smsText
         );
+    }
+
+    private String extractPlanName(RenderBillingMessageQuery q) {
+        if (q.chargeLines() == null || q.chargeLines().isEmpty()) return "";
+        String name = q.chargeLines().get(0).name();
+        return name == null ? "" : name;
     }
 
     // 한국식 돈 표기
