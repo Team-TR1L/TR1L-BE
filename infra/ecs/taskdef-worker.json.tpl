@@ -40,7 +40,15 @@
         { "name": "ALGORITHM", "value": "${ALGORITHM}" },
         { "name": "TRANSFORMATION", "value": "${TRANSFORMATION}" },
 
-        { "name": "CHANNEL_ORDER", "value": "${CHANNEL_ORDER}" }
+        { "name": "CHANNEL_ORDER", "value": "${CHANNEL_ORDER}" },
+
+        { "name": "OTEL_SERVICE_NAME", "value": "worker" },
+        { "name": "OTEL_EXPORTER_OTLP_ENDPOINT", "value": "http://10.0.1.156:4318" },
+        { "name": "OTEL_EXPORTER_OTLP_PROTOCOL", "value": "http/protobuf" },
+        { "name": "OTEL_TRACES_EXPORTER", "value": "otlp" },
+        { "name": "OTEL_METRICS_EXPORTER", "value": "none" },
+        { "name": "OTEL_LOGS_EXPORTER", "value": "none" },
+        { "name": "OTEL_RESOURCE_ATTRIBUTES", "value": "deployment.environment=prod,service.namespace=tr1l" }
       ],
       "secrets": [
         {
