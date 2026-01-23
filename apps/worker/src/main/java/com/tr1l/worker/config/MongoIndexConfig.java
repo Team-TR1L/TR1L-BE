@@ -56,39 +56,50 @@ import org.springframework.data.mongodb.core.index.Index;
  */
 @Configuration
 @ConditionalOnBean(MongoTemplate.class)
-public class BillingWorkIndexConfig {
+public class MongoIndexConfig {
 
     @Bean
-    public ApplicationRunner billingWorkIndexes(
+    public ApplicationRunner mongoIndexes(
             MongoTemplate mongoTemplate,
-            @Value("${app.billing.work-collection:billing_work}") String collectionName
+            @Value("${app.billing.work-collection:billing_work}") String workCol,
+            @Value("${app.billing.snapshot-collection:billing_snapshot}") String snapshotCol
     ) {
-
         return args -> {
-            if (!mongoTemplate.collectionExists(collectionName)) {
-                mongoTemplate.createCollection(collectionName);
-            }
+            ensureCollection(mongoTemplate, workCol);
+            ensureCollection(mongoTemplate, snapshotCol);
 
-            mongoTemplate.indexOps(collectionName).createIndex(
+            // ===== billing_work =====
+            mongoTemplate.indexOps(workCol).createIndex(
                     new Index()
                             .on("billingMonth", Sort.Direction.ASC)
                             .on("status", Sort.Direction.ASC)
                             .on("userId", Sort.Direction.ASC)
-                            .named("idx_bm_status_user")
+                            .named("idx_work_bm_status_user")
             );
 
-            // ==========================
-            // [추후 Step3 lease 도입 시 주석 해제]
-            // ==========================
-            // 회수/재시도 최적화: PROCESSING 중 lease 만료된 건을 빠르게 찾기
-            //
-            // mongoTemplate.indexOps(collectionName).createIndex(
-            //         new Index()
-            //                 .on("billingMonth", Sort.Direction.ASC)
-            //                 .on("status", Sort.Direction.ASC)
-            //                 .on("leaseUntil", Sort.Direction.ASC)
-            //                 .named("idx_bm_status_lease_until")
-            // );
+            // ===== billing_snapshot =====
+            mongoTemplate.indexOps(snapshotCol).createIndex(
+                    new Index()
+                            .on("billingMonth", Sort.Direction.ASC)
+                            .on("status", Sort.Direction.ASC)
+                            .on("userId", Sort.Direction.ASC)
+                            .named("idx_snap_bm_status_user")
+            );
+
+        //    // 스냅샷에서 "issuedAt 최신순" 같은 조회가 있으면 추가
+        //    mongoTemplate.indexOps(snapshotCol).createIndex(
+        //            new Index()
+        //                    .on("billingMonth", Sort.Direction.ASC)
+        //                    .on("status", Sort.Direction.ASC)
+        //                    .on("issuedAt", Sort.Direction.DESC)
+        //                    .named("idx_snap_bm_status_issuedAt_desc")
+        //    );
         };
+    }
+
+    private static void ensureCollection(MongoTemplate mongoTemplate, String name) {
+        if (!mongoTemplate.collectionExists(name)) {
+            mongoTemplate.createCollection(name);
+        }
     }
 }
