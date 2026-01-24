@@ -32,4 +32,4 @@ logging:
     root: INFO
 
 aws:
-  region:${AWS_REGION}
+  region: ${AWS_REGION}
