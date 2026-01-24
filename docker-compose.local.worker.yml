@@ -1,0 +1,47 @@
+services:
+  postgres_target:
+    networks:
+      - default
+      - tr1l-monitoring
+  worker:
+    depends_on:
+      postgres_target:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://host.docker.internal:5432/billing # local
+      TARGET_DATASOURCE_URL: jdbc:postgresql://postgres_target:5432/billing_target  #docker
+      PG_SUB_HOST: jdbc:postgresql://postgres_target:5432/billing_target
+      PG_SUB_USER: ${PG_SUB_USER:-postgres}
+      PG_SUB_PASSWORD: ${PG_SUB_PASSWORD:-postgres}
+      SPRING_DATA_MONGODB_URI: mongodb://host.docker.internal:27017/tr1l
+      CHANNEL_ORDER: ${CHANNEL_ORDER:-EMAIL,SMS}
+      BATCH_EXIT_ON_COMPLETE: "false"
+      BATCH_ADD_RUN_ID: "true"
+      OTEL_SERVICE_NAME: worker
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=local,service.namespace=tr1l
+    command:
+      - "--spring.batch.job.name=${SPRING_BATCH_JOB_NAME:-calculateJob}"
+      - "--batch.job1StartTime=${BATCH_JOB1_START_TIME:-2026-01-20T00:00:00Z}"
+    deploy:
+      resources:
+        limits:
+          # CPU, memory setup
+          cpus: "1.0"
+          memory: 2g
+    mem_limit: 2g
+    cpus: 1.0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - tr1l-monitoring
+
+networks:
+  default: {}
+  tr1l-monitoring:
+    external: true
