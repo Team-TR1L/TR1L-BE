@@ -37,7 +37,7 @@ public class BillingTargetS3UploadAdapter implements BillingTargetS3UpdatePort {
     @Override
     public void updateStatus(YearMonth billingMonth, long userId, String s3UrlJsonb) {
         LocalDate billingMonthDate = billingMonth.atDay(1); // YYYY-MM-01 변환
-        log.warn("DB 저장 = {}", s3UrlJsonb);
+        log.debug("DB 저장 = {}", s3UrlJsonb);
 
 
         jdbc.update("""
