@@ -54,7 +54,7 @@ springdoc:
     groups-order: DESC
     operations-sorter: method
   api-docs:
-    path: /api-docs
+    path: /v3/api-docs
 ---
 
 spring:
