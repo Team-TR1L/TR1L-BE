@@ -63,7 +63,7 @@ app:
     step3:
       chunk-size: ${BATCH_JOB1_STEP3_CHUNK_SIZE:3000}
       fetch-size: ${BATCH_JOB1_STEP3_FETCH_SIZE:6000}
-      lease-seconds: ${BATCH_JOB1_STEP3_LEASE_SECONDS:3000}
+      lease-seconds: ${BATCH_JOB1_STEP3_LEASE_SECONDS:600}
 
   #Job2 step1
   mongo:
