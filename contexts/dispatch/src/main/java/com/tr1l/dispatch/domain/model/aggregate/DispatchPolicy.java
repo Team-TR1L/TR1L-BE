@@ -83,6 +83,7 @@ public class DispatchPolicy {
         DispatchPolicy policy = new DispatchPolicy();
         policy.adminId = adminId;
         policy.routingPolicy = routingPolicy;
+        policy.version = PolicyVersion.of(1);
         policy.status = PolicyStatus.DRAFT;
         policy.createdAt = Instant.now();
         return policy;

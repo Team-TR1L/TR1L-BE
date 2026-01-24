@@ -24,7 +24,7 @@ public final class DispatchPolicyMapper {
                 AdminId.of(entity.getAdminId()),
                 entity.getCreatedAt(),
                 PolicyStatus.valueOf(entity.getStatus()),
-                PolicyVersion.of(Math.max(1, entity.getVersion() + 1)),
+                PolicyVersion.of(entity.getVersion()),
                 ChannelRoutingPolicyJsonConverter.deserialize(entity.getRoutingPolicyJson()),
                 entity.getActivatedAt(),
                 entity.getRetiredAt()
@@ -37,17 +37,17 @@ public final class DispatchPolicyMapper {
     public static DispatchPolicyEntity toEntity(DispatchPolicy policy) throws JsonProcessingException {
         DispatchPolicyEntity entity = new DispatchPolicyEntity();
 
-        // 신규 엔티티일 경우 ID / Version 세팅 금지
         if (policy.getDispatchPolicyId() != null) {
             entity.setId(policy.getDispatchPolicyId().value());
         }
-
 
         entity.setAdminId(policy.getAdminId().value());
         entity.setStatus(String.valueOf(policy.getStatus()));
         entity.setRoutingPolicyJson(
                 objectMapper.writeValueAsString(policy.getRoutingPolicy())
         );
+        entity.setMaxAttemptCount(policy.getRoutingPolicy().getMaxAttemptCount());
+        entity.setVersion(policy.getVersion().value());
         entity.setCreatedAt(policy.getCreatedAt());
         entity.setActivatedAt(policy.getActivatedAt());
         entity.setRetiredAt(policy.getRetiredAt());
