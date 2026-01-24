@@ -68,7 +68,10 @@ public class SecurityConfig {
                 .securityContext(context -> context.securityContextRepository(repo))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/api/signup").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/signup",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html").permitAll()
                         .anyRequest().authenticated()
                 )
                 // addFilterAt 대신 addFilterBefore로 확실히 순서 보장

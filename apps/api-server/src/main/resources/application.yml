@@ -47,6 +47,14 @@ app:
 kafka:
   topic:
     dispatch-events: dispatch-events
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    groups-order: DESC
+    operations-sorter: method
+  api-docs:
+    path: /api-docs
 ---
 
 spring:
