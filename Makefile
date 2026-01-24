@@ -16,7 +16,7 @@ ps:
 
 # --- APPS ---
 api:
-	docker compose up -d api-server postgres
+	docker compose up -d api-server postgres_target
 
 dispatch:
 	docker compose up -d dispatch-server kafka postgres_target
