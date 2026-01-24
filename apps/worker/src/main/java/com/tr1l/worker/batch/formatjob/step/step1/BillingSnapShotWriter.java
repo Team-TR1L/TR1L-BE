@@ -13,6 +13,8 @@ import org.springframework.batch.item.ItemWriter;
 
 import java.nio.charset.StandardCharsets;
 import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @StepScope
@@ -36,6 +38,11 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
 
     @Override
     public void write(Chunk<? extends RenderedMessage> chunk) throws Exception {
+
+        // for문에서 update 객체를 누적하여 bulk 연산으로 일괄 처리
+        List<BillingTargetS3UpdatePort.UpdateRequest> updates = new ArrayList<>(chunk.size());
+
+
         for (RenderedMessage msg : chunk) {
 
             log.warn("resolveBillingYearMonth start");
@@ -80,17 +87,18 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
 
             if (s3Array.isEmpty()) {
                 throw new IllegalStateException("RenderedMessage has no contents. userId=" + msg.userId());
-
             }
 
-
-            // 3) DB 업데이트(READY + s3_url_jsonb)
-            billingTargetS3UpdatePort.updateStatus(
-                    billingYm,                  // "YYYY-MM"
-                    msg.userId(), // 유저 Id
-                    om.writeValueAsString(s3Array) // 해당 유저의 jsonB
-            );
+            // updates 요청 객체를 저장 chunk개수만큼 적재 후 일괄 처리
+            updates.add(new BillingTargetS3UpdatePort.UpdateRequest(
+                    billingYm,
+                    msg.userId(),
+                    om.writeValueAsString(s3Array)
+            ));
         }
+
+        // chunked 1회 반영
+        billingTargetS3UpdatePort.updateStatusBulk(updates);
     }
 
 

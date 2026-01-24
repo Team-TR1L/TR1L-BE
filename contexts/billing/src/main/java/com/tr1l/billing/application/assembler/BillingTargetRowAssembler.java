@@ -136,6 +136,7 @@ public final class BillingTargetRowAssembler {
                 contractRate,
                 row.soldierEligible(),
                 row.welfareEligible(),
+                row.welfareName(),
                 welfareTypeOrNull,
                 welfareRateOrNull,
                 welfareCapOrNull,
