@@ -7,7 +7,15 @@ import com.tr1l.worker.batch.calculatejob.model.WorkDoc;
 import com.tr1l.worker.batch.calculatejob.step.step2.BillingTargetProcessor;
 import com.tr1l.worker.batch.calculatejob.step.step2.BillingTargetReader;
 import com.tr1l.worker.batch.calculatejob.step.step2.BillingTargetWriter;
+import com.tr1l.worker.batch.listener.PerfTimingListener;
+import com.tr1l.worker.batch.listener.SqlQueryCountListener;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.batch.core.ChunkListener;
+import org.springframework.batch.core.ItemProcessListener;
+import org.springframework.batch.core.ItemReadListener;
+import org.springframework.batch.core.ItemWriteListener;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -39,14 +47,30 @@ public class BillingTargetConfig {
             BillingTargetProcessor processor,
             BillingTargetWriter writer,
             StepLoggingListener listener,
+            MeterRegistry meterRegistry,
             @Value("${app.billing.step2.chunk-size:1000}") int chunkSize
     ) {
+        var perf = new PerfTimingListener<BillingTargetKey, WorkDoc>(
+                30,
+                50,
+                300,
+                1000,
+                item -> item.billingMonthDay() + ":" + item.userId()
+        );
+        var sql = new SqlQueryCountListener(meterRegistry, "main", "target");
         return new StepBuilder("billingTargetStep", jobRepository)
                 .<BillingTargetKey, WorkDoc>chunk(chunkSize, transactionManager)
                 .reader(reader)
                 .listener(listener)
                 .processor(processor)
                 .writer(writer)
+                .listener((StepExecutionListener) perf)
+                .listener((ChunkListener) perf)
+                .listener((ItemReadListener<BillingTargetKey>) perf)
+                .listener((ItemProcessListener<BillingTargetKey, WorkDoc>) perf)
+                .listener((ItemWriteListener<WorkDoc>) perf)
+                .listener((StepExecutionListener) sql)
+                .listener((ChunkListener) sql)
                 .build();
     }
 

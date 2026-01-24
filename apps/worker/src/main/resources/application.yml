@@ -34,6 +34,17 @@ spring:
       mode: never
 server:
   port: 8080
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,health,info
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 #Target DB
 app:
@@ -53,6 +64,11 @@ app:
       chunk: ${BATCH_JOB1_STEP3_CHUNK_SIZE:3000}
       fetch-size: ${BATCH_JOB1_STEP3_FETCH_SIZE:6000}
       lease-seconds: ${BATCH_JOB1_STEP3_LEASE-SECONDS:3000}
+    mongo:
+      work:
+        collection: billing_work
+      snapshot:
+        collection: billing_snapshot
 
   #Job2 step1
   mongo:
@@ -114,7 +130,7 @@ spring:
 
 logging:
   level:
-    root: INFO
+    root: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.orm.jdbc.bind: TRACE
     org.springframework.jdbc.core: DEBUG

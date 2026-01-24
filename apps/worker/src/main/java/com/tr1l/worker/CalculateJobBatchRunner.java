@@ -4,9 +4,11 @@ import com.tr1l.worker.config.BatchJobConfiguration;
 import com.tr1l.worker.config.TimeProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.*;
+import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.ApplicationContext;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -25,17 +27,23 @@ public class CalculateJobBatchRunner implements CommandLineRunner {
 
     private final ZoneId zoneId;
     private final DateTimeFormatter formatter;
+    private final boolean exitOnComplete;
+    private final boolean addRunId;
 
     public CalculateJobBatchRunner(
             ApplicationContext applicationContext,
             JobLauncher jobLauncher,
             BatchJobConfiguration batchConfiguration,
-            TimeProperties timeProperties
+            TimeProperties timeProperties,
+            @Value("${BATCH_EXIT_ON_COMPLETE:true}") boolean exitOnComplete,
+            @Value("${BATCH_ADD_RUN_ID:false}") boolean addRunId
     ) {
         this.applicationContext = applicationContext;
         this.jobLauncher = jobLauncher;
         this.batchConfiguration = batchConfiguration;
         this.timeProperties = timeProperties;
+        this.exitOnComplete = exitOnComplete;
+        this.addRunId = addRunId;
 
         this.zoneId = ZoneId.of(timeProperties.zone());
         this.formatter = DateTimeFormatter.ofPattern(timeProperties.format());
@@ -81,16 +89,22 @@ public class CalculateJobBatchRunner implements CommandLineRunner {
                 channelOrder
         );
 
-        JobParameters jobParameters = new JobParametersBuilder()
+        JobParametersBuilder paramsBuilder = new JobParametersBuilder()
                 .addString("cutoff", cutoffAt.toString())
-                .addString("channelOrder", batchConfiguration.getChannelOrder())
-                .toJobParameters();
+                .addString("channelOrder", batchConfiguration.getChannelOrder());
+        if (addRunId) {
+            paramsBuilder.addLong("run.id", System.currentTimeMillis());
+        }
+        JobParameters jobParameters = paramsBuilder.toJobParameters();
 
 
         Job calcaulateJob = applicationContext.getBean("calculateJob", Job.class);
-        JobExecution execution = jobLauncher.run(calcaulateJob, jobParameters);
-
-        handleJobCompletion(execution,"CalculateJob");
+        try {
+            JobExecution execution = jobLauncher.run(calcaulateJob, jobParameters);
+            handleJobCompletion(execution,"CalculateJob");
+        } catch (JobExecutionAlreadyRunningException e) {
+            log.warn("Job already running, skipping start. job=calculateJob err={}", e.getMessage());
+        }
     }
 
     /**
@@ -112,15 +126,21 @@ public class CalculateJobBatchRunner implements CommandLineRunner {
                 now.format(formatter)
         );
 
-        JobParameters jobParameters = new JobParametersBuilder()
-                .addString("cutoff", cutoffAt.toString())
-                .toJobParameters();
+        JobParametersBuilder paramsBuilder = new JobParametersBuilder()
+                .addString("cutoff", cutoffAt.toString());
+        if (addRunId) {
+            paramsBuilder.addLong("run.id", System.currentTimeMillis());
+        }
+        JobParameters jobParameters = paramsBuilder.toJobParameters();
 
 
         Job formatJob = applicationContext.getBean("formatJob", Job.class);
-        JobExecution execution=jobLauncher.run(formatJob, jobParameters);
-
-        handleJobCompletion(execution,"FormatJob");
+        try {
+            JobExecution execution=jobLauncher.run(formatJob, jobParameters);
+            handleJobCompletion(execution,"FormatJob");
+        } catch (JobExecutionAlreadyRunningException e) {
+            log.warn("Job already running, skipping start. job=formatJob err={}", e.getMessage());
+        }
     }
 
 

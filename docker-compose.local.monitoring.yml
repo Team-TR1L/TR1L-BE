@@ -1,0 +1,79 @@
+services:
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    ports:
+      - "8088:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    privileged: true
+    command:
+      - --store_container_labels=true
+      - --whitelisted_container_labels=com.docker.compose.service,com.docker.compose.project
+    networks:
+      - tr1l-monitoring
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - tr1l-monitoring
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      POSTGRES_TARGET_HOST: postgres_target
+      PG_SUB_DB: ${PG_SUB_DB:-billing_target}
+      PG_SUB_USER: ${PG_SUB_USER:-postgres}
+      PG_SUB_PASSWORD: ${PG_SUB_PASSWORD:-postgres}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - tempo
+    networks:
+      - tr1l-monitoring
+      - default
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    command: ["-config.file=/etc/tempo/tempo.yml"]
+    ports:
+      - "3200:3200"
+    volumes:
+      - ./infra/monitoring/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+    networks:
+      - tr1l-monitoring
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.99.0
+    command: ["--config=/etc/otel-collector.yml"]
+    ports:
+      - "4318:4318"
+      - "4317:4317"
+    volumes:
+      - ./infra/monitoring/otel-collector.yml:/etc/otel-collector.yml:ro
+    depends_on:
+      - tempo
+    networks:
+      - tr1l-monitoring
+
+volumes:
+  grafana_data:
+
+networks:
+  default: {}
+  tr1l-monitoring:
+    external: true

@@ -13,4 +13,6 @@ public interface DispatchEventPublisher {
             String encryptedS3Url,
             String destination
     );
+
+    void flush();
 }
