@@ -57,7 +57,6 @@ import org.springframework.data.mongodb.core.index.Index;
  *  *     => "PROCESSING + leaseUntil < now" 회수 쿼리 최적화
  */
 @Configuration
-@ConditionalOnBean(MongoTemplate.class)
 public class MongoIndexConfig {
 
     @Bean
