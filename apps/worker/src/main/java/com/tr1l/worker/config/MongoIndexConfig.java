@@ -5,6 +5,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.Index;
@@ -59,10 +61,11 @@ import org.springframework.data.mongodb.core.index.Index;
 public class MongoIndexConfig {
 
     @Bean
+    @Order(Ordered.HIGHEST_PRECEDENCE)
     public ApplicationRunner mongoIndexes(
             MongoTemplate mongoTemplate,
-            @Value("${app.billing.work-collection:billing_work}") String workCol,
-            @Value("${app.billing.snapshot-collection:billing_snapshot}") String snapshotCol
+            @Value("${app.billing.mongo.work.collection:billing_work}") String workCol,
+            @Value("${app.billing.mongo.snapshot.collection:billing_snapshot}") String snapshotCol
     ) {
         return args -> {
             ensureCollection(mongoTemplate, workCol);
@@ -86,14 +89,7 @@ public class MongoIndexConfig {
                             .named("idx_snap_bm_status_user")
             );
 
-        //    // 스냅샷에서 "issuedAt 최신순" 같은 조회가 있으면 추가
-        //    mongoTemplate.indexOps(snapshotCol).createIndex(
-        //            new Index()
-        //                    .on("billingMonth", Sort.Direction.ASC)
-        //                    .on("status", Sort.Direction.ASC)
-        //                    .on("issuedAt", Sort.Direction.DESC)
-        //                    .named("idx_snap_bm_status_issuedAt_desc")
-        //    );
+
         };
     }
 
