@@ -8,12 +8,12 @@
   "panels": [
     {
       "type": "table",
-      "title": "Top 10 Queries by Total Time (pg_stat_statements)",
+      "title": "Top 10 Active Queries by Duration (pg_stat_activity)",
       "datasource": "PostgresTarget",
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT query, calls, total_exec_time, mean_exec_time, rows FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 10;",
+          "rawSql": "SELECT pid, usename, state, EXTRACT(EPOCH FROM (now() - query_start)) * 1000 AS duration_ms, query FROM pg_stat_activity WHERE state <> 'idle' AND query IS NOT NULL AND query NOT ILIKE '%pg_stat_activity%' ORDER BY duration_ms DESC LIMIT 10;",
           "refId": "A"
         }
       ],
@@ -21,13 +21,7 @@
         "defaults": {},
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "total_exec_time" },
-            "properties": [
-              { "id": "unit", "value": "ms" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "mean_exec_time" },
+            "matcher": { "id": "byName", "options": "duration_ms" },
             "properties": [
               { "id": "unit", "value": "ms" }
             ]

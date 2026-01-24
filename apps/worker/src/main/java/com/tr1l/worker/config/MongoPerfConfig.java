@@ -13,9 +13,9 @@ import org.springframework.boot.autoconfigure.mongo.MongoClientSettingsBuilderCu
 public class MongoPerfConfig {
 
     @Bean
-    public MongoClientSettingsBuilderCustomizer mongoTimingCustomizer() {
+    public MongoClientSettingsBuilderCustomizer mongoTimingCustomizer(MeterRegistry meterRegistry) {
         return (MongoClientSettings.Builder builder) ->
-                builder.addCommandListener(new MongoQueryTimingCommandListener(50)); // 50ms 이상 느리면 WARN
+                builder.addCommandListener(new MongoQueryTimingCommandListener(meterRegistry, 50)); // 50ms 이상 느리면 WARN
     }
 
     @Bean

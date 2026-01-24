@@ -1,0 +1,78 @@
+{
+  "uid": "worker-mongo-performance",
+  "title": "Worker Mongo Performance",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Mongo Avg Duration (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "(rate(mongo_command_duration_seconds_sum{status=\"ok\"}[5m]) / rate(mongo_command_duration_seconds_count{status=\"ok\"}[5m])) * 1000",
+          "legendFormat": "{{cmd}}/{{collection}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Mongo P95 Duration (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, cmd, collection) (rate(mongo_command_duration_seconds_bucket{status=\"ok\"}[5m]))) * 1000",
+          "legendFormat": "{{cmd}}/{{collection}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Mongo Command Rate (qps)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (cmd, collection, status) (rate(mongo_command_duration_seconds_count[5m]))",
+          "legendFormat": "{{cmd}}/{{collection}}/{{status}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 }
+    }
+  ],
+  "templating": { "list": [] },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  }
+}
