@@ -3,8 +3,16 @@ package com.tr1l.worker.config.step;
 import com.tr1l.billing.application.model.BillingTargetBaseRow;
 import com.tr1l.worker.batch.calculatejob.step.step1.BillingTargetFlattenWriter;
 import com.tr1l.worker.batch.calculatejob.support.BillingTargetBaseRowMapper;
+import com.tr1l.worker.batch.listener.PerfTimingListener;
+import com.tr1l.worker.batch.listener.SqlQueryCountListener;
 import com.tr1l.util.SqlResourceReader;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.batch.core.ChunkListener;
+import org.springframework.batch.core.ItemProcessListener;
+import org.springframework.batch.core.ItemReadListener;
+import org.springframework.batch.core.ItemWriteListener;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
@@ -53,13 +61,29 @@ public class BillingFlattenStepConfig {
             JdbcCursorItemReader<BillingTargetBaseRow> billingTargetBaseRowJdbcCursorItemReader,
             BillingTargetFlattenWriter writer,
             StepLoggingListener listener,
+            MeterRegistry meterRegistry,
             @Value("${app.sql.step1.chunk.chunkSize}") int chunkSize
     ) {
+        var perf = new PerfTimingListener<BillingTargetBaseRow, BillingTargetBaseRow>(
+                30,
+                50,
+                300,
+                1000,
+                row -> Long.toString(row.userId())
+        );
+        var sql = new SqlQueryCountListener(meterRegistry, "main", "target");
         return new StepBuilder("billingFlattenStep", jobRepository)
                 .<BillingTargetBaseRow, BillingTargetBaseRow>chunk(chunkSize, targetTx)
                 .reader(billingTargetBaseRowJdbcCursorItemReader)
                 .writer(writer)
                 .listener(listener)
+                .listener((StepExecutionListener) perf)
+                .listener((ChunkListener) perf)
+                .listener((ItemReadListener<BillingTargetBaseRow>) perf)
+                .listener((ItemProcessListener<BillingTargetBaseRow, BillingTargetBaseRow>) perf)
+                .listener((ItemWriteListener<BillingTargetBaseRow>) perf)
+                .listener((StepExecutionListener) sql)
+                .listener((ChunkListener) sql)
                 .build();
     }
 }
