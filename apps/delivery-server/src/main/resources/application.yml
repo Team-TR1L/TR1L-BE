@@ -1,5 +1,3 @@
-secret-key: ${DELIVERY_SECRET_KEY}
-
 kafka:
   topic:
     dispatch-events: ${KAFKA_TOPIC_DISPATCH_EVENTS}
@@ -32,3 +30,6 @@ spring:
 logging:
   level:
     root: INFO
+
+aws:
+  region:${AWS_REGION}

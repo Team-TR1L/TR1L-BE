@@ -19,18 +19,10 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * BillingTargetRow(RDB MV 결과 DTO) -> Billing(DRAFT Aggregate) 조립기(Assembler)
- *
- * 핵심 역할:
- * 1) Row에서 "도메인 VO" 생성 (BillingPeriod, CustomerName, CustomerBirthDate, Recipient ...)
- * 2) Row에서 "계산 입력" BillingCalculationInput 생성 (요금/할인/JSONB 파싱/추가과금 계산)
- * 3) BillingCalculator를 호출하여 ChargeLine/DiscountLine/totals 까지 채워진 Billing(DRAFT) 생성
- *
- * 주의:
- * - issue() / Mongo 저장은 Batch Processor/Writer(Application)에서 수행
+ * VO를 주입받고, 계산에 필요한 정보들을 BillingCalculationInput으로 생성
+ * calculator를 호출해서 Billing 생성
  */
 @Slf4j
 @Component
@@ -44,17 +36,8 @@ public final class BillingTargetRowAssembler {
         this.calculator = new BillingCalculator();
     }
 
-    /**
-     * Step2 Processor에서 1 row를 받아 Billing(DRAFT)를 만든다.
-     *
-     * 입력:
-     * - billingId/customerId/idempotencyKey: 배치/애플리케이션이 생성/결정한 식별자
-     * - row: MV에서 읽은 1건(고객 1명에 대한 청구 입력 스냅샷)
-     * - lineIdProvider: ChargeLine/DiscountLine 식별자 생성기
-     *
-     * 출력:
-     * - ChargeLine/DiscountLine/totals까지 계산된 Billing(DRAFT)
-     */
+
+    // 계산기 호출
     public Billing toDraftBilling(
             BillingId billingId,
             CustomerId customerId,
@@ -77,17 +60,19 @@ public final class BillingTargetRowAssembler {
         Objects.requireNonNull(lineIdProvider);
         log.warn("lineIdProvider = {}",lineIdProvider);
 
-        // 1) Row -> Aggregate 생성에 필요한 VO (스냅샷)
-        BillingPeriod period = new BillingPeriod(parseBillingMonth(row.billingMonth()));
-        CustomerName customerName = new CustomerName(row.userName());
-        CustomerBirthDate customerBirthDate = new CustomerBirthDate(parseBirthYearMonth(row.userBirthDate()));
+        // Aggregate 생성에 필요한 VO 주입
+        BillingPeriod period = new BillingPeriod(parseBillingMonth(row.billingMonth())); // 2026-01
+        CustomerName customerName = new CustomerName(row.userName()); // 박준희
+        CustomerBirthDate customerBirthDate = new CustomerBirthDate(parseBirthYearMonth(row.userBirthDate())); // 2001-02-14
         Recipient recipient = toRecipient(row.recipientEmailEnc(), row.recipientPhoneEnc());
-        log.warn("period = {} customerName = {} customerBirthDate = {} recipient = {}",period,customerName,customerBirthDate,recipient);
-        // 2) Row -> 도메인 계산 입력
+        log.warn("period = {} customerName = {} customerBirthDate = {} recipient = {}", period,customerName, customerBirthDate, recipient);
 
+        // Row -> 할인, 청구라인 계산
         BillingCalculationInput in = toCalculationInput(row);
         log.warn("======= BillingCalculationInput Success ==========");
-        // 3) 계산기 호출: 라인 구성 + 할인 적용 + totals 재계산까지 완료된 Billing(DRAFT) 반환
+        log.info("======= BillingCalculationInput={}", in);
+
+        // 계산기 호출: 라인 구성 + 할인 적용 + totals까지 완료된 Billing(DRAFT) 반환
         return calculator.calculateDraft(
                 billingId,
                 customerId,
@@ -102,7 +87,6 @@ public final class BillingTargetRowAssembler {
     }
 
     /**
-     * Row -> BillingCalculationInput 변환(=계산 전용 입력 매핑)
      * - RDB 값/코드/JSONB를 도메인 정책들이 사용할 수 있는 형태로 정규화
      */
     private BillingCalculationInput toCalculationInput(BillingTargetRow row) {
@@ -115,15 +99,16 @@ public final class BillingTargetRowAssembler {
          log.warn("==================== toRate Start ============================");
         Rate contractRate = toRate(row.contractRate()); // 0.25
         log.warn("==================== toRate End ============================");
+
         // 복지 값은 welfareEligible 일 때만 세팅
         WelfareType welfareTypeOrNull = null; // 복지 유형
         Rate welfareRateOrNull = null; // 복지 할인률
         Money welfareCapOrNull = null; // 복지 상한선
 
-        log.warn("==================== 분기 Start ============================");
+        log.warn("==================== 복지 분기 Start ============================");
         if (row.welfareEligible()) { // 복지 유저일 경우
             log.warn("==================== toWelfareType Start ============================");
-            welfareTypeOrNull = toWelfareType(row.welfareCode()); // 복지코드 -> 변환 필요함
+            welfareTypeOrNull = toWelfareType(row.welfareCode()); // 복지코드
             log.warn("==================== toWelfareType End ============================");
 
             log.warn("==================== toRate2 Start ============================");
@@ -138,33 +123,27 @@ public final class BillingTargetRowAssembler {
             }
         }
 
-//        // 결합 할인(정액): 없으면 0원
-//        Money bundleDiscountAmount = Money.zero();
-//        if (row.bundleEligible() // 결합 유저면
-//                && row.bundleTotalDiscountAmount() != null // 할인된 금액
-//                && row.bundleTotalDiscountAmount() > 0) {
-//            bundleDiscountAmount = new Money(row.bundleTotalDiscountAmount());
-//        }
 
         // JSONB: [{name, monthlyPrice}] -> AddonLine 리스트
         List<BillingCalculationInput.AddonLine> addonLines = parseAddonLines(row.optionsJsonb());
 
         log.warn("==================== toCalculationInput End ============================");
         return new BillingCalculationInput(
+                row.planName(),
                 planP,
                 usageM,
                 row.hasContract(),
                 contractRate,
                 row.soldierEligible(),
-//                soldierRate,
                 row.welfareEligible(),
+                row.welfareName(),
                 welfareTypeOrNull,
                 welfareRateOrNull,
                 welfareCapOrNull,
-//                bundleDiscountAmount,
                 addonLines
         );
     }
+
 
     /**
      * 총 사용량에 따른 추가 과금(M) 계산
@@ -173,7 +152,7 @@ public final class BillingTargetRowAssembler {
      * - DBT-03(초과 없음/차단): 과금 없음 => 0
      * - DBT-02(nMB 이후 과금): max(0, used - included) * perMb
      *
-     * perMb는 BigDecimal(예: 0.275원) 이므로 최종 원 단위로 내림(FLOOR)
+     * perMb는 BigDecimal(0.275원) 이므로 최종 원 단위로 내림(FLOOR)
      */
     private Money computeAdditionalUsageFee(BillingTargetRow row) {
         String code = row.dataBillingTypeCode();
@@ -186,18 +165,14 @@ public final class BillingTargetRowAssembler {
 
             case "DBT-02" -> {
                 Long included = row.includedDataMb(); // 기본 제공량
-                BigDecimal perMb = row.excessChargePerMb(); // 0.275
+                BigDecimal perMb = row.excessChargePerMb(); // 0.275고정
 
-                if (included == null) { // DB에서 잘못들어옴
+                if (included == null) { // DB에서 잘못 들어옴, 기본 제공량은 null이 될 수 없음
                      throw new BillingDomainException(BillingErrorCode.INVALID_INCLUDED_DATA);
                 }
 
-                if (perMb == null) { // DB에서 잘못들어옴
-                    throw new BillingDomainException(BillingErrorCode.INVALID_EXCESS_CHARGE_PER_MB);
-                }
-
-                long used = row.usedDataMb(); // 총 사용량
-                long excessMb = Math.max(0, used - included); // 기본 제공량보다 높을 경우에만 과금 부여
+                long used = row.usedDataMb(); // 총 사용량, 0도 가능
+                long excessMb = Math.max(0, used - included); // 기본 제공량보다 높을 경우에만 과금 부여, 다만 0보다 커야됨
 
                 long feeWon = perMb // 추가 사용량 x 0.275 반올림 처리
                         .multiply(BigDecimal.valueOf(excessMb))
@@ -219,20 +194,20 @@ public final class BillingTargetRowAssembler {
         return new Rate(BigDecimal.valueOf(v));
     }
 
+
     /**
-     * welfareCode(DB) -> WelfareType(도메인 enum) 매핑
-     * - 너가 “일반/기초연금 제외”한다고 했으니 여기서는 WLF-02/03/04만 허용
+     * 복지 코드에 따른 할인률 변경
      */
     private WelfareType toWelfareType(String welfareCode) {
         if (welfareCode == null || welfareCode.isBlank()) {
             throw new BillingDomainException(BillingErrorCode.INVALID_WELFARE);
         }
         return switch (welfareCode) {
-            case "WLF-01" ->WelfareType.NORMAL;
-            case "WLF-02" -> WelfareType.DISABLED;
-            case "WLF-03" -> WelfareType.NATIONAL_MERIT;
-            case "WLF-04" -> WelfareType.BASIC_LIVELIHOOD;
-            case "WLF-05" -> WelfareType.BASIC_LIVELIHOOD;
+            case "WLF-01" -> WelfareType.NORMAL; // 정상
+            case "WLF-02" -> WelfareType.DISABLED; // 장애인
+            case "WLF-03" -> WelfareType.NATIONAL_MERIT; // 국가유공자
+            case "WLF-04" -> WelfareType.BASIC_LIVELIHOOD; // 기초수급대상자
+            case "WLF-05" -> WelfareType.BASIC_LIVELIHOOD; // 기초연급대상자
 
             default -> throw new BillingDomainException(BillingErrorCode.INVALID_WELFARE);
         };
@@ -240,9 +215,7 @@ public final class BillingTargetRowAssembler {
 
 
     /**
-     * optionsJsonb 원문(JSONB)을 파싱해서 AddonLine 리스트로 만든다.
-     *
-     * JSONB 포맷(통일):
+     * optionsJsonb 원문(JSONB) 파싱 -> AddonLine 리스트 생성
      * [
      *   { "name":"디즈니+", "monthlyPrice":9405 },
      *   { "name":"티빙",   "monthlyPrice":4950 }
@@ -257,8 +230,8 @@ public final class BillingTargetRowAssembler {
 
             return list.stream()
                     .map(a -> new BillingCalculationInput.AddonLine(
-                            a.name(), // 부가서비스 이름
-                            new Money(a.monthlyPrice()) //  왜 2번?
+                            a.name(),
+                            new Money(a.monthlyPrice())
                     ))
                     .toList();
 
@@ -270,7 +243,8 @@ public final class BillingTargetRowAssembler {
     /** JSONB 한 항목 포맷 */
     private record AddonJson(String name, long monthlyPrice) {}
 
-    /**
+
+    /** String -> 년월로 변경
      * "2026-01" -> YearMonth
      */
     private YearMonth parseBillingMonth(String billingMonth) {
@@ -281,19 +255,17 @@ public final class BillingTargetRowAssembler {
     }
 
     /**
-     * "1999-03-01" -> YearMonth(1999-03)
-     * - CustomerBirthDate가 YearMonth를 받는다고 했으니 월까지만 스냅샷으로 저장
+     * "1999-03-01" -> 1999-03-01
      */
-    private YearMonth parseBirthYearMonth(String birthDate) {
+    private LocalDate parseBirthYearMonth(String birthDate) {
         if (birthDate == null || birthDate.isBlank()) {
             throw new BillingDomainException(BillingErrorCode.INVALID_USER_BIRTH_DATE);
         }
-        LocalDate d = LocalDate.parse(birthDate);
-        return YearMonth.of(d.getYear(), d.getMonth());
+         return LocalDate.parse(birthDate);
     }
 
     /**
-     * 암호화된 이메일/폰 문자열을 Recipient VO로 변환
+     * 암호화된 이메일/폰 문자열을 Recipient VO로 변환 -> 추가 테스트 필요
      */
     private Recipient toRecipient(String emailEnc, String phoneEnc) {
         EncryptedEmail email = (emailEnc == null || emailEnc.isBlank()) ? null : new EncryptedEmail(emailEnc);

@@ -48,6 +48,18 @@ app:
       chunk:
         chunkSize: ${BATCH_JOB1_STEP1_CHUNK_SIZE:}
 
+  billing:
+    step3:
+      chunk: ${BATCH_JOB1_STEP3_CHUNK_SIZE:3000}
+      fetch-size: ${BATCH_JOB1_STEP3_FETCH_SIZE:6000}
+      lease-seconds: ${BATCH_JOB1_STEP3_LEASE-SECONDS:3000}
+
+  #Job2 step1
+  mongo:
+    snapshot:
+      batch-size: ${BATCH_JOB2_STEP1_BATCH_SIZE:6000}
+      chunk-size: ${BATCH_JOB2_STEP1_CHUNK_SIZE:3000}
+
   liquibase:
     target:
       enabled: true
@@ -59,7 +71,7 @@ app:
 batch:
   job1StartTime:
   job2StartTime:
-  channelOrderJson:
+  channelOrder: ${CHANNEL_ORDER}
 
 time:
   zone: Asia/Seoul
@@ -70,14 +82,21 @@ time:
 #Log setting
 logging:
   level:
-    root: info
-    org.springframework.batch: INFO
-    org.hibernate.sql: WARN
-    #Jdbc template
-    org.springframework.jdbc.core: WARN
-    #driver
-    org.postgresql: WARN
+    root: ERROR
 
+
+# S3 설정값
+s3:
+  bucket: ${S3_BUCKET:}
+
+aws:
+  region: ${AWS_REGION:}
+
+  s3:
+    max-connections: ${S3_MAX_CONNECTIONS:200}
+    upload:
+      concurrency: ${S3_UPLOAD_CONCURRENCY:32}
+      queue-capacity: ${S3_UPLOAD_QUEUE_CAPACITY:5000}
 
 ---
 

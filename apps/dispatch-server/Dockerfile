@@ -1,14 +1,38 @@
 FROM gradle:8.7-jdk17 AS builder
 WORKDIR /workspace
 
-COPY . .
-RUN chmod +x ./gradlew
+# 1. 의존성 관련 파일만 먼저 복사
+COPY build.gradle settings.gradle gradlew ./
+COPY gradle ./gradle
 
-RUN ./gradlew :dispatch-server:bootJar -x test --no-daemon
+# 2. 의존성 다운로드 (이 레이어는 자주 캐시됨)
+RUN chmod +x ./gradlew && ./gradlew dependencies --no-daemon
+
+# 3. 전체 소스 코드 복사
+COPY . .
+
+# 4. 애플리케이션 빌드
+RUN ./gradlew :apps:dispatch-server:bootJar -x test --no-daemon
+
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=builder /workspace/apps/dispatch-server/build/libs/*.jar app.jar
 
+# ===== Agents (OTel + Pyroscope) =====
+RUN mkdir -p /otel /pyroscope \
+ && apt-get update \
+ && apt-get install -y curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && curl -fsSL -o /otel/opentelemetry-javaagent.jar \
+    https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar \
+ && curl -fsSL -o /pyroscope/pyroscope.jar \
+    https://github.com/grafana/pyroscope-java/releases/latest/download/pyroscope.jar
+
 EXPOSE 8080
-ENTRYPOINT ["java","-jar","/app/app.jar"]
+
+# ✅ 둘 다 javaagent로 로드
+ENTRYPOINT ["java", \
+  "-javaagent:/otel/opentelemetry-javaagent.jar", \
+  "-javaagent:/pyroscope/pyroscope.jar", \
+  "-jar","/app/app.jar"]

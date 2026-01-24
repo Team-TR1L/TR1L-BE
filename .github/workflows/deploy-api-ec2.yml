@@ -14,10 +14,17 @@ permissions:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPO: api-server
+  ECR_REPO: api
   CONTAINER_NAME: api
   HOST_PORT: "8080"
   CONTAINER_PORT: "8080"
+  ENV_FILE: /opt/billing-api/.env
+
+  # 시간 상한선
+  PULL_TIMEOUT_SEC: "300"     # pull 최대 5분
+  SSM_TIMEOUT_SEC: "600"      # SSM 실행 최대 10분
+  POLL_DELAY_SEC: "5"         # 폴링 5초
+  POLL_MAX_COUNT: "120"       # 120*5=10분
 
 jobs:
   deploy:
@@ -35,7 +42,10 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build & Push (api-server)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & Push (api-server) with cache
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -44,21 +54,117 @@ jobs:
           tags: |
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Deploy on EC2 via SSM (pull & replace container)
+        shell: bash
         run: |
-          set -e
-          IMAGE="${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}"
+          set -euo pipefail
 
-          aws ssm send-command \
+          REGION="${{ env.AWS_REGION }}"
+          INSTANCE_ID="${{ secrets.API_EC2_INSTANCE_ID }}"
+          REGISTRY="${{ steps.ecr.outputs.registry }}"
+          IMAGE="${REGISTRY}/${{ env.ECR_REPO }}:${{ github.sha }}"
+
+          NAME="${{ env.CONTAINER_NAME }}"
+          HOST_PORT="${{ env.HOST_PORT }}"
+          CONTAINER_PORT="${{ env.CONTAINER_PORT }}"
+          ENV_FILE="${{ env.ENV_FILE }}"
+
+          echo "Deploy image: $IMAGE"
+          echo "Target instance: $INSTANCE_ID"
+
+          # jq 없으면 설치(거의 필요 없음)
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update -y
+            sudo apt-get install -y jq
+          fi
+
+          jq -n \
+            --arg region "$REGION" \
+            --arg registry "$REGISTRY" \
+            --arg image "$IMAGE" \
+            --arg name "$NAME" \
+            --arg host "$HOST_PORT" \
+            --arg cport "$CONTAINER_PORT" \
+            --arg envfile "$ENV_FILE" \
+            --arg pull_to "${{ env.PULL_TIMEOUT_SEC }}" \
+            '{
+              commands: [
+                "set -eu",
+                "unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY no_proxy NO_PROXY",
+
+                "echo WHOAMI=$(whoami)",
+                "echo HOSTNAME=$(hostname)",
+                "echo INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id || true)",
+                "echo [0] /opt listing; ls -al /opt || true",
+                "echo [0] env dir listing; ls -al $(dirname \($envfile)) || true",
+
+                "echo [1] ECR login",
+                "AWS_MAX_ATTEMPTS=3 AWS_RETRY_MODE=standard aws ecr get-login-password --region \($region) > /tmp/ecr_pass",
+                "sudo docker login --username AWS --password-stdin \($registry) < /tmp/ecr_pass",
+                "rm -f /tmp/ecr_pass",
+
+                "echo [2] Pull image",
+                "timeout \($pull_to) sudo docker pull \($image)",
+
+                "echo [3] Check env file",
+                "test -f \($envfile) || { echo ENV_FILE missing: \($envfile); exit 1; }",
+
+                "echo [4] Replace container",
+                "sudo docker rm -f \($name) || true",
+                "sudo docker run -d --name \($name) -p 127.0.0.1:\($host):\($cport) --restart unless-stopped --env-file \($envfile) \($image)",
+
+                "echo [5] Verify",
+                "sleep 2",
+                "sudo docker ps -a --no-trunc --filter name=^/\($name)$",
+                "sudo docker inspect \($name) --format \"status={{.State.Status}} exit={{.State.ExitCode}}\"",
+                "sudo docker inspect \($name) --format \"{{.State.Running}}\" | grep -q true || { echo \($name) not running; sudo docker logs --tail 200 \($name) || true; exit 1; }",
+                "sudo docker inspect \($name) --format \"created={{.Created}} image={{.Config.Image}}\"",
+
+                "echo [OK] Deploy finished"
+              ]
+            }' > ssm-params.json
+
+          CMD_ID=$(aws ssm send-command \
+            --region "$REGION" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy api-server from GitHub Actions" \
-            --targets "Key=InstanceIds,Values=${{ secrets.API_EC2_INSTANCE_ID }}" \
-            --parameters commands="[
-              \"set -e\",
-              \"aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.ecr.outputs.registry }}\",
-              \"docker pull $IMAGE\",
-              \"docker rm -f ${{ env.CONTAINER_NAME }} || true\",
-              \"docker run -d --name ${{ env.CONTAINER_NAME }} -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} --restart unless-stopped --env-file /opt/billing-api/.env $IMAGE\",
-              \"docker ps | grep ${{ env.CONTAINER_NAME }}\"
-            ]"
+            --instance-ids "$INSTANCE_ID" \
+            --timeout-seconds "${{ env.SSM_TIMEOUT_SEC }}" \
+            --parameters file://ssm-params.json \
+            --query "Command.CommandId" --output text)
+
+          echo "SSM CommandId: $CMD_ID"
+
+          STATUS="Pending"
+          for i in $(seq 1 "${{ env.POLL_MAX_COUNT }}"); do
+            STATUS=$(aws ssm get-command-invocation \
+              --region "$REGION" \
+              --command-id "$CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query "Status" --output text 2>/dev/null || echo "Pending")
+
+            if (( i % 12 == 0 )); then
+              echo "[$i/${{ env.POLL_MAX_COUNT }}] status=$STATUS"
+            fi
+
+            if [[ "$STATUS" == "Success" || "$STATUS" == "Failed" || "$STATUS" == "Cancelled" || "$STATUS" == "TimedOut" ]]; then
+              break
+            fi
+
+            sleep "${{ env.POLL_DELAY_SEC }}"
+          done
+
+          echo "Final status=$STATUS"
+
+          echo "----- SSM STDOUT -----"
+          aws ssm get-command-invocation --region "$REGION" --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query "StandardOutputContent" --output text || true
+
+          echo "----- SSM STDERR -----"
+          aws ssm get-command-invocation --region "$REGION" --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query "StandardErrorContent" --output text || true
+
+          [[ "$STATUS" == "Success" ]]

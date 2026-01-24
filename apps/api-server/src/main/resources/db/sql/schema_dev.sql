@@ -149,15 +149,15 @@ CREATE TABLE users
     created_at   timestamp(6) with time zone NOT NULL,
     modified_at  timestamp(6) with time zone NOT NULL,
     user_id      bigint                      NOT NULL PRIMARY KEY,
-    name         varchar(10)                 NOT NULL,
-    email        varchar(100)                NOT NULL UNIQUE,
+    name         varchar(100)                 NOT NULL,
+    email        varchar(150)                NOT NULL UNIQUE,
     plan_code    varchar(10),
     welfare_code varchar(10),
-    phone_number varchar(20)                 NOT NULL UNIQUE,
+    phone_number varchar(150)                 NOT NULL UNIQUE,
     user_role    varchar(255)                NOT NULL,
-    from_time    varchar(2)                  NULL,
-    to_time      varchar(2)                  NULL,
-    day_time     varchar(2)                  NULL
+    from_time    varchar(2)                  ,
+    to_time      varchar(2)                  ,
+    day_time     varchar(2)
         CONSTRAINT users_user_role_check
             CHECK ((user_role)::text = ANY
                    ((ARRAY ['ADMIN'::character varying, 'GUEST'::character varying, 'USER'::character varying])::text[])),

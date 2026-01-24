@@ -1,131 +1,95 @@
 package com.tr1l.dispatch.application.service;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tr1l.dispatch.application.exception.DispatchDomainException;
-import com.tr1l.dispatch.application.exception.DispatchErrorCode;
+import com.tr1l.dispatch.domain.model.vo.BatchResult;
+import com.tr1l.dispatch.domain.model.vo.DispatchResult;
 import com.tr1l.dispatch.application.port.in.DispatchOrchestrationUseCase;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
 import com.tr1l.dispatch.domain.model.enums.ChannelType;
-import com.tr1l.dispatch.application.port.out.DispatchEventPublisher;
-import com.tr1l.dispatch.infra.persistence.entity.BillingTargetEntity;
-import com.tr1l.dispatch.infra.persistence.repository.MessageCandidateJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import software.amazon.awssdk.thirdparty.jackson.core.JsonProcessingException;
 
 import java.time.*;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class DispatchOrchestrationService implements DispatchOrchestrationUseCase {
 
-    private final MessageCandidateJpaRepository candidateRepository;
     private final DispatchPolicyService dispatchPolicyService;
-    private final DispatchEventPublisher eventPublisher;
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private final CandidateBatchService batchService;
+    private final DispatchAsyncExecutor asyncExecutor;
 
-    @Transactional
-    public void orchestrate(Instant now) {
-        //1. 발송 정책을 조회한다.
+    public void orchestrate(Instant now) throws InterruptedException {
+
+        Instant startTime = Instant.now();
+        log.warn("🕒 Step 0: 오케스트레이션 시작 - {}", startTime);
+
+        // 1. 발송 정책 조회
+        log.warn("🔍 Step 1: 활성 발송 정책 조회 중...");
         DispatchPolicy policy = dispatchPolicyService.findCurrentActivePolicy();
 
         List<ChannelType> channels =
                 policy.getRoutingPolicy().getPrimaryOrder().channels();
 
-        //2. 현재 발송 가능한 메시지들을 가져온다.
-        int currentHour = LocalDateTime.now(ZoneId.of("Asia/Seoul")).getHour();
+        // 2. 기준 시간 계산 (now 기준으로 통일)
+        LocalDateTime nowKst = LocalDateTime.ofInstant(now, ZoneId.of("Asia/Seoul"));
+        int currentHour = nowKst.getHour();
+        String dayTime = String.format("%02d", nowKst.getDayOfMonth());
+        LocalDate billingMonth = nowKst.toLocalDate().withDayOfMonth(1);
 
-        List<BillingTargetEntity> candidates =
-                candidateRepository.findReadyCandidates(channels.size() - 1,
-                        String.format("%02d", LocalDate.now().getDayOfMonth()),
-                        currentHour);
+        // 3. Cursor 초기화
+        Long lastUserId = 0L;
+        int pageSize = 1000;
 
-        System.out.println("후보군 사이즈: " + candidates.size());
+        // 4. 카프카에 발행할 메시지 개수 카운터
+        AtomicInteger messagesCnt = new AtomicInteger();
+        AtomicInteger failedMessagesCnt = new AtomicInteger();
+        int candidatesCnt = 0;
 
-        //3.  json 확인하고 Kafka에 이벤트 발행
-        for(BillingTargetEntity candidate : candidates) {
-            ChannelType nowChannel = channels.get(Math.min(channels.size() - 1, candidate.getAttemptCount()));
+        // 5. Cursor 기반 배치 조회 (✅ 동시 실행 시 Cursor 충돌 가능 문제 해결)
+        log.warn("📦 Step 2: 후보 배치 처리 시작...");
 
-            String s3url = extractLocationValueByChannel(
-                    candidate.getS3UrlJsonb(),
-                    nowChannel
+        while (true) {
+
+            BatchResult batch = batchService.loadAndPrepareBatch(
+                    policy,
+                    billingMonth,
+                    dayTime,
+                    currentHour,
+                    lastUserId,
+                    pageSize
             );
 
-            String destination = extractValueByChannel(
-                    candidate.getSendOptionJsonb(),
-                    nowChannel
-            );
-
-            eventPublisher.publish(
-                    candidate.getId().getUserId(),  //유저 아이디
-                    candidate.getId().getBillingMonth(), // billing month
-                    nowChannel,
-                    s3url,
-                    destination
-            );
-        }
-    }
-    private String extractValueByChannel(String json, ChannelType channelType) {
-        if (json == null || json.isBlank()) {
-            return null;
-        }
-
-        try {
-            JsonNode root = objectMapper.readTree(json);
-
-            for (JsonNode node : root) {
-                String key = node.path("key").asText();
-                if (key.equalsIgnoreCase(channelType.name())) {
-                    return node.path("value").asText();
-                }
+            if (batch.isEmpty()) {
+                log.warn("✅ 더 이상 후보가 없습니다. 배치 처리 종료.");
+                break;
             }
-            return null;
 
-        } catch (Exception e) {
-            throw new DispatchDomainException(DispatchErrorCode.JSON_MAPPING_ERROR, e);
+            candidatesCnt += batch.commands().size();
+
+            DispatchResult result =
+                    asyncExecutor.execute(batch.commands());
+
+            messagesCnt.addAndGet(result.success());
+            failedMessagesCnt.addAndGet(result.failed());
+
+            lastUserId = batch.lastUserId();
         }
+
+        asyncExecutor.shutdown();
+
+        log.warn(
+                "🏁 Step 3: 오케스트레이션 완료. 총 후보: {}, 총 발행 메시지 수: {}, 총 발행 실패 메시지수: {}",
+                candidatesCnt, messagesCnt, failedMessagesCnt
+        );
+
+        Instant endTime = Instant.now();
+        log.warn(
+                "✅ 오케스트레이션 시작: {}, 종료: {}, 소요 시간(ms): {}",
+                startTime, endTime, Duration.between(startTime, endTime).toMillis()
+        );
     }
-
-    public String extractLocationValueByChannel(String jsonb, ChannelType nowChannel) {
-        // 1. 데이터가 null이거나 빈 배열인 경우 조기 리턴 (또는 null 반환)
-        if (jsonb == null || jsonb.trim().equals("[]") || jsonb.isBlank()) {
-            log.warn("S3 URL JSON 데이터가 비어 있습니다. Skip 처리합니다.");
-            return null; // 호출부에서 null 체크 후 발송 대상에서 제외하도록 설계
-        }
-
-        try {
-            List<S3Location> locations = objectMapper.readValue(jsonb, new TypeReference<List<S3Location>>() {});
-
-            return locations.stream()
-                    .filter(loc -> loc.key().equalsIgnoreCase(nowChannel.name()))
-                    .findFirst()
-                    .map(loc -> {
-                        String bucketName = loc.bucket();
-                        return String.format("https://%s.s3.ap-northeast-2.amazonaws.com/%s",
-                                bucketName, loc.s3Key());
-                    })
-                    // 2. 해당 채널(EMAIL/SMS)만 없는 경우
-                    .orElseGet(() -> {
-                        log.warn("해당 채널[{}]에 대한 S3 설정을 찾을 수 없습니다. 데이터: {}", nowChannel, jsonb);
-                        return null;
-                    });
-
-        } catch (Exception e) {
-            log.error("S3 URL 생성 중 예상치 못한 오류: {}", e.getMessage());
-            throw new DispatchDomainException(DispatchErrorCode.S3_URL_FAILED);
-        }
-    }
-
-    public static record S3Location(
-            String key,
-            String bucket,
-            @JsonProperty("s3_key") String s3Key
-    ) {}
 }

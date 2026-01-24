@@ -27,4 +27,9 @@ dependencies {
     implementation "software.amazon.awssdk:auth"
     implementation "software.amazon.awssdk:aws-core"
     implementation "software.amazon.awssdk:sdk-core"
+    implementation "software.amazon.awssdk:apache-client"
+
+
+    //Liquibase
+    implementation "org.liquibase:liquibase-core:4.30.0"
 }

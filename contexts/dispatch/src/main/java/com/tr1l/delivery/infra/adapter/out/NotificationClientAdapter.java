@@ -2,6 +2,8 @@ package com.tr1l.delivery.infra.adapter.out;
 
 import com.tr1l.delivery.application.port.out.NotificationClientPort;
 import com.tr1l.delivery.infra.strategy.NotificationSender;
+import com.tr1l.dispatch.application.exception.DispatchDomainException;
+import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 import com.tr1l.dispatch.domain.model.enums.ChannelType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -17,18 +19,13 @@ public class NotificationClientAdapter implements NotificationClientPort {
     private final List<NotificationSender> senders;
 
     @Override
-    public boolean send(String destination, String content, ChannelType channelType) {
+    public void send(String destination, String content, ChannelType channelType) {
+        NotificationSender sender = senders.stream()
+                .filter(s -> s.supports(channelType))
+                .findFirst()
+                .orElseThrow(() -> new DispatchDomainException(DispatchErrorCode.DELIVERY_FAILED));
 
-        // 메인 스레드가 아닌 별도의 스레드에서 실행
-        try {
-            NotificationSender sender = senders.stream()
-                    .filter(s -> s.supports(channelType))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Unsupported channel: " + channelType));
-
-            return sender.send(destination, content); // 여기서 1초 대기 발생
-        } catch (Exception e) {
-            return false; // 실패 시 false 반환
-        }
+        // 여기서 1초 대기 발생
+        sender.send(destination, content);
     }
 }

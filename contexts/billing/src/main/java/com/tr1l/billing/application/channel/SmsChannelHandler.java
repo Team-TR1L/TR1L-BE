@@ -10,11 +10,11 @@ import java.util.Optional;
 public class SmsChannelHandler implements ChannelHandler {
     @Override
     public String key() {
-        return "sms";
+        return "SMS";
     }
 
     @Override
     public Optional<ChannelValue> build(UserContact contact) {
-        return contact.hasPhone() ? Optional.of(new ChannelValue("sms", contact.phoneNumber())) : Optional.empty();
+        return contact.hasPhone() ? Optional.of(new ChannelValue("SMS", contact.phoneNumber())) : Optional.empty();
     }
 }

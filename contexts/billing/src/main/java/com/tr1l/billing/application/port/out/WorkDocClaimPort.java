@@ -5,21 +5,23 @@ import java.time.Instant;
 import java.time.YearMonth;
 import java.util.List;
 
-// 유스케이스에서 port로 받고 -> 실제 구현은 adapter
+/**
+ * MongDB billing_work에서 선점
+ * TARGET(또는 lease 만료 PROCESSING) 작업을 선점
+ * return
+ * - status: TARGET -> PROCESSING
+ * - leaseUntil: now + leaseDuration(넉넉하게 잡기)
+ * - attemptCount: +1
+ */
 public interface WorkDocClaimPort {
-    /**
-     * TARGET(또는 lease 만료 PROCESSING) 작업을 선점해서 반환한다.
-     * - status: TARGET -> PROCESSING
-     * - leaseUntil: now + leaseDuration
-     * - attemptCount: +1
-     */
     List<ClaimedWorkDoc> claim(YearMonth billingMonth, int limit, Duration leaseDuration, String workerId, Instant now);
 
     record ClaimedWorkDoc(
-            String id,          // billingMonth:userId
-            String billingMonth, // "YYYY-MM-01"
-            long userId,
-            int attemptCount,
+            String id,          // billingMonth:userId -> "2026-01-01:12345"
+            String billingMonth, // "YYYY-MM-01" -> "2026-01-01
+            long userId, // 12345
+            int attemptCount, // 0 -> 1++
             Instant leaseUntil // 추가됨
+
     ) {}
 }
