@@ -21,7 +21,7 @@ import java.util.function.Function;
  *
  * 주의:
  * - Listener는 절대 배치를 죽이면 안 됨.
- *   => stepExecution null 방어, 예외 삼키기(로그만 남기기)
+ * => stepExecution null 방어, 예외 삼키기(로그만 남기기)
  * =========================================================
  */
 @Slf4j
@@ -54,8 +54,8 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
     // ExecutionContext keys - step 전체 누적용(ns)
     // (스텝 끝날 때 TOTAL 로그로 출력)
     // -----------------------------
-    private static final String TOTAL_READ_NS  = "perf.totalReadNs";
-    private static final String TOTAL_PROC_NS  = "perf.totalProcNs";
+    private static final String TOTAL_READ_NS = "perf.totalReadNs";
+    private static final String TOTAL_PROC_NS = "perf.totalProcNs";
     private static final String TOTAL_WRITE_NS = "perf.totalWriteNs";
 
     // -----------------------------
@@ -137,16 +137,30 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
 
             long filterCnt = ctx.getLong(FILTER_CNT, 0L);
 
-            log.info("step={} TOTAL_TIMING readMs={} procMs={} writeMs={} readCount={} writeCount={} filter={} skip={} commit={} rollback={} status={}",
+            log.warn("""
+                            ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+                            ┃           STEP TOTAL TIMING (SUMMARY)            ┃
+                            ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+                            ┃ step       : {}                                  ┃
+                            ┃ status     : {}                                  ┃
+                            ┃ read       : {} ms   (count={})                  ┃
+                            ┃ process    : {} ms                               ┃
+                            ┃ write      : {} ms   (count={})                  ┃
+                            ┃ filter     : {}                                  ┃
+                            ┃ skip       : {}                                  ┃
+                            ┃ commit     : {}                                  ┃
+                            ┃ rollback   : {}                                  ┃
+                            ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+                            """,
                     stepExecution.getStepName(),
-                    totalReadMs, totalProcMs, totalWriteMs,
-                    stepExecution.getReadCount(),
-                    stepExecution.getWriteCount(),
+                    stepExecution.getExitStatus().getExitCode(),
+                    totalReadMs, stepExecution.getReadCount(),
+                    totalProcMs,
+                    totalWriteMs, stepExecution.getWriteCount(),
                     filterCnt,
                     stepExecution.getSkipCount(),
                     stepExecution.getCommitCount(),
-                    stepExecution.getRollbackCount(),
-                    stepExecution.getExitStatus().getExitCode()
+                    stepExecution.getRollbackCount()
             );
         } catch (Exception e) {
             // Listener가 배치를 죽이면 안 됨
@@ -185,21 +199,21 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
         ExecutionContext ctx = this.stepExecution.getExecutionContext();
 
         // 청크 누적 시간(ms)
-        long readMs  = ctx.getLong(READ_NS, 0L) / 1_000_000;
-        long procMs  = ctx.getLong(PROC_NS, 0L) / 1_000_000;
+        long readMs = ctx.getLong(READ_NS, 0L) / 1_000_000;
+        long procMs = ctx.getLong(PROC_NS, 0L) / 1_000_000;
         long writeMs = ctx.getLong(WRITE_NS, 0L) / 1_000_000;
 
         // 청크 건수
-        long readCnt  = ctx.getLong(READ_CNT, 0L);
-        long procCnt  = ctx.getLong(PROC_CNT, 0L);
+        long readCnt = ctx.getLong(READ_CNT, 0L);
+        long procCnt = ctx.getLong(PROC_CNT, 0L);
         long writeCnt = ctx.getLong(WRITE_CNT, 0L);
 
         // filter는 스텝 누적값
         long filterCnt = ctx.getLong(FILTER_CNT, 0L);
 
         // 평균(ms/item)
-        double readAvg  = (readCnt == 0)  ? 0 : (double) readMs  / readCnt;
-        double procAvg  = (procCnt == 0)  ? 0 : (double) procMs  / procCnt;
+        double readAvg = (readCnt == 0) ? 0 : (double) readMs / readCnt;
+        double procAvg = (procCnt == 0) ? 0 : (double) procMs / procCnt;
         double writeAvg = (writeCnt == 0) ? 0 : (double) writeMs / writeCnt;
 
         // TPS (write 기준)
@@ -221,7 +235,7 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
         );
 
         if (slowChunkMs > 0 && chunkElapsedMs >= slowChunkMs) {
-            log.warn("SLOW_CHUNK {}", msg);
+            log.info("SLOW_CHUNK {}", msg);
         } else {
             log.info("CHUNK {}", msg);
         }
@@ -259,7 +273,7 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
         // 느린 read만 WARN
         long elapsedMs = elapsedNs / 1_000_000;
         if (elapsedMs >= slowReadMs) {
-            log.warn("step={} SLOW_READ {}ms itemId={}", stepName(), elapsedMs, safeId(item));
+            log.info("step={} SLOW_READ {}ms itemId={}", stepName(), elapsedMs, safeId(item));
         }
     }
 
@@ -297,7 +311,7 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
 
         long elapsedMs = elapsedNs / 1_000_000;
         if (elapsedMs >= slowProcessMs) {
-            log.warn("step={} SLOW_PROCESS {}ms itemId={}", stepName(), elapsedMs, safeId(item));
+            log.info("step={} SLOW_PROCESS {}ms itemId={}", stepName(), elapsedMs, safeId(item));
         }
     }
 
@@ -328,7 +342,7 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
 
         long elapsedMs = elapsedNs / 1_000_000;
         if (elapsedMs >= slowWriteMs) {
-            log.warn("step={} SLOW_WRITE {}ms size={}", stepName(), elapsedMs, size);
+            log.info("step={} SLOW_WRITE {}ms size={}", stepName(), elapsedMs, size);
         }
     }
 
