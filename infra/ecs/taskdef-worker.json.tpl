@@ -39,7 +39,7 @@
         { "name": "BATCH_JOB1_STEP3_CHUNK_SIZE", "value": "3000" },
         { "name": "BATCH_JOB2_STEP1_BATCH_SIZE", "value": "6000" },
         { "name": "BATCH_JOB2_STEP1_CHUNK_SIZE", "value": "6000" },
-        { "name": "BATCH_JOB1_STEP3_LEASE-SECONDS", "value": "3000" },
+        { "name": "BATCH_JOB1_STEP3_LEASE_SECONDS", "value": "3000" },
         { "name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "update" },
         { "name": "SPRING_JPA_SHOW_SQL", "value": "false" },
         { "name": "SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL", "value": "false" },

@@ -2,6 +2,7 @@
         api dispatch batch \
         api-build dispatch-build batch-build \
         logs-api logs-dispatch logs-batch \
+        local-worker-monitor local-worker-monitor-down \
         down clean
 
 # --- INFRA ---
@@ -56,6 +57,21 @@ logs-batch:
 
 logs-delivery:
 	docker compose logs -f delivery
+
+# --- LOCAL MONITORING (worker only) ---
+local-worker-monitor:
+	docker network create --driver bridge --attachable tr1l-monitoring || true
+	docker compose -f docker-compose.local.monitoring.yml up -d
+	docker compose --profile batch --compatibility \
+		-f docker-compose.yml -f docker-compose.local.worker.yml \
+		up --build postgres_target worker
+
+local-worker-monitor-down:
+	docker compose -f docker-compose.local.monitoring.yml down
+	docker compose --profile batch --compatibility \
+		-f docker-compose.yml -f docker-compose.local.worker.yml \
+		down
+	docker network rm tr1l-monitoring || true
 
 # --- STOP / CLEAN ---
 down:

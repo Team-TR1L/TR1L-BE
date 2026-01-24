@@ -9,7 +9,15 @@ import com.tr1l.billing.application.service.IssueBillingService;
 import com.tr1l.worker.batch.calculatejob.step.step3.CalculateAndSnapshotWriter;
 import com.tr1l.worker.batch.calculatejob.step.step3.WorkDocClaimAndTargetRowReader;
 import com.tr1l.worker.batch.calculatejob.step.step3.CalculateBillingProcessor;
+import com.tr1l.worker.batch.listener.PerfTimingListener;
+import com.tr1l.worker.batch.listener.SqlQueryCountListener;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.batch.core.ChunkListener;
+import org.springframework.batch.core.ItemProcessListener;
+import org.springframework.batch.core.ItemReadListener;
+import org.springframework.batch.core.ItemWriteListener;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -45,14 +53,30 @@ public class BillingCalculateAndSnapshotConfig {
             CalculateBillingProcessor processor,
             CalculateAndSnapshotWriter writer,
             StepLoggingListener listener,
-            @Value("${app.billing.step3.chunk-size:3000}") int chunkSize
+            MeterRegistry meterRegistry,
+            @Value("${app.billing.step3.chunk-size:200}") int chunkSize
     ) {
+        var perf = new PerfTimingListener<WorkAndTargetRow, CalculateBillingProcessor.Result>(
+                30,
+                80,
+                500,
+                1500,
+                item -> item.work() == null ? "null" : item.work().id()
+        );
+        var sql = new SqlQueryCountListener(meterRegistry, "main", "target");
         return new StepBuilder("billingCalculateAndSnapshotStep", jobRepository)
                 .<WorkAndTargetRow, CalculateBillingProcessor.Result>chunk(chunkSize, txManager)
                 .reader(reader)
                 .processor(processor)
                 .listener(listener)
                 .writer(writer)
+                .listener((StepExecutionListener) perf)
+                .listener((ChunkListener) perf)
+                .listener((ItemReadListener<WorkAndTargetRow>) perf)
+                .listener((ItemProcessListener<WorkAndTargetRow, CalculateBillingProcessor.Result>) perf)
+                .listener((ItemWriteListener<CalculateBillingProcessor.Result>) perf)
+                .listener((StepExecutionListener) sql)
+                .listener((ChunkListener) sql)
                 .build();
     }
 
@@ -65,8 +89,8 @@ public class BillingCalculateAndSnapshotConfig {
             WorkDocClaimPort claimPort,
             BillingTargetLoadPort targetLoadPort,
             @Value("#{jobExecutionContext['billingYearMonth']}") String billingYearMonth,
-            @Value("${app.billing.step3.fetch-size:6000}") int fetchSize,
-            @Value("${app.billing.step3.lease-seconds:3000}") long leaseSeconds,
+            @Value("${app.billing.step3.fetch-size:200}") int fetchSize,
+            @Value("${app.billing.step3.lease-seconds:1000}") long leaseSeconds,
             @Qualifier("billingWorkerId") String workerId
     ) {
         YearMonth billingMonth = YearMonth.parse(billingYearMonth); // YYYY-MM
@@ -106,5 +130,3 @@ public class BillingCalculateAndSnapshotConfig {
         return new CalculateAndSnapshotWriter(snapshotSavePort, statusPort);
     }
 }
-
-

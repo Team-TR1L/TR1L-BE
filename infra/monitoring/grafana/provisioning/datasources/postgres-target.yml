@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: PostgresTarget
+    type: postgres
+    access: proxy
+    url: ${POSTGRES_TARGET_HOST}:5432
+    user: ${PG_SUB_USER}
+    secureJsonData:
+      password: ${PG_SUB_PASSWORD}
+    jsonData:
+      database: ${PG_SUB_DB}
+      sslmode: "disable"

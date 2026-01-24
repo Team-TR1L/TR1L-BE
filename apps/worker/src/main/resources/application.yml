@@ -34,6 +34,17 @@ spring:
       mode: never
 server:
   port: 8080
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,health,info
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 #Target DB
 app:
@@ -114,7 +125,7 @@ spring:
 
 logging:
   level:
-    root: INFO
+    root: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.orm.jdbc.bind: TRACE
     org.springframework.jdbc.core: DEBUG
