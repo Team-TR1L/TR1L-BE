@@ -114,13 +114,16 @@ services:
 
       # JPA (RDB)
 
-      TARGET_DATASOURCE_URL: ${PG_SUB_DB}
-      TARGET_DATASOURCE_USERNAME: ${PG_MAIN_USER}
-      TARGET_DATASOURCE_PASSWORD: ${PG_SUB_PASSWORD}
+      #      TARGET_DATASOURCE_URL: ${PG_SUB_DB}
+      #      TARGET_DATASOURCE_USERNAME: ${PG_MAIN_USER}
+      #      TARGET_DATASOURCE_PASSWORD: ${PG_SUB_PASSWORD}
 
+      PG_SUB_HOST: jdbc:postgresql://postgres_target:5432/billing_target
+      PG_SUB_USER: ${PG_SUB_USER}
+      PG_SUB_PASSWORD: ${PG_SUB_PASSWORD}
 
       # Kafka
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    #      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8081:8080"
 
