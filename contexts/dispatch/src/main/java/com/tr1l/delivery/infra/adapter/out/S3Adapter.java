@@ -44,7 +44,7 @@ public class S3Adapter implements ContentProviderPort {
                 return StreamUtils.copyToString(targetStream, StandardCharsets.UTF_8);
             }
         } catch (Exception e) {
-            log.error("S3 다운로드 실패. URL: {}, Error: {}", key, e.getMessage(), e);
+            log.error("S3 다운로드 실패, Error: {}", e.getMessage(), e);
             throw new DispatchDomainException(DispatchErrorCode.S3_DOWNLOAD_FAILED);
         }
     }
