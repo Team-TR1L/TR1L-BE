@@ -91,7 +91,7 @@ public class DispatchPolicyController {
         return ResponseEntity.ok().body("청구서 제작 배치 수동 완료");
     }
 
-    /** 배치 수동 실행 */
+    /** 청구서 수동 발송 */
     @Operation(summary = "청구서 수동 발송", description = "청구서 발송을 즉시 수동으로 실행합니다.")
     @PostMapping("/start-dispatch")
     public ResponseEntity<String> startDispatch() {
