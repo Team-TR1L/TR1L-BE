@@ -15,6 +15,6 @@ dependencies {
     implementation "software.amazon.awssdk:sdk-core"
 
     //thymeleaf
-    implementation "org.springframework.boot:spring-boot-starter-thymeleaf"
+    implementation "org.springframework.boot:spring-boot-starter-thymeleaf:3.5.9"
 
 }
