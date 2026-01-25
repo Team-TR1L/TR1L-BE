@@ -26,8 +26,7 @@ public class ManualRunPublisher {
     @Value("${tr1l.control.event-bus-name:tr1l-bus}")
     private String eventBusName;
 
-    public String publish(String target, String requestedBy, Map<String, Object> parameters)
-        throws JsonProcessingException {
+    public String publish(String target, String requestedBy, Map<String, Object> parameters) {
         String requestId = UUID.randomUUID().toString();
 
         ManualRunEventDetail detailObj = new ManualRunEventDetail(
@@ -37,7 +36,12 @@ public class ManualRunPublisher {
             parameters == null ? java.util.Collections.emptyMap() : parameters
         );
 
-        String detailJson = objectMapper.writeValueAsString(detailObj);
+        String detailJson = null;
+        try {
+            detailJson = objectMapper.writeValueAsString(detailObj);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Event detail JSON serialize failed", e);
+        }
 
         PutEventsRequestEntry entry = PutEventsRequestEntry.builder()
             .eventBusName(eventBusName)

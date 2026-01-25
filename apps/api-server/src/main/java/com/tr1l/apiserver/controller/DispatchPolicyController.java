@@ -90,9 +90,8 @@ public class DispatchPolicyController {
 
     /** 배치 수동 실행 */
     @Operation(summary = "청구서 제작 배치 수동 실행", description = "청구서 제작 배치를 즉시 수동으로 실행합니다.")
-    @PostMapping("/batch")
-    public ResponseEntity<Map<String, Object>> startBatch(Principal principal)
-        throws JsonProcessingException {
+    @PostMapping("/manual/batch")
+    public ResponseEntity<Map<String, Object>> startBatch(Principal principal) {
         String requestedBy = principal != null ? principal.getName() : "unknown-admin";
         String requestId = publisher.publish("BATCH", requestedBy, java.util.Collections.emptyMap());
 
@@ -104,9 +103,8 @@ public class DispatchPolicyController {
 
     /** 청구서 수동 발송 */
     @Operation(summary = "청구서 수동 발송", description = "청구서 발송을 즉시 수동으로 실행합니다.")
-    @PostMapping("/dispatch")
-    public ResponseEntity<Map<String, Object>> startDispatch(Principal principal)
-        throws JsonProcessingException {
+    @PostMapping("/manual/dispatch")
+    public ResponseEntity<Map<String, Object>> startDispatch(Principal principal) {
         String requestedBy = principal != null ? principal.getName() : "unknown-admin";
         String requestId = publisher.publish("DISPATCH", requestedBy, java.util.Collections.emptyMap());
 
