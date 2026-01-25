@@ -67,9 +67,9 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
         String recipientEmailEnc = safeStr(p.recipient() != null ? p.recipient().email() : null);
         String recipientPhoneEnc = safeStr(p.recipient() != null ? p.recipient().phone() : null);
 
-        // ✅ 평문이면 그대로, 암호문(Base64)이면 복호화
-        String recipientEmail = maybeDecrypt(recipientEmailEnc);
-        String recipientPhone = maybeDecrypt(recipientPhoneEnc);
+        //  암호문(Base64)이면 복호화
+        String recipientEmail = decryptionTool.decrypt(recipientEmailEnc);
+        String recipientPhone = decryptionTool.decrypt(recipientPhoneEnc);
 
 
         String workId = doc.workId();
