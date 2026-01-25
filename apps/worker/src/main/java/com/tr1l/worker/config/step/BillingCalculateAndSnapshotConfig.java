@@ -61,7 +61,10 @@ public class BillingCalculateAndSnapshotConfig {
                 80,
                 500,
                 1500,
-                item -> item.work() == null ? "null" : item.work().id()
+                item -> item.work() == null ? "null" : item.work().id(),
+                meterRegistry,
+                true,
+                true
         );
         var sql = new SqlQueryCountListener(meterRegistry, "main", "target");
         return new StepBuilder("billingCalculateAndSnapshotStep", jobRepository)
