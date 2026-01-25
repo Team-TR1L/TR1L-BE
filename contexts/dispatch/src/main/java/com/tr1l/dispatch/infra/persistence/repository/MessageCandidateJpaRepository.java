@@ -21,7 +21,6 @@ public interface MessageCandidateJpaRepository
     SELECT *
     FROM billing_targets
     WHERE user_id > :lastUserId
-      AND billing_month = :billingMonth
       AND (day_time = :dayTime OR day_time IS NULL)
       AND send_status IN ('READY','FAILED')
       AND attempt_count <= :maxAttemptCount
@@ -33,7 +32,6 @@ public interface MessageCandidateJpaRepository
     """, nativeQuery = true)
 
     List<BillingTargetEntity> findReadyCandidatesByUserCursorNative(
-            @Param("billingMonth") LocalDate billingMonth,
             @Param("lastUserId") Long lastUserId,
             @Param("dayTime") String dayTime,
             @Param("maxAttemptCount") Integer maxAttemptCount,

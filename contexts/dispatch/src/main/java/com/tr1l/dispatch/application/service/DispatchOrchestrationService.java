@@ -38,7 +38,6 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
         LocalDateTime nowKst = LocalDateTime.ofInstant(now, ZoneId.of("Asia/Seoul"));
         int currentHour = nowKst.getHour();
         String dayTime = String.format("%02d", nowKst.getDayOfMonth());
-        LocalDate billingMonth = nowKst.toLocalDate().withDayOfMonth(1);
 
         // 3. Cursor 초기화
         Long lastUserId = 0L;
@@ -53,10 +52,8 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
         log.warn("📦 Step 2: 후보 배치 처리 시작...");
 
         while (true) {
-
             BatchResult batch = batchService.loadAndPrepareBatch(
                     policy,
-                    billingMonth,
                     dayTime,
                     currentHour,
                     lastUserId,

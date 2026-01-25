@@ -29,7 +29,6 @@ public class CandidateBatchService {
     @Transactional
     public BatchResult loadAndPrepareBatch(
             DispatchPolicy policy,
-            LocalDate billingMonth,
             String dayTime,
             int currentHour,
             Long lastUserId,
@@ -38,7 +37,6 @@ public class CandidateBatchService {
 
         List<BillingTargetEntity> candidates =
                 candidateRepository.findReadyCandidatesByUserCursorNative(
-                        billingMonth,
                         lastUserId,
                         dayTime,
                         policy.getRoutingPolicy().getPrimaryOrder().channels().size() - 1,

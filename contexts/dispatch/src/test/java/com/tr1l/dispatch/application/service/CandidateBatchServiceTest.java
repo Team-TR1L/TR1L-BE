@@ -54,13 +54,12 @@ class CandidateBatchServiceTest {
         DispatchPolicy policy = mockDispatchPolicy(List.of(ChannelType.SMS, ChannelType.EMAIL));
 
         when(candidateRepository.findReadyCandidatesByUserCursorNative(
-                any(), anyLong(), anyString(), anyInt(), anyInt(), anyInt()
+                any(), anyString(), anyInt(), anyInt(), anyInt()
         )).thenReturn(Collections.emptyList());
 
         // when
         BatchResult result = candidateBatchService.loadAndPrepareBatch(
                 policy,
-                LocalDate.of(2025, 1, 1),
                 "01",
                 10,
                 0L,
@@ -73,7 +72,7 @@ class CandidateBatchServiceTest {
         assertTrue(result.commands().isEmpty());
 
         verify(candidateRepository).findReadyCandidatesByUserCursorNative(
-                any(), anyLong(), anyString(), anyInt(), anyInt(), anyInt()
+                any(), anyString(), anyInt(), anyInt(), anyInt()
         );
         verifyNoInteractions(s3LocationMapper);
         verify(entityManager, never()).clear();
@@ -100,7 +99,7 @@ class CandidateBatchServiceTest {
         );
 
         when(candidateRepository.findReadyCandidatesByUserCursorNative(
-                any(), anyLong(), anyString(), anyInt(), anyInt(), anyInt()
+                any(), anyString(), anyInt(), anyInt(), anyInt()
         )).thenReturn(List.of(candidate1, candidate2));
 
         when(s3LocationMapper.extractLocationValueByChannel(any(), any()))
@@ -111,7 +110,6 @@ class CandidateBatchServiceTest {
         // when
         BatchResult result = candidateBatchService.loadAndPrepareBatch(
                 policy,
-                LocalDate.of(2025, 1, 1),
                 "01",
                 10,
                 0L,
