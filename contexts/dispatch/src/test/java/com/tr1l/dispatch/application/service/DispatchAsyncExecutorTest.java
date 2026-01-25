@@ -54,6 +54,7 @@ class DispatchAsyncExecutorTest {
                 any(),
                 any(),
                 anyString(),
+                anyString(),
                 anyString()
         );
 
@@ -65,7 +66,7 @@ class DispatchAsyncExecutorTest {
         assertEquals(0, result.failed());
 
         verify(eventPublisher, times(3))
-                .publish(anyLong(), any(), any(), anyString(), anyString());
+                .publish(anyLong(), any(), any(), anyString(), anyString(), anyString());
 
         verify(eventPublisher).flush();
     }
@@ -98,6 +99,7 @@ class DispatchAsyncExecutorTest {
                 any(),
                 any(),
                 anyString(),
+                anyString(),
                 anyString()
         );
 
@@ -109,7 +111,7 @@ class DispatchAsyncExecutorTest {
         assertEquals(1, result.failed());
 
         verify(eventPublisher, times(3))
-                .publish(anyLong(), any(), any(), anyString(), anyString());
+                .publish(anyLong(), any(), any(), anyString(), anyString(), anyString());
 
         verify(eventPublisher).flush();
     }
@@ -131,7 +133,7 @@ class DispatchAsyncExecutorTest {
         assertEquals(0, result.failed());
 
         verify(eventPublisher, never()).publish(
-                anyLong(), any(), any(), anyString(), anyString()
+                anyLong(), any(), any(), any(), anyString(), anyString()
         );
         verify(eventPublisher).flush();
     }
@@ -146,6 +148,7 @@ class DispatchAsyncExecutorTest {
                 LocalDate.of(2025, 1, 1),
                 ChannelType.SMS,
                 "s3://mock",
+                "asdassdd",
                 "01012341234"
         );
     }

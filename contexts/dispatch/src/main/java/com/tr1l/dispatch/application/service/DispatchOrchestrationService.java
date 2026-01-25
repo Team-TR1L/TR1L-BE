@@ -88,5 +88,6 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
                 "✅ 오케스트레이션 시작: {}, 종료: {}, 소요 시간(ms): {}",
                 startTime, endTime, Duration.between(startTime, endTime).toMillis()
         );
+        Thread.sleep(2500);
     }
 }
