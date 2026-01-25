@@ -14,7 +14,15 @@ import java.util.List;
  * - attemptCount: +1
  */
 public interface WorkDocClaimPort {
-    List<ClaimedWorkDoc> claim(YearMonth billingMonth, int limit, Duration leaseDuration, String workerId, Instant now);
+    List<ClaimedWorkDoc> claim(
+            YearMonth billingMonth,
+            int limit,
+            Duration leaseDuration,
+            String workerId,
+            Instant now,
+            int partitionIndex,
+            int partitionCount
+    );
 
     record ClaimedWorkDoc(
             String id,          // billingMonth:userId -> "2026-01-01:12345"

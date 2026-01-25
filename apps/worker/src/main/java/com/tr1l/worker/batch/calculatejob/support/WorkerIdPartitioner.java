@@ -22,6 +22,8 @@ public class WorkerIdPartitioner implements Partitioner {
         for (int i = 0; i < gridSize; i++) {
             ExecutionContext ctx = new ExecutionContext();
             ctx.putString("workerId", workerIdPrefix + "-" + i);
+            ctx.putInt("partitionIndex", i);
+            ctx.putInt("partitionCount", gridSize);
             result.put("partition-" + i, ctx);
         }
         return result;
