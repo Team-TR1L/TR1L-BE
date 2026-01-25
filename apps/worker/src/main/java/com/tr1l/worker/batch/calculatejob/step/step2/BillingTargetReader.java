@@ -39,6 +39,7 @@ public class BillingTargetReader extends JdbcPagingItemReader<BillingTargetKey> 
         setDataSource(dataSource);
         setQueryProvider(queryProvider);
         setParameterValues(Map.of("billingMonth",billingMonthDay));
+        setSaveState(false); //restart 지점 보장 X
         setPageSize(pageSize);
         setRowMapper((rs,rowNum)->
                 new BillingTargetKey(rs.getDate("billing_month").toLocalDate(), rs.getLong("user_id")));

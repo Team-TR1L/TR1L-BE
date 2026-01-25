@@ -3,13 +3,14 @@ package com.tr1l.dispatch.infra.kafka;
 import com.tr1l.dispatch.application.port.out.DispatchEventPublisher;
 import com.tr1l.dispatch.domain.model.enums.ChannelType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
-import java.util.concurrent.ExecutionException;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class KafkaDispatchEventPublisher implements DispatchEventPublisher {
@@ -24,26 +25,26 @@ public class KafkaDispatchEventPublisher implements DispatchEventPublisher {
             Long userId,
             LocalDate billingMonth,
             ChannelType channelType,
-            String encryptedS3Url,
+            String encryptedS3Buket,
+            String encryptedS3Key,
             String encryptedDestination
     ) {
         DispatchRequestedEvent event = new DispatchRequestedEvent(
                 userId,
                 billingMonth,
                 channelType,
-                encryptedS3Url,
+                encryptedS3Buket,
+                encryptedS3Key,
                 encryptedDestination
         );
 
-        try {
-            // 🔹 Kafka 전송 완료까지 블록
-            kafkaTemplate.send(dispatchTopic, event).get(); // get() 호출 → Kafka ACK 기다림
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // interrupted 상태 복원
-            throw new RuntimeException("Kafka 메시지 발송 중 인터럽트 발생", e);
-        } catch (ExecutionException e) {
-            throw new RuntimeException("Kafka 메시지 발송 실패", e.getCause());
-        }
+        // KafkaTemplate은 내부적으로 에러 발생 시 재시도(retry) 설정을 따릅니다.
+        kafkaTemplate.send(dispatchTopic, event).whenComplete((result, ex) -> {
+            if (ex != null) {
+                // 비동기 콜백에서 실패 로그를 남깁니다.
+                log.error("❌ Kafka 비동기 발송 실패 userId: {}, 에러: {}", userId, ex.getMessage());
+            }
+        });
     }
 
     @Override

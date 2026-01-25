@@ -3,10 +3,11 @@ package com.tr1l.worker.batch.formatjob.step.step1;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.tr1l.billing.application.model.RenderedMessageResult;
 import com.tr1l.billing.application.port.out.BillingTargetS3UpdatePort;
 import com.tr1l.billing.application.port.out.S3UploadPort;
 import com.tr1l.util.EncryptionTool;
-import com.tr1l.worker.batch.formatjob.domain.RenderedMessage;
+import com.tr1l.billing.application.model.RenderedMessageResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.Chunk;
@@ -25,7 +26,7 @@ import java.util.zip.GZIPOutputStream;
 
 @Slf4j
 @StepScope
-public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
+public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> {
 
     private final String bucket;
     private final S3UploadPort s3UploadPort;
@@ -56,14 +57,14 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
     private record UploadTask(MsgCtx ctx, String channelKey, int channelIndex, String key, CompletableFuture<UploadOutcome> future) {}
 
     @Override
-    public void write(Chunk<? extends RenderedMessage> chunk) throws Exception {
+    public void write(Chunk<? extends RenderedMessageResult> chunk) throws Exception {
         long t0 = System.nanoTime();
 
         List<MsgCtx> contexts = new ArrayList<>(chunk.size());
         List<UploadTask> uploadTasks = new ArrayList<>(chunk.size() * 2);
         int index = 0;
 
-        for (RenderedMessage msg : chunk) {
+        for (RenderedMessageResult msg : chunk) {
             YearMonth billingYm = resolveBillingYearMonth(msg);
 
             String base = msg.period() + "/" + msg.userId() + "/";
@@ -180,7 +181,7 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessage> {
         return s != null && !s.isBlank();
     }
 
-    private YearMonth resolveBillingYearMonth(RenderedMessage msg) {
+    private YearMonth resolveBillingYearMonth(RenderedMessageResult msg) {
         if (hasText(msg.period())) return YearMonth.parse(msg.period());
         throw new IllegalArgumentException("RenderedMessage period/billingMonth missing. userId=" + msg.userId());
     }

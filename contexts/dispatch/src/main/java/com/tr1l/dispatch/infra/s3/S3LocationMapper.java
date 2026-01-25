@@ -40,39 +40,35 @@ public class S3LocationMapper {
         }
     }
 
-    public String extractLocationValueByChannel(String jsonb, ChannelType nowChannel) {
-        // 1. 데이터가 null이거나 빈 배열인 경우 조기 리턴 (또는 null 반환)
-        if (jsonb == null || jsonb.trim().equals("[]") || jsonb.isBlank()) {
-//            log.warn("S3 URL JSON 데이터가 비어 있습니다. Skip 처리합니다.");
-            return null;
+    public S3LocationDTO extractLocation(String jsonb, ChannelType channel) {
+        // 1. 입력값이 없으면 즉시 기본 객체 반환
+        if (jsonb == null || jsonb.isEmpty()) {
+            return new S3LocationDTO("", "", "");
         }
 
         try {
-            List<S3Location> locations = objectMapper.readValue(jsonb, new TypeReference<List<S3Location>>() {});
+            List<S3LocationDTO> locations = objectMapper.readValue(
+                    jsonb,
+                    new TypeReference<List<S3LocationDTO>>() {}
+            );
 
+            // 2. 찾지 못하더라도 예외를 던지지 않고 기본 객체 반환
             return locations.stream()
-                    .filter(loc -> loc.key().equalsIgnoreCase(nowChannel.name()))
+                    .filter(loc -> loc.key() != null && channel.name().equalsIgnoreCase(loc.key()))
                     .findFirst()
-                    .map(loc -> {
-                        String bucketName = loc.bucket();
-                        return String.format("https://%s.s3.ap-northeast-2.amazonaws.com/%s",
-                                bucketName, loc.s3Key());
-                    })
-                    // 2. 해당 채널(EMAIL/SMS)만 없는 경우
-                    .orElseGet(() -> {
-                        log.warn("해당 채널[{}]에 대한 S3 설정을 찾을 수 없습니다. 데이터: {}", nowChannel, jsonb);
-                        return null;
-                    });
+                    .orElseGet(() -> new S3LocationDTO("", "", ""));
 
         } catch (Exception e) {
-            log.error("S3 URL 생성 중 예상치 못한 오류: {}", e.getMessage());
-            throw new DispatchDomainException(DispatchErrorCode.S3_URL_FAILED);
+            // 3. 파싱 에러가 나더라도 로그만 남기고 흐름을 유지
+            log.error("S3 URL JSON 파싱 실패 (데이터: {}), 에러: {}", jsonb, e.getMessage());
+            return new S3LocationDTO("", "", "");
         }
     }
 
-    public static record S3Location(
+    public record S3LocationDTO(
             String key,
             String bucket,
-            @JsonProperty("s3_key") String s3Key
+            @JsonProperty("s3_key")
+            String s3Key
     ) {}
 }

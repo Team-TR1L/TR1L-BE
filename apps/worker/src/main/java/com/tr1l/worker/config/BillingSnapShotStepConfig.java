@@ -2,12 +2,14 @@ package com.tr1l.worker.config;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tr1l.billing.api.usecase.RenderBillingMessageUseCase;
 import com.tr1l.billing.application.port.out.BillingTargetS3UpdatePort;
 import com.tr1l.billing.application.port.out.S3UploadPort;
+import com.tr1l.util.DecryptionTool;
 import com.tr1l.billing.domain.model.aggregate.Billing;
 import com.tr1l.util.EncryptionTool;
 import com.tr1l.worker.batch.formatjob.domain.BillingSnapshotDoc;
-import com.tr1l.worker.batch.formatjob.domain.RenderedMessage;
+import com.tr1l.billing.application.model.RenderedMessageResult;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotProcessor;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotWriter;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapshotKeysetReader;
@@ -44,11 +46,10 @@ import java.util.concurrent.Executor;
 public class BillingSnapShotStepConfig {
 
     private final MongoTemplate mongoTemplate;
-    private final TemplateEngine templateEngine;
 
-    public BillingSnapShotStepConfig(MongoTemplate mongoTemplate, TemplateEngine templateEngine) {
+
+    public BillingSnapShotStepConfig(MongoTemplate mongoTemplate) {
         this.mongoTemplate = mongoTemplate;
-        this.templateEngine = templateEngine;
     }
 
     @Bean
@@ -60,7 +61,7 @@ public class BillingSnapShotStepConfig {
             BillingSnapShotWriter writer,
             @Value("${app.mongo.snapshot.chunk-size:200}") int chunkSize
     ){
-        var perf = new PerfTimingListener<BillingSnapshotDoc,RenderedMessage>(
+        var perf = new PerfTimingListener<BillingSnapshotDoc,RenderedMessageResult>(
                 30,   // slowReadMs
                 50,   // slowProcessMs
                 300,  // slowWriteMs
@@ -68,15 +69,15 @@ public class BillingSnapShotStepConfig {
                 doc -> doc.id() //
         );
         return new StepBuilder("billingSnapShotStep",jobRepository)
-                .<BillingSnapshotDoc, RenderedMessage>chunk(chunkSize,transactionManager)
+                .<BillingSnapshotDoc, RenderedMessageResult>chunk(chunkSize,transactionManager)
                 .reader(reader)
                 .processor(processor)
                 .writer(writer)
                 .listener((StepExecutionListener) perf)
                 .listener((ChunkListener) perf)
                 .listener((ItemReadListener<BillingSnapshotDoc>) perf)
-                .listener((ItemProcessListener<BillingSnapshotDoc, RenderedMessage>) perf)
-                .listener((ItemWriteListener<RenderedMessage>) perf)
+                .listener((ItemProcessListener<BillingSnapshotDoc, RenderedMessageResult>) perf)
+                .listener((ItemWriteListener<RenderedMessageResult>) perf)
                 .build();
     }
 
@@ -92,8 +93,12 @@ public class BillingSnapShotStepConfig {
     }
 
     @Bean
-    public BillingSnapShotProcessor billingSnapShotProcessor (){
-        return new BillingSnapShotProcessor(templateEngine);
+    @StepScope
+    public BillingSnapShotProcessor billingSnapShotProcessor (
+            RenderBillingMessageUseCase useCase,
+            DecryptionTool decryptionTool
+    ){
+        return new BillingSnapShotProcessor(useCase, decryptionTool);
     }
 
     @Bean

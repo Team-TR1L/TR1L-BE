@@ -10,7 +10,11 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 
-      batch-size: 65536     # 64KB까지 모아서 전송
-      buffer-memory: 33554432 # 32MB 버퍼
+      batch-size: 65536                           # 64KB까지 모아서 전송
+      buffer-memory: 33554432                     # 32MB 버퍼
       properties:
-        linger.ms: 10      # 10ms 동안 메시지가 쌓이길 기다림
+        enable.idempotence: true                  #중복 적재 방지
+        max.in.flight.requests.per.connection: 5  #메시지 순서 보장 5개까지
+        retries: 2147483647                       #일시적 오류에서 재시도 횟수
+        delivery.timeout.ms: 120000               #전체 전송 타임아웃
+        linger.ms: 10                             #10ms 동안 메시지가 쌓이길 기다림
