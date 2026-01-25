@@ -32,7 +32,7 @@ public class CalculateJobConfig {
             @Qualifier("billingGateStep") Step billingGateStep,
             @Qualifier("billingFlattenStep") Step billingFlattenStep,
             @Qualifier("billingTargetStep") Step billingTargetStep,
-            @Qualifier("billingCalculateAndSnapshotStep") Step billingCalculateAndSnapshotStep,
+            @Qualifier("billingCalculateAndSnapshotPartitionedStep") Step billingCalculateAndSnapshotStep,
             @Qualifier("finalizeBillingCycleStep") Step finalizeBillingCycleStep
     ) {
 
