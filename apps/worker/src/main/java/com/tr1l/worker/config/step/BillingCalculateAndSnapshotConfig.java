@@ -54,7 +54,7 @@ public class BillingCalculateAndSnapshotConfig {
             CalculateAndSnapshotWriter writer,
             StepLoggingListener listener,
             MeterRegistry meterRegistry,
-            @Value("${app.billing.step3.chunk-size:200}") int chunkSize
+            @Value("${app.billing.step3.chunk-size}") int chunkSize
     ) {
         var perf = new PerfTimingListener<WorkAndTargetRow, CalculateBillingProcessor.Result>(
                 30,
