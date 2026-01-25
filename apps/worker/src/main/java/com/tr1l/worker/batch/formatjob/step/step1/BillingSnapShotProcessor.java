@@ -67,8 +67,10 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
         String recipientEmailEnc = safeStr(p.recipient() != null ? p.recipient().email() : null);
         String recipientPhoneEnc = safeStr(p.recipient() != null ? p.recipient().phone() : null);
 
-        String recipientEmail = decryptionTool.decrypt(recipientEmailEnc);
-        String recipientPhone = decryptionTool.decrypt(recipientPhoneEnc);
+        // ✅ 평문이면 그대로, 암호문(Base64)이면 복호화
+        String recipientEmail = maybeDecrypt(recipientEmailEnc);
+        String recipientPhone = maybeDecrypt(recipientPhoneEnc);
+
 
         String workId = doc.workId();
 
@@ -129,6 +131,33 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
                 discountLines
         );
 
+    }
+
+    /** 평문/암호문 혼용 대응: Base64처럼 보일 때만 decrypt */
+    private String maybeDecrypt(String v) {
+        if (v == null || v.isBlank()) return "";
+        if (!looksLikeBase64(v)) return v; // 더미 평문은 그대로 통과
+
+        try {
+            return decryptionTool.decrypt(v);
+        } catch (RuntimeException e) {
+            // 암호문처럼 보였는데 실패하면 원문+로그 남기고 실패 처리(운영정책에 따라 조정)
+            log.error("Decrypt failed. value={}", mask(v), e);
+            throw e;
+        }
+    }
+
+    private boolean looksLikeBase64(String s) {
+        // base64는 보통 길이가 4의 배수 + 허용 문자 집합
+        if (s.length() % 4 != 0) return false;
+        return s.matches("^[A-Za-z0-9+/]+={0,2}$");
+    }
+
+    private String mask(String s) {
+        if (s == null) return null;
+        int n = s.length();
+        if (n <= 6) return "***";
+        return s.substring(0, 3) + "***" + s.substring(n - 3);
     }
 
 

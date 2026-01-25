@@ -1,5 +1,10 @@
 package com.tr1l.worker.config;
 
+import com.tr1l.util.DecryptionTool;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
 /**
  * ==========================
  * workerDeCryptConfig
@@ -12,10 +17,6 @@ package com.tr1l.worker.config;
  * ==========================
  */
 
-import com.tr1l.util.DecryptionTool;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class workerDeCryptConfig {

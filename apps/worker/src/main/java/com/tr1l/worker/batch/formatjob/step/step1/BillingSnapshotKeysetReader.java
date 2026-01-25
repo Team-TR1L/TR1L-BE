@@ -105,8 +105,12 @@ public class BillingSnapshotKeysetReader extends ItemStreamSupport implements It
                 .include("userId")
                 .include("status")
                 .include("issuedAt")
+                .include("workId")
                 .include("payload.period.value")
+                .include("payload.recipient.email.value")   // Enc면 recipientEmailEnc로 수정
+                .include("payload.recipient.phone.value")
                 .include("payload.customerName.value")
+                .include("payload.customerBirthDate.value")
                 .include("payload.subtotalAmount.value")
                 .include("payload.discountTotalAmount.value")
                 .include("payload.totalAmount.value")

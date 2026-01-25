@@ -1,5 +1,13 @@
 package com.tr1l.billing.adapter.out.message;
 
+import com.tr1l.billing.application.port.out.TemplateRenderPort;
+import com.tr1l.billing.application.model.BillingMessage;
+import com.tr1l.billing.application.port.out.TemplateRenderPort;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
+
+import java.util.Locale;
+
 /**
  * ==========================
  * TemplateRenderAdapter
@@ -12,13 +20,6 @@ package com.tr1l.billing.adapter.out.message;
  * @since 2026-01-22
  * ==========================
  */
-
-import com.tr1l.billing.application.model.BillingMessage;
-import com.tr1l.billing.application.port.out.TemplateRenderPort;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
-
-import java.util.Locale;
 
 public class TemplateRenderAdapter implements TemplateRenderPort {
 
