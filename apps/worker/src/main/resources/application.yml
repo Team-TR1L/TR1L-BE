@@ -157,3 +157,7 @@ s3:
 
 aws:
   region: ${AWS_REGION:ap-northeast-2}
+
+secret-key: Xy9zPvQ3kL5mRnJwT8bH2cD4fG7jA1sE
+algorithm: AES
+transformation: AES/GCM/NoPadding
