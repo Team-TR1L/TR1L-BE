@@ -27,7 +27,7 @@ public class DeliveryPersistenceAdapter implements DeliveryRepositoryPort {
             String sql = "UPDATE " + TABLE_NAME +
                     " SET send_status = 'SENT' " +
                     " WHERE user_id = ? AND billing_month = ? " +
-                    " AND send_status = 'READY'";
+                    " AND send_status IN ('READY', 'FAILED')";
             return jdbcTemplate.update(sql, userId, billingMonth);
         } catch (DataAccessException e){
             // SENT로 업데이트 하다가 오류 -> 카프카 리트라이 토픽
