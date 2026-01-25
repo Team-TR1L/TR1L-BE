@@ -3,8 +3,10 @@ package com.tr1l.worker.batch.formatjob.step.step1;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.tr1l.billing.application.model.RenderedMessageResult;
 import com.tr1l.billing.application.port.out.BillingTargetS3UpdatePort;
 import com.tr1l.billing.application.port.out.S3UploadPort;
+import com.tr1l.util.EncryptionTool;
 import com.tr1l.billing.application.model.RenderedMessageResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -31,17 +33,20 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
     private final BillingTargetS3UpdatePort billingTargetS3UpdatePort;
     private final ObjectMapper om;
     private final Executor s3UploadExecutor;
+    private final EncryptionTool encryptionTool;
 
     public BillingSnapShotWriter(String bucket,
                                  S3UploadPort s3UploadPort,
                                  ObjectMapper om,
                                  BillingTargetS3UpdatePort billingTargetS3UpdatePort,
+                                 EncryptionTool encryptionTool,
                                  @Qualifier("s3UploadExecutor") Executor s3UploadExecutor) {
         this.bucket = bucket;
         this.s3UploadPort = s3UploadPort;
         this.om = om;
         this.billingTargetS3UpdatePort = billingTargetS3UpdatePort;
         this.s3UploadExecutor = s3UploadExecutor;
+        this.encryptionTool=encryptionTool;
     }
     // 한 유저에 대한 레코드 (email, sms)
     private record MsgCtx(int index, YearMonth billingYm, long userId, ArrayNode s3Array) {}
@@ -166,8 +171,8 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
     private ObjectNode s3UrlItem(String channelKey, String bucket, String s3Key) {
         ObjectNode n = om.createObjectNode();
         n.put("key", channelKey);
-        n.put("bucket", bucket);
-        n.put("s3_key", s3Key);
+        n.put("bucket", encryptionTool.encrypt(bucket));
+        n.put("s3_key", encryptionTool.encrypt(s3Key));
 
         return n;
     }

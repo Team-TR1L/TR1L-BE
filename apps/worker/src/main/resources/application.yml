@@ -58,14 +58,14 @@ app:
 
       #Step01 - SQL1 fetch size
       reader:
-        fetchSize: 30000
-        bulkSize: 5000
+        fetchSize: 10000
+        bulkSize: 10000
       chunk:
         chunkSize: 10000
 
   billing:
     step3:
-      chunk-size: 10000
+      chunk-size: 2000
       fetch-size: 2000
       partition:
         grid-size: 8
@@ -158,6 +158,7 @@ s3:
 aws:
   region: ${AWS_REGION:ap-northeast-2}
 
-secret-key: Xy9zPvQ3kL5mRnJwT8bH2cD4fG7jA1sE
-algorithm: AES
-transformation: AES/GCM/NoPadding
+# 암/복호화 키
+secret-key: ${SECRET_KEY}
+algorithm: ${ALGORITHM:AES}
+transformation: ${TRANSFORMATION}
