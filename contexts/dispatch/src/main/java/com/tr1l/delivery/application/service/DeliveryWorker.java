@@ -7,11 +7,13 @@ import com.tr1l.delivery.domain.DeliveryResultEvent;
 import com.tr1l.dispatch.infra.kafka.DispatchRequestedEvent;
 import com.tr1l.util.DecryptionTool;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DeliveryWorker {
@@ -25,23 +27,32 @@ public class DeliveryWorker {
     public void work(DispatchRequestedEvent event) {
         // 비동기 처리
         CompletableFuture.runAsync(() -> {
-            boolean isSuccess = false;
+            boolean isSuccess = true;
             try {
 //                // 복호화
 //                String s3Url = decryptionPort.decrypt(event.getEncryptedS3Url());
 //                String destination = decryptionTool.decrypt(event.getEncryptedDestination());
+                log.warn("복호화 성공");
 //
-//                // S3 다운로드
-//                String realContent = contentProvider.downloadContent(s3Url);
+                // S3 다운로드
+                String realContent = contentProvider.downloadContent(event.getEncryptedS3Url());
+                log.warn("S3 조회 성공");
 
                 // 1초 대기 발생
-                isSuccess = notificationClient.send(event.getEncryptedDestination(), event.getEncryptedS3Url(), event.getChannelType());
+                notificationClient.send(event.getEncryptedDestination(), realContent, event.getChannelType());
+                log.warn("메세지 발송 성공 user_id: {}", event.getUserId());
 
             } catch (Exception e) {
+                // 해당 과정 중에 에러가 발생할 경우 예외를 삼키고 실패(false)로 결과 토픽 발행
+                log.error("발송 작업 실패. userId: {}, billingMonth: {}", event.getUserId(), event.getBillingMonth(), e);
                 isSuccess = false;
             } finally {
-                // 결과 보고 (Result Topic)
-                eventPort.publish(new DeliveryResultEvent(event.getUserId(), isSuccess, event.getBillingMonth()));
+                // 결과 발행 (Result Topic)
+                try {
+                    eventPort.publish(new DeliveryResultEvent(event.getUserId(), isSuccess, event.getBillingMonth()));
+                } catch (Exception e){
+                    log.error("결과 이벤트 발행 실패, user_id:{}, billing_month:{}, isSuccess:{}",event.getUserId(),event.getBillingMonth(),isSuccess);
+                }
             }
         }, notificationExecutor);
     }

@@ -46,7 +46,7 @@
     <appender-ref ref="CONSOLE_JSON"/>
   </appender>
 
-  <root level="INFO">
+  <root level="ERROR">
     <appender-ref ref="ASYNC_JSON"/>
   </root>
 </configuration>

@@ -1,6 +1,8 @@
 package com.tr1l.worker.config;
 
 import com.zaxxer.hikari.HikariDataSource;
+import net.ttddyy.dsproxy.listener.QueryExecutionListener;
+import net.ttddyy.dsproxy.support.ProxyDataSourceBuilder;
 
 import javax.sql.DataSource;
 
@@ -28,11 +30,20 @@ public class MultiJdbcConfig {
     @Primary
     @ConfigurationProperties("spring.datasource.hikari")
     public DataSource mainDataSource(
-            @Qualifier("mainDataSourceProperties") DataSourceProperties props
+            @Qualifier("mainDataSourceProperties") DataSourceProperties props,
+            org.springframework.beans.factory.ObjectProvider<QueryExecutionListener> queryExecutionListenerProvider
     ) {
-        return props.initializeDataSourceBuilder()
+        HikariDataSource dataSource = props.initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
                 .build();
+        ProxyDataSourceBuilder builder = ProxyDataSourceBuilder.create(dataSource)
+                .name("main")
+                .countQuery();
+        QueryExecutionListener listener = queryExecutionListenerProvider.getIfAvailable();
+        if (listener != null) {
+            builder.listener(listener);
+        }
+        return builder.build();
     }
 
     @Bean(name = "mainJdbcTemplate")
@@ -60,11 +71,20 @@ public class MultiJdbcConfig {
     @Bean(name = "targetDataSource")
     @ConfigurationProperties("app.datasource.target.hikari")
     public DataSource targetDataSource(
-            @Qualifier("targetDataSourceProperties") DataSourceProperties props
+            @Qualifier("targetDataSourceProperties") DataSourceProperties props,
+            org.springframework.beans.factory.ObjectProvider<QueryExecutionListener> queryExecutionListenerProvider
     ) {
-        return props.initializeDataSourceBuilder()
+        HikariDataSource dataSource = props.initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
                 .build();
+        ProxyDataSourceBuilder builder = ProxyDataSourceBuilder.create(dataSource)
+                .name("target")
+                .countQuery();
+        QueryExecutionListener listener = queryExecutionListenerProvider.getIfAvailable();
+        if (listener != null) {
+            builder.listener(listener);
+        }
+        return builder.build();
     }
 
     @Bean(name = "targetJdbcTemplate")

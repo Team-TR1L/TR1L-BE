@@ -6,12 +6,14 @@ import com.tr1l.billing.api.usecase.RenderBillingMessageUseCase;
 import com.tr1l.billing.application.port.out.BillingTargetS3UpdatePort;
 import com.tr1l.billing.application.port.out.S3UploadPort;
 import com.tr1l.util.DecryptionTool;
+import com.tr1l.billing.domain.model.aggregate.Billing;
 import com.tr1l.worker.batch.formatjob.domain.BillingSnapshotDoc;
 import com.tr1l.billing.application.model.RenderedMessageResult;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotProcessor;
-import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotReader;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotWriter;
-import org.springframework.batch.core.Step;
+import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapshotKeysetReader;
+import com.tr1l.worker.batch.listener.PerfTimingListener;
+import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -23,10 +25,12 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.thymeleaf.TemplateEngine;
 
+import java.util.concurrent.Executor;
+
 /**
  * ==========================
  * BillingSnapShotStepConfig
- * Job2의 step1
+ *
  * BillingSnapShotStep들을 모아 step 연결하는곳
  *
  * @author nonstop
@@ -51,26 +55,40 @@ public class BillingSnapShotStepConfig {
     public Step billingSnapShotStep(
             JobRepository jobRepository,
             @Qualifier("TX-target") PlatformTransactionManager transactionManager,
-            BillingSnapShotReader reader,
+            BillingSnapshotKeysetReader reader,
             BillingSnapShotProcessor processor,
             BillingSnapShotWriter writer,
-            @Value("${app.billing.step2.chunk-size:1000}") int chunkSize
+            @Value("${app.mongo.snapshot.chunk-size:200}") int chunkSize
     ){
+        var perf = new PerfTimingListener<BillingSnapshotDoc,RenderedMessageResult>(
+                30,   // slowReadMs
+                50,   // slowProcessMs
+                300,  // slowWriteMs
+                1000, // slowChunkMs
+                doc -> doc.id() //
+        );
         return new StepBuilder("billingSnapShotStep",jobRepository)
                 .<BillingSnapshotDoc, RenderedMessageResult>chunk(chunkSize,transactionManager)
                 .reader(reader)
                 .processor(processor)
                 .writer(writer)
+                .listener((StepExecutionListener) perf)
+                .listener((ChunkListener) perf)
+                .listener((ItemReadListener<BillingSnapshotDoc>) perf)
+                .listener((ItemProcessListener<BillingSnapshotDoc, RenderedMessageResult>) perf)
+                .listener((ItemWriteListener<RenderedMessageResult>) perf)
                 .build();
     }
 
     @Bean
     @StepScope
-    public BillingSnapShotReader billingSnapShotReader(
+    public BillingSnapshotKeysetReader billingSnapshotReader(
             MongoTemplate mongoTemplate,
-            @Value("${app.format.snapshot-collection:billing_snapshot}") String collectionName,
-            @Value("#{jobExecutionContext['billingYearMonth']}") String billingMonth){
-        return new BillingSnapShotReader(mongoTemplate,collectionName,billingMonth);
+            @Value("${app.billing.mongo.snapshot.collection:billing_snapshot}") String collection,
+            @Value("#{jobExecutionContext['billingYearMonth']}") String billingYear,
+            @Value("${app.billing.mongo.snapshot.batch-size:200}") int pageSize
+    ) {
+        return new BillingSnapshotKeysetReader(mongoTemplate, collection, billingYear, pageSize);
     }
 
     @Bean
@@ -88,8 +106,9 @@ public class BillingSnapShotStepConfig {
             @Value("${s3.bucket}") String bucket,
             S3UploadPort s3UploadPort,
             ObjectMapper om,
-            BillingTargetS3UpdatePort billingTargetS3UpdatePort
+            BillingTargetS3UpdatePort billingTargetS3UpdatePort,
+            @Qualifier("s3UploadExecutor")Executor s3UploadExecutor
     ) {
-        return new BillingSnapShotWriter(bucket, s3UploadPort, om, billingTargetS3UpdatePort);
+        return new BillingSnapShotWriter(bucket, s3UploadPort, om, billingTargetS3UpdatePort,s3UploadExecutor);
     }
 }

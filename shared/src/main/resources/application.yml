@@ -15,3 +15,8 @@ spring:
 
   jpa:
     hibernate: create-drop
+
+# 복호화 관련 환경변수
+secret-key: ${SECRET_KEY}
+algorithm: ${ALGORITHM}
+transformation: ${TRANSFORMATION}

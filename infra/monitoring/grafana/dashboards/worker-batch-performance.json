@@ -1,0 +1,132 @@
+{
+  "uid": "worker-batch-performance",
+  "title": "Worker Batch Performance",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Step Avg Duration (s)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(batch_step_duration_seconds_sum[1m]) / rate(batch_step_duration_seconds_count[1m])",
+          "legendFormat": "{{job}}/{{step}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "SQL Queries per Step (qps)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (job, step) (rate(batch_sql_query_count_total[1m]))",
+          "legendFormat": "{{job}}/{{step}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "SQL Queries by Type (qps)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (job, step, datasource, type) (rate(batch_sql_query_count_total[1m]))",
+          "legendFormat": "{{step}}/{{datasource}}/{{type}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Avg Query Time (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "(rate(batch_sql_query_time_seconds_sum[1m]) / rate(batch_sql_query_time_seconds_count[1m])) * 1000",
+          "legendFormat": "{{job}}/{{step}}/{{datasource}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Total Queries (5m)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (job, step, datasource) (increase(batch_sql_query_count_total[5m]))",
+          "legendFormat": "{{job}}/{{step}}/{{datasource}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Total Query Time (5m, s)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (job, step, datasource) (increase(batch_sql_query_time_seconds_sum[5m]))",
+          "legendFormat": "{{job}}/{{step}}/{{datasource}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 40, "w": 24, "h": 8 }
+    }
+  ],
+  "templating": { "list": [] },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  }
+}

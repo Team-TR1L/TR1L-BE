@@ -22,7 +22,7 @@ public class BillingWorkMongoWiringConfig {
     @Bean
     public WorkDocUpsertPort workDocUpsertPort(
             MongoTemplate mongoTemplate,
-            @Value("${app.billing.work-collection:billing_work}") String collectionName
+            @Value("${app.billing.mongo.work.collection:billing_work}") String collectionName
     ) {
         return new MongoWorkDocUpsertAdapter(mongoTemplate, collectionName);
     }
@@ -30,7 +30,7 @@ public class BillingWorkMongoWiringConfig {
     @Bean
     public WorkDocFinalizeQueryPort workDocFinalizeQueryPort(
             MongoTemplate mongoTemplate,
-            @Value("${app.billing.work-collection:billing_work}") String collectionName
+            @Value("${app.billing.mongo.work.collection:billing_work}") String collectionName
     ) {
         return new WorkDocFinalizeMongoAdapter(mongoTemplate, collectionName);
     }

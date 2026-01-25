@@ -17,12 +17,12 @@ import java.util.Optional;
 public class EmailChannelHandler implements ChannelHandler{
     @Override
     public String key() {
-        return "email";
+        return "EMAIL";
     }
 
     @Override
     public Optional<ChannelValue> build(UserContact contact) {
-        return contact.hasEmail() ? Optional.of(new ChannelValue("email",contact.email())): Optional.empty();
+        return contact.hasEmail() ? Optional.of(new ChannelValue("EMAIL",contact.email())): Optional.empty();
     }
 
 }

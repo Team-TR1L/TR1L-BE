@@ -149,15 +149,15 @@ CREATE TABLE users
     created_at   timestamp(6) with time zone NOT NULL,
     modified_at  timestamp(6) with time zone NOT NULL,
     user_id      bigint                      NOT NULL PRIMARY KEY,
-    name         varchar(10)                 NOT NULL,
-    email        varchar(100)                NOT NULL UNIQUE,
+    name         varchar(100)                 NOT NULL,
+    email        varchar(150)                NOT NULL UNIQUE,
     plan_code    varchar(10),
     welfare_code varchar(10),
-    phone_number varchar(20)                 NOT NULL UNIQUE,
+    phone_number varchar(150)                 NOT NULL UNIQUE,
     user_role    varchar(255)                NOT NULL,
-    from_time    varchar(2)                  NULL,
-    to_time      varchar(2)                  NULL,
-    day_time     varchar(2)                  NULL
+    from_time    varchar(2)                  ,
+    to_time      varchar(2)                  ,
+    day_time     varchar(2)
         CONSTRAINT users_user_role_check
             CHECK ((user_role)::text = ANY
                    ((ARRAY ['ADMIN'::character varying, 'GUEST'::character varying, 'USER'::character varying])::text[])),
@@ -313,3 +313,20 @@ CREATE TABLE monthly_data_usage
     CONSTRAINT uk_monthly_data_usage_user_month UNIQUE (user_id, usage_year_month)
 );
 
+-- ======= INDEX SETUP ============
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_active_user_by_user_id
+ON users (user_id)
+WHERE user_role = 'USER'
+	AND user_status = 'ACTIVE'
+	AND plan_code IS NOT NULL;
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_monthly_usage_ym_user
+ON monthly_data_usage (usage_year_month, user_id);
+
+-- soldier 조회
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_soldier_user_start_end
+ON user_soldier (user_id, start_date, end_date);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_contract_user_start
+O

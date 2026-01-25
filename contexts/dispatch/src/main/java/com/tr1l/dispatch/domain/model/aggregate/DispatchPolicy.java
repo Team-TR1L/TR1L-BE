@@ -80,20 +80,14 @@ public class DispatchPolicy {
             AdminId adminId,
             ChannelRoutingPolicy routingPolicy
     ) {
-        if (adminId == null)
-            throw new DispatchDomainException(DispatchErrorCode.ADMIN_ID_NULL);
-
-        if (routingPolicy == null)
-            throw new DispatchDomainException(DispatchErrorCode.ROUTING_POLICY_NULL);
-
-        DispatchPolicy policy = new DispatchPolicy(DispatchPolicyId.generatePolicyId(), adminId);
+        DispatchPolicy policy = new DispatchPolicy();
+        policy.adminId = adminId;
         policy.routingPolicy = routingPolicy;
-        policy.status = PolicyStatus.DRAFT;
         policy.version = PolicyVersion.of(1);
+        policy.status = PolicyStatus.DRAFT;
         policy.createdAt = Instant.now();
         return policy;
     }
-
 
     // ==================================================
     // 도메인 행위
@@ -121,6 +115,14 @@ public class DispatchPolicy {
         this.activatedAt = Instant.now();
     }
 
+    public void draft() {
+        if (this.status == PolicyStatus.DRAFT) {
+            throw new DispatchDomainException(DispatchErrorCode.POLICY_ALREADY_DRAFT);
+        }
+
+        this.status = PolicyStatus.DRAFT;
+    }
+
     public void retire() {
         if (this.status == PolicyStatus.RETIRED) {
             throw new DispatchDomainException(DispatchErrorCode.POLICY_ALREADY_RETIRED);
@@ -128,5 +130,30 @@ public class DispatchPolicy {
 
         this.status = PolicyStatus.RETIRED;
         this.retiredAt = Instant.now();
+    }
+
+    public void changeStatus(PolicyStatus newStatus) {
+        if (this.status == newStatus) {
+            return; // 이미 같은 상태면 무시
+        }
+
+        this.status = newStatus;
+
+        if (newStatus == PolicyStatus.ACTIVE) {
+            this.activatedAt = Instant.now();
+            this.retiredAt = null; // ACTIVE가 되면 RETIRED 날짜 초기화
+        } else if (newStatus == PolicyStatus.RETIRED) {
+            this.retiredAt = Instant.now();
+        }
+
+        incrementVersion(); // 상태 변경 시 버전 증가
+    }
+
+    public void incrementVersion() {
+        this.version = PolicyVersion.of(this.version.value() + 1);
+    }
+
+    public void setStatus(PolicyStatus newStatus) {
+        this.status = newStatus;
     }
 }

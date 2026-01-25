@@ -7,6 +7,7 @@ on:
       - "apps/delivery-server/**"
       - "infra/ecs/taskdef-delivery.json.tpl"
       - ".github/workflows/deploy-delivery-ecs.yml"
+      - "contexts/dispatch/**"
   workflow_dispatch:
 
 permissions:
@@ -56,17 +57,23 @@ jobs:
           AWS_EXE_ROLE_ARN: ${{ secrets.AWS_EXE_ROLE_ARN }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
 
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
           SPRING_KAFKA_BOOTSTRAP_SERVERS: ${{ secrets.SPRING_KAFKA_BOOTSTRAP_SERVERS }}
+
+          PG_SUB_HOST: ${{ secrets.PG_SUB_HOST }}
+          PG_SUB_DB: ${{ secrets.PG_SUB_DB }}
+          PG_SUB_USER: ${{ secrets.PG_SUB_USER }}
+          PG_SUB_PASSWORD: ${{ secrets.PG_SUB_PASSWORD }}
+
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          ALGORITHM: ${{ secrets.ALGORITHM }}
+          TRANSFORMATION: ${{ secrets.TRANSFORMATION }}
 
           DELIVERY_IMAGE_URI: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
 
-          # app env
-          PG_SUB_DB: ${{ secrets.PG_SUB_DB }}
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          PG_SUB_USER: ${{ secrets.PG_SUB_USER }}
-          PG_SUB_PASSWORD: ${{ secrets.PG_SUB_PASSWORD }}
-          PG_SUB_HOST: ${{ secrets.PG_SUB_HOST }}
         run: |
           sudo apt-get update -y
           sudo apt-get install -y gettext-base
@@ -79,6 +86,7 @@ jobs:
           task-definition: ${{ env.TASK_DEFINITION_RENDERED }}
           container-name: ${{ env.CONTAINER_NAME }}
           image: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
+
 
       - name: Deploy to ECS service
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2

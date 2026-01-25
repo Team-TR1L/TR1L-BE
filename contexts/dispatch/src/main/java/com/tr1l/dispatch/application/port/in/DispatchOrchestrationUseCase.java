@@ -5,5 +5,5 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 
 public interface DispatchOrchestrationUseCase {
-    void orchestrate(Instant now);
+    void orchestrate(Instant now) throws InterruptedException;
 }

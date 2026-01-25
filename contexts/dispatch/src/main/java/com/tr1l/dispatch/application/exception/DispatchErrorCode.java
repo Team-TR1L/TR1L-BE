@@ -17,7 +17,8 @@ public enum DispatchErrorCode implements ErrorCode {
     POLICY_VERSION_OVERFLOW("DSP-DOM-006", ErrorCategory.DOM, "PolicyVersion이 허용 범위를 초과했습니다."),
     ROUTING_POLICY_NULL("DSP-VAL-006", ErrorCategory.VAL, "RoutingPolicy는 null일 수 없습니다."),
     ENCRYPTED_TEXT_NULL("DSP-VAL-007", ErrorCategory.VAL, "복호화할 암호문이 null이거나 비어있습니다."),
-
+    POLICY_ALREADY_DRAFT("DSP-VAL-008", ErrorCategory.VAL, "이미 정책 상태가 DRAFT입니다."),
+    ACTIVATE_POLICY_NOT_RETIRED("DSP-VAL-009", ErrorCategory.VAL, "활성화 정책은 폐기할 수 없습니다."),
 
     // =====================================================================
     // DOM - Domain
@@ -36,13 +37,16 @@ public enum DispatchErrorCode implements ErrorCode {
     POLICY_NOT_EQUAL("DSP-APP-004",ErrorCategory.ADA, "발송 정책의 전송 매체와 메시지의 전송 매체가 다릅니다."),
     NO_MORE_RETRY("DSP-APP-005", ErrorCategory.ADA, "발송 정책의 maxAttemptCount보다 높은 attemptCount입니다."),
     JSON_MAPPING_ERROR("DSP-APP-006", ErrorCategory.ADA, "json 변환에 실패했습니다."),
+    ADMIN_ID_DUPLICATED("DSP-APP-007", ErrorCategory.ADA, "중복된 관리자 Id입니다."),
 
     // =====================================================================
     // INFRA - Infrastructure (DB, S3, Network)
     // =====================================================================
     S3_DOWNLOAD_FAILED("DSP-INF-001", ErrorCategory.EXT, "S3에서 컨텐츠를 다운로드하는데 실패했습니다."),
     DECRYPTION_FAILED("DSP-INF-002", ErrorCategory.EXT, "데이터 복호화에 실패했습니다."),
-    S3_URL_FAILED("DSP-INF-003", ErrorCategory.EXT, "S3 url 제작이 실패했습니다.")
+    S3_URL_FAILED("DSP-INF-003", ErrorCategory.EXT, "S3 url 제작이 실패했습니다."),
+    DB_UPDATE_FAILED("DSP-INF-004", ErrorCategory.INFRA, "DB 업데이트에 실패했습니다."),
+    DELIVERY_FAILED("DSP-INF-005", ErrorCategory.INFRA, "청구서 발송에 실패했습니다."),
 
     ;
 

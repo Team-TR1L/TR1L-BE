@@ -26,7 +26,7 @@ public final class Billing implements Serializable {
 
     private BillingStatus status; // DRAFT, ISSUED, CANCELLED
 
-    private Recipient recipient; // DRAFT에서만 변경 가능
+    private Recipient recipient; // DRAFT에서만 변경 가능 {email : :"gr214777@navercom, phone: "010-6359-8282""} 암호화 상태
     private final IdempotencyKey idempotencyKey; // 배치 재실행, 유니크
 
     private final List<ChargeLine> chargeLines = new ArrayList<>(); // issued 이후 수정 x
@@ -36,7 +36,7 @@ public final class Billing implements Serializable {
     private Money discountTotalAmount = Money.zero(); // discountLines.discountAmount 합계
     private Money totalAmount = Money.zero(); // 최종 청구 금액
 
-    private Instant issuedAt; // ISSUED에서만 존재
+    private Instant issuedAt; // Issued된 시각
 
 
     private final CustomerName customerName;
@@ -106,13 +106,6 @@ public final class Billing implements Serializable {
     // Behavior (DRAFT only)
     // =========================
 
-    // DRAFT에서만 수신자 변경 가능
-    public void changeRecipient(Recipient newRecipient) {
-        requireDraft();
-        if (newRecipient == null) throw new BillingDomainException(BillingErrorCode.INVALID_RECIPIENT);
-        this.recipient = newRecipient;
-    }
-
     // 청구 라인 추가
     public void addChargeLine(ChargeLine line) {
         requireDraft();
@@ -127,7 +120,7 @@ public final class Billing implements Serializable {
         this.discountLines.add(line);
     }
 
-    /** 소계/할인합/최종합 재계산 (DRAFT에서만) */
+    /** 소계/할인합/최종합 재계산 배포 버전 제거 예정 - 검산용 */
     public void recalculateTotals() {
         requireDraft();
 
@@ -151,9 +144,9 @@ public final class Billing implements Serializable {
     }
 
     /**
-     * 규칙: 청구서 발행 완료
+     * 규칙: 청구서 발행 완료 계산이 끝난 이후에 호출
      * 1) status==DRAFT
-     * 2) recalculate 실행
+     * 2) recalculate 실행 -> 배포 시 제거
      * 3) status=ISSUED, issuedAt=now
      * 4) 도메인 이벤트 발생(적재)
      */
@@ -170,7 +163,7 @@ public final class Billing implements Serializable {
         }
 
         // totals는 issue 직전에 항상 재계산 (결정성/정합성)
-        recalculateTotals();
+        //        recalculateTotals(); -> 배포 환경에서 제외
 
         // 상태 변경 및 시간 기록
         this.status = BillingStatus.ISSUED;

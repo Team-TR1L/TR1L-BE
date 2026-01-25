@@ -8,6 +8,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-batch'
     implementation 'org.springframework.batch:spring-batch-core'
     implementation 'org.springframework.boot:spring-boot-starter-json'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'io.opentelemetry:opentelemetry-api:1.46.0'
+    implementation 'io.opentelemetry:opentelemetry-context:1.46.0'
     testImplementation 'org.springframework.batch:spring-batch-test'
     testImplementation 'org.awaitility:awaitility'
 
@@ -27,4 +32,12 @@ dependencies {
     implementation "software.amazon.awssdk:auth"
     implementation "software.amazon.awssdk:aws-core"
     implementation "software.amazon.awssdk:sdk-core"
+    implementation "software.amazon.awssdk:apache-client"
+
+
+    //Liquibase
+    implementation "org.liquibase:liquibase-core:4.30.0"
+
+    // SQL query counting (datasource proxy)
+    implementation "net.ttddyy:datasource-proxy:1.10"
 }

@@ -34,6 +34,20 @@ spring:
       mode: never
 server:
   port: 8080
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,health,info
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        mongo.command.duration: true
 
 #Target DB
 app:
@@ -44,22 +58,43 @@ app:
 
       #Step01 - SQL1 fetch size
       reader:
-        fetchSize: ${BATCH_JOB1_STEP1_FETCH_SIZE:}
+        fetchSize: 30000
+        bulkSize: 10000
       chunk:
-        chunkSize: ${BATCH_JOB1_STEP1_CHUNK_SIZE:}
+        chunkSize: 10000
+
+  billing:
+    step3:
+      chunk-size: ${BATCH_JOB1_STEP3_CHUNK_SIZE:3000}
+      fetch-size: ${BATCH_JOB1_STEP3_FETCH_SIZE:6000}
+      lease-seconds: ${BATCH_JOB1_STEP3_LEASE_SECONDS:3000}
+    mongo:
+      work:
+        collection: billing_work
+      snapshot:
+        collection: billing_snapshot
+      chunk-size: 3000
+      fetch-size: 6000
+      lease-seconds: 500
+
+  #Job2 step1
+  mongo:
+    snapshot:
+      batch-size: 6000
+      chunk-size: 3000
 
   liquibase:
     target:
       enabled: true
       change-log: classpath:/db/changelog/target/db.changelog-master.yml
-      contexts: ${SPRING_PROFILES_ACTIVE:dev}
+      contexts: dev
 
 
 #Batch 환경 변수
 batch:
   job1StartTime:
   job2StartTime:
-  channelOrderJson:
+  channelOrder: ${CHANNEL_ORDER}
 
 time:
   zone: Asia/Seoul
@@ -70,13 +105,8 @@ time:
 #Log setting
 logging:
   level:
-    root: info
-    org.springframework.batch: INFO
-    org.hibernate.sql: WARN
-    #Jdbc template
-    org.springframework.jdbc.core: WARN
-    #driver
-    org.postgresql: WARN
+    root: ERROR
+
 
 # S3 설정값
 s3:
@@ -84,6 +114,12 @@ s3:
 
 aws:
   region: ${AWS_REGION:}
+
+  s3:
+    max-connections: ${S3_MAX_CONNECTIONS:200}
+    upload:
+      concurrency: ${S3_UPLOAD_CONCURRENCY:32}
+      queue-capacity: ${S3_UPLOAD_QUEUE_CAPACITY:12000}
 
 ---
 
@@ -101,7 +137,7 @@ spring:
 
 logging:
   level:
-    root: INFO
+    root: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.orm.jdbc.bind: TRACE
     org.springframework.jdbc.core: DEBUG

@@ -23,11 +23,12 @@ public class DeliveryService {
         // 발송 상태로 변경 시도
         int updatedCount = deliveryRepository.updateStatusToSent(userId, event.getBillingMonth());
 
-        log.info("Delivery process has been called for userId={}", userId);
-
         if (updatedCount == 0) {
+            log.warn("중복 메세지 발생");
             return;
         }
+
+        log.warn("SENT 업데이트 성공 user_id: {}", userId);
 
         // 외부 발송
         deliveryWorker.work(event);
@@ -37,10 +38,11 @@ public class DeliveryService {
         if (isSuccess) {
             // 성공 상태로 변경
             deliveryRepository.updateStatusToSucceed(userId, billingMonth);
+            log.warn("SUCCEED 업데이트 성공 user_id: {}", userId);
         } else {
             // 실패 상태로 변경
             deliveryRepository.updateStatusToFailed(userId, billingMonth);
+            log.warn("FAILED 업데이트 성공 user_id: {}", userId);
         }
-        log.info("발송 완료 UserID: {}, isSuccess: {}", userId, isSuccess);
     }
 }

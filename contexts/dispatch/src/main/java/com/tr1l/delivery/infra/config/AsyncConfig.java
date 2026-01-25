@@ -14,16 +14,16 @@ public class AsyncConfig {
     @Bean(name = "notificationExecutor")
     public Executor notificationExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(200);
-        executor.setMaxPoolSize(300);
+        executor.setCorePoolSize(180);
+        executor.setMaxPoolSize(180);
         executor.setQueueCapacity(0);
 
-        // 커스텀 정책: 스레드가 꽉 차면, 자리가 날 때까지 "멈춰서 기다림"
+        // 커스텀 정책: 스레드가 꽉 차면, 자리가 날 때까지 멈춰서 기다림
         executor.setRejectedExecutionHandler((r, exec) -> {
             try {
                 if (!exec.isShutdown()) {
                     // 여기서 Consumer 스레드가 멈춥니다(Block). 
-                    // 워커 스레드 하나가 일을 마치고 자리가 나면 그때 풀립니다.
+                    // 워커 스레드 하나가 일을 마치고 자리가 나면 그때 풀림
                     exec.getQueue().put(r);
                 }
             } catch (InterruptedException e) {
@@ -33,6 +33,9 @@ public class AsyncConfig {
         });
 
         executor.initialize();
+
+        // 미리 스레드 만들어 놓기
+        executor.getThreadPoolExecutor().prestartAllCoreThreads();
         return executor;
     }
 }
