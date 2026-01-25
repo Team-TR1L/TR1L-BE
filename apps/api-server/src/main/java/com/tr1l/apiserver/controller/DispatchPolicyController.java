@@ -84,11 +84,19 @@ public class DispatchPolicyController {
     }
 
     /** 배치 수동 실행 */
-    @Operation(summary = "배치 수동 실행", description = "청구서 발송 배치를 즉시 수동으로 실행합니다.")
+    @Operation(summary = "청구서 제작 배치 수동 실행", description = "청구서 제작 배치를 즉시 수동으로 실행합니다.")
     @PostMapping("/start-batch")
     public ResponseEntity<String> startBatch() {
-        //ToDo: 배치 수동 실행 코드
-        return ResponseEntity.ok().body("배치 수동 완료");
+        //TODO: 청구서 제작 배치 수동 실행 코드
+        return ResponseEntity.ok().body("청구서 제작 배치 수동 완료");
+    }
+
+    /** 배치 수동 실행 */
+    @Operation(summary = "청구서 수동 발송", description = "청구서 발송을 즉시 수동으로 실행합니다.")
+    @PostMapping("/start-dispatch")
+    public ResponseEntity<String> startDispatch() {
+        //TODO: 청구서 발송 수동 실행 코드
+        return ResponseEntity.ok().body("청구서 발송 수동 완료");
     }
 }
 
