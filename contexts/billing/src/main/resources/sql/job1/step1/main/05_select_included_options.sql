@@ -9,10 +9,11 @@ SELECT
   os.option_service_name,
   COALESCE(os.monthly_price, 0) AS monthly_price
 
-FROM user_option_subscription uos
+FROM temp_user_ids AS t
+JOIN user_option_subscription AS uos
+  ON t.user_id = uos.user_id
 JOIN option_service os
   ON os.option_service_code = uos.option_service_code
 
-WHERE uos.user_id IN (:userIds)
-  AND uos.start_date < (:endDate::date + INTERVAL '1 day')
+WHERE uos.start_date < (:endDate::date + INTERVAL '1 day')
   AND uos.end_date   > :startDate::date;
