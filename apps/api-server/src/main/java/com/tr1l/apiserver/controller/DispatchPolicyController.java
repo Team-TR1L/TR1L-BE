@@ -1,10 +1,14 @@
 package com.tr1l.apiserver.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.tr1l.apiserver.dto.DispatchPolicyRequest;
+import com.tr1l.apiserver.service.ManualRunPublisher;
 import com.tr1l.dispatch.application.command.CreateDispatchPolicyCommand;
 import com.tr1l.dispatch.application.service.DispatchPolicyService;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
 import io.swagger.v3.oas.annotations.Operation;
+import java.security.Principal;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +21,7 @@ import java.util.List;
 public class DispatchPolicyController {
 
     private final DispatchPolicyService service;
+    private final ManualRunPublisher publisher;
 
     /** 정책 생성 */
     @Operation(summary = "정책 생성", description = "관리자 ID와 채널 라우팅 정책을 받아 새로운 발송 정책을 생성합니다.")
@@ -85,18 +90,30 @@ public class DispatchPolicyController {
 
     /** 배치 수동 실행 */
     @Operation(summary = "청구서 제작 배치 수동 실행", description = "청구서 제작 배치를 즉시 수동으로 실행합니다.")
-    @PostMapping("/start-batch")
-    public ResponseEntity<String> startBatch() {
-        //TODO: 청구서 제작 배치 수동 실행 코드
-        return ResponseEntity.ok().body("청구서 제작 배치 수동 완료");
+    @PostMapping("/batch")
+    public ResponseEntity<Map<String, Object>> startBatch(Principal principal)
+        throws JsonProcessingException {
+        String requestedBy = principal != null ? principal.getName() : "unknown-admin";
+        String requestId = publisher.publish("BATCH", requestedBy, java.util.Collections.emptyMap());
+
+        return ResponseEntity.accepted().body(Map.of(
+            "requestId", requestId,
+            "status", "REQUESTED"
+        ));
     }
 
     /** 청구서 수동 발송 */
     @Operation(summary = "청구서 수동 발송", description = "청구서 발송을 즉시 수동으로 실행합니다.")
-    @PostMapping("/start-dispatch")
-    public ResponseEntity<String> startDispatch() {
-        //TODO: 청구서 발송 수동 실행 코드
-        return ResponseEntity.ok().body("청구서 발송 수동 완료");
+    @PostMapping("/dispatch")
+    public ResponseEntity<Map<String, Object>> startDispatch(Principal principal)
+        throws JsonProcessingException {
+        String requestedBy = principal != null ? principal.getName() : "unknown-admin";
+        String requestId = publisher.publish("DISPATCH", requestedBy, java.util.Collections.emptyMap());
+
+        return ResponseEntity.accepted().body(Map.of(
+            "requestId", requestId,
+            "status", "REQUESTED"
+        ));
     }
 }
 
