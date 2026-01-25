@@ -100,12 +100,16 @@ public class BillingCalculateAndSnapshotConfig {
             @Value("${app.billing.step3.fetch-size}") int fetchSize,
             @Value("${app.billing.step3.lease-seconds:500}") long leaseSeconds,
             @Qualifier("billingWorkerId") String workerId,
-            @Value("#{stepExecutionContext['workerId']}") String partitionWorkerId
+            @Value("#{stepExecutionContext['workerId']}") String partitionWorkerId,
+            @Value("#{stepExecutionContext['partitionIndex']}") Integer partitionIndex,
+            @Value("#{stepExecutionContext['partitionCount']}") Integer partitionCount
     ) {
         YearMonth billingMonth = YearMonth.parse(billingYearMonth); // YYYY-MM
         String effectiveWorkerId = (partitionWorkerId == null || partitionWorkerId.isBlank())
                 ? workerId
                 : partitionWorkerId;
+        int effectivePartitionIndex = (partitionIndex == null) ? 0 : partitionIndex;
+        int effectivePartitionCount = (partitionCount == null || partitionCount <= 0) ? 1 : partitionCount;
 
         return new WorkDocClaimAndTargetRowReader(
                 claimPort,
@@ -113,7 +117,9 @@ public class BillingCalculateAndSnapshotConfig {
                 billingMonth,
                 fetchSize,
                 Duration.ofSeconds(leaseSeconds),
-                effectiveWorkerId
+                effectiveWorkerId,
+                effectivePartitionIndex,
+                effectivePartitionCount
         );
     }
 

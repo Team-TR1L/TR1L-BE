@@ -80,7 +80,7 @@ app:
       # multi thread
       chunk-size: 1500
       pool-size: 6
-      fetch-size: 10000
+      fetch-size: 2000
       lease-seconds: 500
 
     step2:

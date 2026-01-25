@@ -25,6 +25,8 @@ public class WorkDocClaimAndTargetRowReader
     private final int fetchSize; //
     private final Duration leaseDuration;
     private final String workerId;
+    private final int partitionIndex;
+    private final int partitionCount;
 
     private final Deque<WorkAndTargetRow> buffer = new ArrayDeque<>();
     private long totalClaimNanos = 0L;
@@ -37,7 +39,9 @@ public class WorkDocClaimAndTargetRowReader
             YearMonth billingMonth,
             int fetchSize,
             Duration leaseDuration,
-            String workerId
+            String workerId,
+            int partitionIndex,
+            int partitionCount
     ) {
         this.claimPort = claimPort;
         this.targetLoadPort = targetLoadPort;
@@ -45,6 +49,8 @@ public class WorkDocClaimAndTargetRowReader
         this.fetchSize = fetchSize;
         this.leaseDuration = leaseDuration;
         this.workerId = workerId;
+        this.partitionIndex = partitionIndex;
+        this.partitionCount = partitionCount;
         setName("step3WorkDocClaimAndTargetRowReader");
     }
 
@@ -57,7 +63,15 @@ public class WorkDocClaimAndTargetRowReader
             // status: target -> processing
             long claimStart = System.nanoTime();
             List<WorkDocClaimPort.ClaimedWorkDoc> claimed =
-                    claimPort.claim(billingMonth, fetchSize, leaseDuration, workerId, now);
+                    claimPort.claim(
+                            billingMonth,
+                            fetchSize,
+                            leaseDuration,
+                            workerId,
+                            now,
+                            partitionIndex,
+                            partitionCount
+                    );
             long claimNanos = System.nanoTime() - claimStart;
 
             if (claimed.isEmpty()) {

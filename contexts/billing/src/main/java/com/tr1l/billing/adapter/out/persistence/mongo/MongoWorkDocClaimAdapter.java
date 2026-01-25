@@ -61,7 +61,9 @@ public class MongoWorkDocClaimAdapter implements WorkDocClaimPort {
                                       int limit,
                                       Duration leaseDuration,
                                       String workerId,
-                                      Instant now) {
+                                      Instant now,
+                                      int partitionIndex,
+                                      int partitionCount) {
 
         if (limit <= 0) return List.of();
 
@@ -73,7 +75,7 @@ public class MongoWorkDocClaimAdapter implements WorkDocClaimPort {
 
        // 1. processing 처리할 유저 N 조회 Target or Processing&& leaseUntil < now
         Query findQ = new Query();
-        findQ.addCriteria(buildClaimableCriteria(bm, now));
+        findQ.addCriteria(buildClaimableCriteria(bm, now, partitionIndex, partitionCount));
         findQ.with(Sort.by(Sort.Direction.ASC, F_USER_ID));
         findQ.limit(limit);
 
@@ -101,7 +103,7 @@ public class MongoWorkDocClaimAdapter implements WorkDocClaimPort {
             Query query = new Query();
             query.addCriteria(new Criteria().andOperator(
                     Criteria.where(F_ID).is(rawId),
-                    buildClaimableCriteria(bm, now)
+                    buildClaimableCriteria(bm, now, partitionIndex, partitionCount)
             ));
 
             Update update = new Update()
@@ -143,7 +145,7 @@ public class MongoWorkDocClaimAdapter implements WorkDocClaimPort {
      *  billingMonth == bm
      *  status == TARGET or stauts == PROCESSING AND leaseUntil < now
      */
-    private Criteria buildClaimableCriteria(String bm, Instant now) {
+    private Criteria buildClaimableCriteria(String bm, Instant now, int partitionIndex, int partitionCount) {
         Criteria bmCrit = Criteria.where(F_BILLING_MONTH).is(bm);
 
         Criteria target = Criteria.where(F_STATUS).is("TARGET");
@@ -152,7 +154,12 @@ public class MongoWorkDocClaimAdapter implements WorkDocClaimPort {
                 Criteria.where(F_LEASE_UNTIL).lt(now)
         );
 
-        return new Criteria().andOperator(bmCrit, new Criteria().orOperator(target, expired));
+        Criteria claimable = new Criteria().andOperator(bmCrit, new Criteria().orOperator(target, expired));
+        if (partitionCount > 1) {
+            Criteria modCrit = Criteria.where(F_USER_ID).mod(partitionCount, partitionIndex);
+            return new Criteria().andOperator(claimable, modCrit);
+        }
+        return claimable;
     }
 
     /**
@@ -195,5 +202,4 @@ public class MongoWorkDocClaimAdapter implements WorkDocClaimPort {
     }
 
 }
-
 
