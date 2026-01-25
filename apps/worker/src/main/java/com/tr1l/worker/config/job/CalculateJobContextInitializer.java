@@ -1,29 +1,38 @@
 package com.tr1l.worker.config.job;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobExecutionListener;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.item.ExecutionContext;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class CalculateJobContextInitializer implements JobExecutionListener {
     @Value("${time.zone}")
     private String timeZone;
+
+    private final JdbcTemplate mainJdbcTemplate;
+
+    public CalculateJobContextInitializer(
+            @Qualifier("mainJdbcTemplate") JdbcTemplate mainJdbcTemplate
+    ) {
+        this.mainJdbcTemplate = mainJdbcTemplate;
+    }
 
     public static final String CTX_CUTOFF_AT = "cutoff";
     public static final String CTX_BILLING_YM = "billingYearMonth";
     public static final String CTX_START_DATE = "startDate";
     public static final String CTX_END_DATE = "endDate";
     public static final String CTX_CHANNEL_ORDER = "channelOrder";
+    public static final String CTX_MAX_USER_ID = "maxUserId";
 
 
     @Override
@@ -61,6 +70,7 @@ public class CalculateJobContextInitializer implements JobExecutionListener {
         ctx.putString(CTX_START_DATE, startDate.format(dateFormat));
         ctx.putString(CTX_END_DATE, endDate.format(dateFormat));
         ctx.put(CTX_CHANNEL_ORDER, channelOrder);
+        ctx.putLong(CTX_MAX_USER_ID, fetchMaxUserId());
 
         // 8) 로그 출력
         log.info("=== Calculate Job Context Initialized ===");
@@ -70,6 +80,12 @@ public class CalculateJobContextInitializer implements JobExecutionListener {
         log.info("Start Date      : {}", ctx.getString(CTX_START_DATE));
         log.info("End Date        : {}", ctx.getString(CTX_END_DATE));
         log.info("Channel Order   : {}", channelOrder);
+        log.info("Max User Id     : {}", ctx.getLong(CTX_MAX_USER_ID));
         log.info("==========================================");
+    }
+
+    private long fetchMaxUserId() {
+        Long max = mainJdbcTemplate.queryForObject("SELECT MAX(user_id) FROM users", Long.class);
+        return max == null ? 0L : max;
     }
 }
