@@ -60,8 +60,8 @@ public class CandidateBatchService {
                             candidate.getAttemptCount()
                     ));
 
-            String s3url =
-                    s3LocationMapper.extractLocationValueByChannel(
+            S3LocationMapper.S3LocationDTO s3Location =
+                    s3LocationMapper.extractLocation(
                             candidate.getS3UrlJsonb(), nowChannel);
 
             String destination =
@@ -72,7 +72,8 @@ public class CandidateBatchService {
                     candidate.getId().getUserId(),
                     candidate.getId().getBillingMonth(),
                     nowChannel,
-                    s3url,
+                    s3Location.bucket(),
+                    s3Location.key(),
                     destination
             ));
 

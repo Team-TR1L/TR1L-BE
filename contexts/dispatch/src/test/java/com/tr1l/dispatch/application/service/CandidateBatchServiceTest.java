@@ -102,8 +102,6 @@ class CandidateBatchServiceTest {
                 any(), anyString(), anyInt(), anyInt(), anyInt()
         )).thenReturn(List.of(candidate1, candidate2));
 
-        when(s3LocationMapper.extractLocationValueByChannel(any(), any()))
-                .thenReturn("s3://mock-location");
         when(s3LocationMapper.extractValueByChannel(any(), any()))
                 .thenReturn("01012341234");
 
@@ -129,8 +127,6 @@ class CandidateBatchServiceTest {
         // 두 번째는 attemptCount=1 → EMAIL
         assertEquals(ChannelType.EMAIL, second.channelType());
 
-        verify(s3LocationMapper, times(2))
-                .extractLocationValueByChannel(any(), any());
         verify(s3LocationMapper, times(2))
                 .extractValueByChannel(any(), any());
         verify(entityManager).clear();

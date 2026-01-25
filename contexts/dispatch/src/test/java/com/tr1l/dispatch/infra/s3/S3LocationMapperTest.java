@@ -1,207 +1,95 @@
 package com.tr1l.dispatch.infra.s3;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tr1l.dispatch.application.exception.DispatchDomainException;
-import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 import com.tr1l.dispatch.domain.model.enums.ChannelType;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-@ExtendWith(MockitoExtension.class)
 class S3LocationMapperTest {
 
-    /**
-     * 실제 JSON 파싱을 검증해야 하므로 Mock이 아닌 real ObjectMapper 사용
-     */
-    private ObjectMapper objectMapper;
-
-    /**
-     * 테스트 대상 클래스
-     */
-    private S3LocationMapper mapper;
+    private S3LocationMapper s3LocationMapper;
+    private String sampleJson;
 
     @BeforeEach
     void setUp() {
-        // 각 테스트 간 상태 공유 방지를 위해 매번 새 인스턴스 생성
-        objectMapper = new ObjectMapper();
-        mapper = new S3LocationMapper(objectMapper);
-    }
+        // 실제 Spring Context 없이도 테스트 가능하도록 직접 주입
+        s3LocationMapper = new S3LocationMapper(new ObjectMapper());
 
-    /* ------------------------------------------------------------------
-     * extractValueByChannel
-     *
-     * - 단순 key/value JSON 배열에서
-     *   channelType에 해당하는 value를 추출하는 메서드
-     * ------------------------------------------------------------------ */
-
-    @Test
-    void extractValueByChannel_success() {
-        // given
-        // EMAIL, SMS 두 채널이 모두 존재하는 정상 JSON
-        String json = """
+        sampleJson = """
             [
-              {"key": "EMAIL", "value": "email-template"},
-              {"key": "SMS", "value": "sms-template"}
+                {"key": "EMAIL", "bucket": "maru-test01", "s3_key": "2025-12/EMAIL.html"},
+                {"key": "SMS", "bucket": "maru-test01", "s3_key": "2025-12/SMS.txt"}
             ]
             """;
-
-        // when
-        // EMAIL 채널에 해당하는 value 추출
-        String result = mapper.extractValueByChannel(json, ChannelType.EMAIL);
-
-        // then
-        // 정확한 value가 반환되어야 한다
-        assertThat(result).isEqualTo("email-template");
     }
 
     @Test
-    void extractValueByChannel_channelNotFound_returnsNull() {
+    @DisplayName("성공: EMAIL 채널에 해당하는 bucket과 s3Key를 정확히 추출한다")
+    void extractLocation_Success_Email() {
         // given
-        // EMAIL 채널이 존재하지 않는 JSON
-        String json = """
-            [
-              {"key": "SMS", "value": "sms-template"}
-            ]
-            """;
+        ChannelType channel = ChannelType.EMAIL;
 
         // when
-        String result = mapper.extractValueByChannel(json, ChannelType.EMAIL);
+        S3LocationMapper.S3LocationDTO result = s3LocationMapper.extractLocation(sampleJson, channel);
 
         // then
-        // 해당 채널이 없으면 null 반환이 정책
-        assertThat(result).isNull();
+        assertThat(result.key()).isEqualTo("EMAIL");
+        assertThat(result.bucket()).isEqualTo("maru-test01");
+        assertThat(result.s3Key()).isEqualTo("2025-12/EMAIL.html");
     }
 
     @Test
-    void extractValueByChannel_nullJson_returnsNull() {
-        // when
-        // 입력 JSON 자체가 null
-        String result = mapper.extractValueByChannel(null, ChannelType.EMAIL);
-
-        // then
-        // 조기 리턴 정책에 따라 null
-        assertThat(result).isNull();
-    }
-
-    @Test
-    void extractValueByChannel_blankJson_returnsNull() {
-        // when
-        // 공백 문자열 입력
-        String result = mapper.extractValueByChannel("   ", ChannelType.EMAIL);
-
-        // then
-        // 유효하지 않은 JSON이므로 null 반환
-        assertThat(result).isNull();
-    }
-
-
-    /* ------------------------------------------------------------------
-     * extractLocationValueByChannel
-     *
-     * - S3Location(JSONB)을 파싱하여
-     *   특정 채널의 S3 URL을 생성하는 메서드
-     * ------------------------------------------------------------------ */
-
-    @Test
-    void extractLocationValueByChannel_success() {
+    @DisplayName("성공: SMS 채널에 해당하는 정보를 추출하며 대소문자를 구분하지 않는다")
+    void extractLocation_Success_Sms_CaseInsensitive() {
         // given
-        // EMAIL 채널에 대한 S3 정보가 존재하는 정상 JSON
-        String json = """
-            [
-              {
-                "key": "EMAIL",
-                "bucket": "my-bucket",
-                "s3_key": "templates/email.html"
-              }
-            ]
-            """;
+        ChannelType channel = ChannelType.SMS;
 
         // when
-        String result = mapper.extractLocationValueByChannel(json, ChannelType.EMAIL);
+        S3LocationMapper.S3LocationDTO result = s3LocationMapper.extractLocation(sampleJson, channel);
 
         // then
-        // S3 URL 규칙에 맞게 정확히 조합되어야 한다
-        assertThat(result)
-                .isEqualTo("https://my-bucket.s3.ap-northeast-2.amazonaws.com/templates/email.html");
+        assertThat(result.key()).isEqualTo("SMS");
+        assertThat(result.s3Key()).isEqualTo("2025-12/SMS.txt");
     }
 
     @Test
-    void extractLocationValueByChannel_channelNotFound_returnsNull() {
+    @DisplayName("실패: JSON에 없는 채널을 요청하면 RuntimeException이 발생한다")
+    void extractLocation_Fail_ChannelNotFound() {
         // given
-        // 요청 채널(EMAIL)에 해당하는 S3 설정이 없는 JSON
-        String json = """
-            [
-              {
-                "key": "SMS",
-                "bucket": "sms-bucket",
-                "s3_key": "templates/sms.txt"
-              }
-            ]
-            """;
+        String jsonOnlyEmail = "[{\"key\": \"EMAIL\", \"bucket\": \"b\", \"s3_key\": \"k\"}]";
+        ChannelType channel = ChannelType.SMS;
 
-        // when
-        String result = mapper.extractLocationValueByChannel(json, ChannelType.EMAIL);
-
-        // then
-        // 정책상 예외를 던지지 않고 null 반환
-        assertThat(result).isNull();
+        // when & then
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                s3LocationMapper.extractLocation(jsonOnlyEmail, channel)
+        );
+        assertThat(exception.getMessage()).contains("S3 정보를 찾을 수 없습니다");
     }
 
     @Test
-    void extractLocationValueByChannel_nullJson_returnsNull() {
-        // when
-        // JSONB 컬럼 자체가 null인 경우
-        String result = mapper.extractLocationValueByChannel(null, ChannelType.EMAIL);
-
-        // then
-        // 조기 리턴
-        assertThat(result).isNull();
-    }
-
-    @Test
-    void extractLocationValueByChannel_emptyArray_returnsNull() {
-        // when
-        // 빈 JSON 배열 입력
-        String result = mapper.extractLocationValueByChannel("[]", ChannelType.EMAIL);
-
-        // then
-        // 처리 대상 데이터가 없으므로 null
-        assertThat(result).isNull();
-    }
-
-    @Test
-    void extractLocationValueByChannel_blankJson_returnsNull() {
-        // when
-        // 공백 문자열 입력
-        String result = mapper.extractLocationValueByChannel("   ", ChannelType.EMAIL);
-
-        // then
-        // 유효하지 않은 JSON → null 반환
-        assertThat(result).isNull();
-    }
-
-    @Test
-    void extractLocationValueByChannel_invalidJson_throwsDomainException() {
+    @DisplayName("실패: 잘못된 형식의 JSON 입력 시 예외가 발생한다")
+    void extractLocation_Fail_InvalidJson() {
         // given
-        // JSON 파싱이 불가능한 문자열
-        String invalidJson = "{ invalid json }";
+        String invalidJson = "{ \"not\": \"an array\" }";
 
-        // when / then
-        // 예상치 못한 파싱 오류는 도메인 예외로 감싸서 던져야 한다
-        assertThatThrownBy(() ->
-                mapper.extractLocationValueByChannel(invalidJson, ChannelType.EMAIL)
-        )
-                .isInstanceOf(DispatchDomainException.class)
-                .satisfies(ex -> {
-                    DispatchDomainException dde = (DispatchDomainException) ex;
-                    // 정확한 에러 코드 검증
-                    assertThat(dde.errorCode())
-                            .isEqualTo(DispatchErrorCode.S3_URL_FAILED);
-                });
+        // when & then
+        assertThrows(RuntimeException.class, () ->
+                s3LocationMapper.extractLocation(invalidJson, ChannelType.EMAIL)
+        );
+    }
+
+    @Test
+    @DisplayName("실패: 빈 문자열이나 null 입력 시 IllegalArgumentException이 발생한다")
+    void extractLocation_Fail_EmptyInput() {
+        assertThrows(IllegalArgumentException.class, () ->
+                s3LocationMapper.extractLocation("", ChannelType.EMAIL)
+        );
+        assertThrows(IllegalArgumentException.class, () ->
+                s3LocationMapper.extractLocation(null, ChannelType.EMAIL)
+        );
     }
 }

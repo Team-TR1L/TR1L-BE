@@ -43,7 +43,8 @@ public class DispatchAsyncExecutor {
                             command.userId(),
                             command.billingMonth(),
                             command.channelType(),
-                            command.s3Url(),
+                            command.encryptedS3Buket(),
+                            command.encryptedS3Key(),
                             command.destination()
                     );
 

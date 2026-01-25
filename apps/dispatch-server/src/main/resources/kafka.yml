@@ -17,4 +17,4 @@ spring:
         max.in.flight.requests.per.connection: 5  #메시지 순서 보장 5개까지
         retries: 2147483647                       #일시적 오류에서 재시도 횟수
         delivery.timeout.ms: 120000               #전체 전송 타임아웃
-        linger.ms: 10                             # 10ms 동안 메시지가 쌓이길 기다림
+        linger.ms: 10                             #10ms 동안 메시지가 쌓이길 기다림

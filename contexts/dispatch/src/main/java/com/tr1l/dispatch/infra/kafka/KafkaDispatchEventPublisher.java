@@ -24,19 +24,20 @@ public class KafkaDispatchEventPublisher implements DispatchEventPublisher {
             Long userId,
             LocalDate billingMonth,
             ChannelType channelType,
-            String encryptedS3Url,
+            String encryptedS3Buket,
+            String encryptedS3Key,
             String encryptedDestination
     ) {
         DispatchRequestedEvent event = new DispatchRequestedEvent(
                 userId,
                 billingMonth,
                 channelType,
-                encryptedS3Url,
+                encryptedS3Buket,
+                encryptedS3Key,
                 encryptedDestination
         );
 
         try {
-            // 🔹 Kafka 전송 완료까지 블록
             kafkaTemplate.send(dispatchTopic, event).get(); // get() 호출 → Kafka ACK 기다림
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // interrupted 상태 복원
