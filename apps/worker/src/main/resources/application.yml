@@ -65,23 +65,23 @@ app:
 
   billing:
     step3:
-      chunk-size: ${BATCH_JOB1_STEP3_CHUNK_SIZE:3000}
-      fetch-size: ${BATCH_JOB1_STEP3_FETCH_SIZE:6000}
+      chunk-size: 10000
+      fetch-size: 20000
       lease-seconds: ${BATCH_JOB1_STEP3_LEASE_SECONDS:3000}
     mongo:
       work:
         collection: billing_work
       snapshot:
         collection: billing_snapshot
-      chunk-size: 3000
-      fetch-size: 6000
+      chunk-size: 10000
+      fetch-size: 20000
       lease-seconds: 500
 
   #Job2 step1
   mongo:
     snapshot:
-      batch-size: 6000
-      chunk-size: 3000
+      batch-size: 20000
+      chunk-size: 10000
 
   liquibase:
     target:
@@ -137,10 +137,8 @@ spring:
 
 logging:
   level:
-    root: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.orm.jdbc.bind: TRACE
-    org.springframework.jdbc.core: DEBUG
+    root: ERROR
+
 
 
 # S3 설정값
