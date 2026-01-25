@@ -30,13 +30,14 @@ public class DeliveryWorker {
             boolean isSuccess = true;
             try {
                 // 복호화
-                String s3Url = decryptionTool.decrypt(event.getEncryptedS3Url());
-                String destination = decryptionTool.decrypt(event.getEncryptedDestination());
-                log.warn("복호화 성공");
+                String s3UrlBuket = decryptionTool.decrypt(event.getEncryptedS3Buket());
+                String s3UrlKey = decryptionTool.decrypt(event.getEncryptedS3Key());
+                String destination = decryptionTool.decrypt(event.getDestination());
+                log.warn("복호화 성공 s3UrlBuket:{}, s3UrlKey:{}", s3UrlBuket, s3UrlKey);
 
                 // S3 다운로드
-                String realContent = contentProvider.downloadContent(s3Url);
-                log.warn("S3 조회 성공");
+                String realContent = contentProvider.downloadContent(s3UrlBuket, s3UrlKey);
+                log.warn("S3 조회 성공 realContent: {}", realContent);
 
                 // 1초 대기 발생
                 notificationClient.send(destination, realContent, event.getChannelType());
@@ -50,8 +51,9 @@ public class DeliveryWorker {
                 // 결과 발행 (Result Topic)
                 try {
                     eventPort.publish(new DeliveryResultEvent(event.getUserId(), isSuccess, event.getBillingMonth()));
-                } catch (Exception e){
-                    log.error("결과 이벤트 발행 실패, user_id:{}, billing_month:{}, isSuccess:{}",event.getUserId(),event.getBillingMonth(),isSuccess);
+                } catch (Exception e) {
+                    log.error("결과 이벤트 발행 실패, user_id:{}, billing_month:{}, isSuccess:{}", event.getUserId(),
+                            event.getBillingMonth(), isSuccess);
                 }
             }
         }, notificationExecutor);

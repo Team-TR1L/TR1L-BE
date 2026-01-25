@@ -26,18 +26,8 @@ public class S3Adapter implements ContentProviderPort {
     private final S3Client s3Client;
 
     @Override
-    public String downloadContent(String s3Url) {
+    public String downloadContent(String bucketName, String key) {
         try {
-            // URL 파싱
-            URI uri = URI.create(s3Url);
-            String host = uri.getHost(); // 예: my-bucket.s3.ap-northeast-2.amazonaws.com
-
-            // 버킷 이름 추출: 첫 번째 점(.) 앞부분만 가져옴
-            String bucketName = host.split("\\.")[0];
-
-            // Key 추출: 앞의 / 제거
-            String key = uri.getPath().substring(1);
-
             // S3 요청 객체 생성
             // AWS SDK에게 "이 버킷에 있는, 이 키(파일)를 주세요"라고 요청을 만듦
             GetObjectRequest request = GetObjectRequest.builder()
@@ -54,7 +44,7 @@ public class S3Adapter implements ContentProviderPort {
                 return StreamUtils.copyToString(targetStream, StandardCharsets.UTF_8);
             }
         } catch (Exception e) {
-            log.error("S3 다운로드 실패. URL: {}, Error: {}", s3Url, e.getMessage(), e);
+            log.error("S3 다운로드 실패. URL: {}, Error: {}", key, e.getMessage(), e);
             throw new DispatchDomainException(DispatchErrorCode.S3_DOWNLOAD_FAILED);
         }
     }
