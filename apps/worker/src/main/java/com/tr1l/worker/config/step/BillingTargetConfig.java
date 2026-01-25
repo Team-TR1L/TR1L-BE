@@ -23,18 +23,23 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
- ==========================
- *$method$
+ * ==========================
+ * $method$
  * STEP 2 전체 Config
+ *
  * @author $user
  * @version 1.0.0
  * @date $date
- * ========================== */
+ * ==========================
+ */
 @Configuration
 public class BillingTargetConfig {
 
@@ -48,14 +53,20 @@ public class BillingTargetConfig {
             BillingTargetWriter writer,
             StepLoggingListener listener,
             MeterRegistry meterRegistry,
-            @Value("${app.billing.step2.chunk-size:1000}") int chunkSize
-    ) {
+            @Qualifier("billingTargetTaskExecutor") TaskExecutor taskExecutor,
+            @Value("${app.billing.step2.chunk-size}") int chunkSize
+    )
+
+    {
         var perf = new PerfTimingListener<BillingTargetKey, WorkDoc>(
                 30,
-                50,
-                300,
-                1000,
-                item -> item.billingMonthDay() + ":" + item.userId()
+                80,
+                500,
+                1500,
+                item -> item.billingMonthDay() + ":" + item.userId(),
+                meterRegistry,
+                true,
+                true
         );
         var sql = new SqlQueryCountListener(meterRegistry, "main", "target");
         return new StepBuilder("billingTargetStep", jobRepository)
@@ -64,6 +75,7 @@ public class BillingTargetConfig {
                 .listener(listener)
                 .processor(processor)
                 .writer(writer)
+                .taskExecutor(taskExecutor)
                 .listener((StepExecutionListener) perf)
                 .listener((ChunkListener) perf)
                 .listener((ItemReadListener<BillingTargetKey>) perf)
@@ -87,7 +99,7 @@ public class BillingTargetConfig {
             @Value("#{jobExecutionContext['billingYearMonth']}") String billingMonth,
             @Value("${app.billing.step2.page-size:1000}") int pageSize
     ) throws Exception {
-        return new BillingTargetReader(dataSource, viewName, billingMonth,pageSize);
+        return new BillingTargetReader(dataSource, viewName, billingMonth, pageSize);
     }
 
     @Bean
@@ -100,6 +112,21 @@ public class BillingTargetConfig {
     @Bean
     public BillingTargetWriter step2Writer(WorkDocUpsertPort workDocUpsertPort) {
         return new BillingTargetWriter(workDocUpsertPort);
+    }
+
+    //병렬 처리
+    @Bean(name = "billingTargetTaskExecutor")
+    public TaskExecutor billingTargetTaskExecutor(
+            @Value("${app.billing.step2.pool-size}") int poolSize
+    ) {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(poolSize);
+        executor.setMaxPoolSize(poolSize);
+        executor.setQueueCapacity(0); // 큐 적재 대신 백프레셔
+        executor.setThreadNamePrefix("job1-step2-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+        return executor;
     }
 
 }

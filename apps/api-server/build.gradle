@@ -16,4 +16,11 @@ dependencies {
     //Liquibase
     implementation "org.liquibase:liquibase-core:4.30.0"
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
+
+    //Event
+    implementation platform("software.amazon.awssdk:bom:2.41.14")
+    implementation "software.amazon.awssdk:eventbridge"
+    runtimeOnly "software.amazon.awssdk:url-connection-client"
+
+    implementation "com.fasterxml.jackson.core:jackson-databind"
 }

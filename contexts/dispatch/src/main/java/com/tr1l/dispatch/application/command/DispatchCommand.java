@@ -8,7 +8,8 @@ public record DispatchCommand(
         Long userId,
         LocalDate billingMonth,
         ChannelType channelType,
-        String s3Url,
+        String encryptedS3Buket,
+        String encryptedS3Key,
         String destination
 ) {
 }

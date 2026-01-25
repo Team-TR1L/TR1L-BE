@@ -9,6 +9,7 @@ import com.tr1l.billing.application.service.IssueBillingService;
 import com.tr1l.worker.batch.calculatejob.step.step3.CalculateAndSnapshotWriter;
 import com.tr1l.worker.batch.calculatejob.step.step3.WorkDocClaimAndTargetRowReader;
 import com.tr1l.worker.batch.calculatejob.step.step3.CalculateBillingProcessor;
+import com.tr1l.worker.batch.calculatejob.support.WorkerIdPartitioner;
 import com.tr1l.worker.batch.listener.PerfTimingListener;
 import com.tr1l.worker.batch.listener.SqlQueryCountListener;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -19,12 +20,16 @@ import org.springframework.batch.core.ItemWriteListener;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.configuration.annotation.StepScope;
+import org.springframework.batch.core.partition.support.Partitioner;
+import org.springframework.batch.core.partition.support.TaskExecutorPartitionHandler;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.lang.management.ManagementFactory;
@@ -61,7 +66,10 @@ public class BillingCalculateAndSnapshotConfig {
                 80,
                 500,
                 1500,
-                item -> item.work() == null ? "null" : item.work().id()
+                item -> item.work() == null ? "null" : item.work().id(),
+                meterRegistry,
+                true,
+                true
         );
         var sql = new SqlQueryCountListener(meterRegistry, "main", "target");
         return new StepBuilder("billingCalculateAndSnapshotStep", jobRepository)
@@ -89,11 +97,15 @@ public class BillingCalculateAndSnapshotConfig {
             WorkDocClaimPort claimPort,
             BillingTargetLoadPort targetLoadPort,
             @Value("#{jobExecutionContext['billingYearMonth']}") String billingYearMonth,
-            @Value("${app.billing.step3.fetch-size:6000}") int fetchSize,
+            @Value("${app.billing.step3.fetch-size}") int fetchSize,
             @Value("${app.billing.step3.lease-seconds:500}") long leaseSeconds,
-            @Qualifier("billingWorkerId") String workerId
+            @Qualifier("billingWorkerId") String workerId,
+            @Value("#{stepExecutionContext['workerId']}") String partitionWorkerId
     ) {
         YearMonth billingMonth = YearMonth.parse(billingYearMonth); // YYYY-MM
+        String effectiveWorkerId = (partitionWorkerId == null || partitionWorkerId.isBlank())
+                ? workerId
+                : partitionWorkerId;
 
         return new WorkDocClaimAndTargetRowReader(
                 claimPort,
@@ -101,7 +113,7 @@ public class BillingCalculateAndSnapshotConfig {
                 billingMonth,
                 fetchSize,
                 Duration.ofSeconds(leaseSeconds),
-                workerId
+                effectiveWorkerId
         );
     }
 
@@ -128,5 +140,45 @@ public class BillingCalculateAndSnapshotConfig {
             WorkDocStatusPort statusPort
     ) {
         return new CalculateAndSnapshotWriter(snapshotSavePort, statusPort);
+    }
+
+    @Bean(name = "step3TaskExecutor")
+    public TaskExecutor step3TaskExecutor(
+            @Value("${app.billing.step3.partition.grid-size}") int poolSize
+    ) {
+        ThreadPoolTaskExecutor ex = new ThreadPoolTaskExecutor();
+        ex.setCorePoolSize(poolSize);
+        ex.setMaxPoolSize(poolSize);
+        ex.setQueueCapacity(0);
+        ex.setThreadNamePrefix("job1-step3-");
+        ex.initialize();
+        return ex;
+    }
+
+    @Bean(name = "step3Partitioner")
+    public Partitioner step3Partitioner(
+            @Qualifier("billingWorkerId") String workerId,
+            @Value("${app.billing.step3.partition.grid-size}") int gridSize
+    ) {
+        return new WorkerIdPartitioner(workerId, gridSize);
+    }
+
+    @Bean
+    public Step billingCalculateAndSnapshotPartitionedStep(
+            JobRepository jobRepository,
+            @Qualifier("billingCalculateAndSnapshotStep") Step billingCalculateAndSnapshotStep,
+            @Qualifier("step3TaskExecutor") TaskExecutor step3TaskExecutor,
+            @Qualifier("step3Partitioner") Partitioner step3Partitioner,
+            @Value("${app.billing.step3.partition.grid-size:8}") int gridSize
+    ) {
+        TaskExecutorPartitionHandler handler = new TaskExecutorPartitionHandler();
+        handler.setTaskExecutor(step3TaskExecutor);
+        handler.setStep(billingCalculateAndSnapshotStep);
+        handler.setGridSize(gridSize);
+
+        return new StepBuilder("billingCalculateAndSnapshotPartitionedStep", jobRepository)
+                .partitioner("billingCalculateAndSnapshotStep", step3Partitioner)
+                .partitionHandler(handler)
+                .build();
     }
 }
