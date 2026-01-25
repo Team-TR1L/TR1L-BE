@@ -29,18 +29,18 @@ public class DeliveryWorker {
         CompletableFuture.runAsync(() -> {
             boolean isSuccess = true;
             try {
-//                // 복호화
-//                String s3Url = decryptionPort.decrypt(event.getEncryptedS3Url());
-//                String destination = decryptionTool.decrypt(event.getEncryptedDestination());
-//                log.warn("복호화 성공");
-//
-//                // S3 다운로드
-//                String realContent = contentProvider.downloadContent(event.getEncryptedS3Url());
-//                log.warn("S3 조회 성공");
-//
-//                // 1초 대기 발생
-//                notificationClient.send(event.getEncryptedDestination(), realContent, event.getChannelType());
-//                log.warn("메세지 발송 성공 user_id: {}", event.getUserId());
+                // 복호화
+                String s3Url = decryptionTool.decrypt(event.getEncryptedS3Url());
+                String destination = decryptionTool.decrypt(event.getEncryptedDestination());
+                log.warn("복호화 성공");
+
+                // S3 다운로드
+                String realContent = contentProvider.downloadContent(s3Url);
+                log.warn("S3 조회 성공");
+
+                // 1초 대기 발생
+                notificationClient.send(destination, realContent, event.getChannelType());
+                log.warn("메세지 발송 성공 user_id: {}", event.getUserId());
 
             } catch (Exception e) {
                 // 해당 과정 중에 에러가 발생할 경우 예외를 삼키고 실패(false)로 결과 토픽 발행
