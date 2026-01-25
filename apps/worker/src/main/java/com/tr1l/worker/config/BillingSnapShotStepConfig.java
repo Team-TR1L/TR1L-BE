@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tr1l.billing.application.port.out.BillingTargetS3UpdatePort;
 import com.tr1l.billing.application.port.out.S3UploadPort;
 import com.tr1l.billing.domain.model.aggregate.Billing;
+import com.tr1l.util.EncryptionTool;
 import com.tr1l.worker.batch.formatjob.domain.BillingSnapshotDoc;
 import com.tr1l.worker.batch.formatjob.domain.RenderedMessage;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotProcessor;
@@ -102,8 +103,14 @@ public class BillingSnapShotStepConfig {
             S3UploadPort s3UploadPort,
             ObjectMapper om,
             BillingTargetS3UpdatePort billingTargetS3UpdatePort,
+            EncryptionTool encryptionTool,
             @Qualifier("s3UploadExecutor")Executor s3UploadExecutor
     ) {
-        return new BillingSnapShotWriter(bucket, s3UploadPort, om, billingTargetS3UpdatePort,s3UploadExecutor);
+        return new BillingSnapShotWriter(bucket,
+                s3UploadPort,
+                om,
+                billingTargetS3UpdatePort,
+                encryptionTool,
+                s3UploadExecutor);
     }
 }

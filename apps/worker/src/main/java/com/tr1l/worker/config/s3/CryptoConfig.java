@@ -11,9 +11,9 @@ public class CryptoConfig {
 
     @Bean
     public EncryptionTool encryptionTool(
-            @Value("${secret-key}") String secretKey,
-            @Value("${algorithm}") String algorithm,
-            @Value("${transformation}") String transformation
+            @Value("${crypto.secret-key}") String secretKey,
+            @Value("${crypto.algorithm}") String algorithm,
+            @Value("${crypto.transformation}") String transformation
     ) {
         validateKeyLength(secretKey);
         return new EncryptionTool(secretKey, algorithm, transformation);
@@ -21,9 +21,9 @@ public class CryptoConfig {
 
     @Bean
     public DecryptionTool decryptionTool(
-            @Value("${secret-key}") String secretKey,
-            @Value("${algorithm}") String algorithm,
-            @Value("${transformation}") String transformation
+            @Value("${crypto.secret-key}") String secretKey,
+            @Value("${crypto.algorithm}") String algorithm,
+            @Value("${crypto.transformation}") String transformation
     ) {
         validateKeyLength(secretKey);
         return new DecryptionTool(secretKey, algorithm, transformation);
