@@ -59,29 +59,39 @@ app:
       #Step01 - SQL1 fetch size
       reader:
         fetchSize: 30000
-        bulkSize: 10000
+        bulkSize: 5000
       chunk:
         chunkSize: 10000
 
   billing:
     step3:
       chunk-size: 10000
-      fetch-size: 20000
+      fetch-size: 2000
+      partition:
+        grid-size: 8
+
       lease-seconds: ${BATCH_JOB1_STEP3_LEASE_SECONDS:3000}
     mongo:
       work:
         collection: billing_work
       snapshot:
         collection: billing_snapshot
-      chunk-size: 10000
-      fetch-size: 20000
+
+      # multi thread
+      chunk-size: 1500
+      pool-size: 6
+      fetch-size: 10000
       lease-seconds: 500
+
+    step2:
+      pool-size: 8
+      chunk-size: 1000
 
   #Job2 step1
   mongo:
     snapshot:
-      batch-size: 20000
-      chunk-size: 10000
+      batch-size: 5000
+      chunk-size: 5000
 
   liquibase:
     target:

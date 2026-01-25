@@ -78,22 +78,7 @@ public class MongoIndexConfig {
                             .on("userId", Sort.Direction.ASC)
                             .named("idx_work_bm_status_user")
             );
-            mongoTemplate.indexOps(workCol).createIndex(
-                    new Index()
-                            .on("billingMonth", Sort.Direction.ASC)
-                            .on("status", Sort.Direction.ASC)
-                            .on("leaseUntil", Sort.Direction.ASC)
-                            .on("userId", Sort.Direction.ASC)
-                            .named("idx_work_bm_status_lease_user")
-            );
-            mongoTemplate.indexOps(workCol).createIndex(
-                    new Index()
-                            .on("claimToken", Sort.Direction.ASC)
-                            .on("workerId", Sort.Direction.ASC)
-                            .on("billingMonth", Sort.Direction.ASC)
-                            .on("status", Sort.Direction.ASC)
-                            .named("idx_work_claim_token_worker_bm_status")
-            );
+
 
             // ===== billing_snapshot =====
             mongoTemplate.indexOps(snapshotCol).createIndex(
