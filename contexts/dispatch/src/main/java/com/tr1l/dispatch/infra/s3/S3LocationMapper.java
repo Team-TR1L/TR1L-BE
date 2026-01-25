@@ -41,28 +41,28 @@ public class S3LocationMapper {
     }
 
     public S3LocationDTO extractLocation(String jsonb, ChannelType channel) {
+        // 1. 입력값이 없으면 즉시 기본 객체 반환
         if (jsonb == null || jsonb.isEmpty()) {
-            throw new IllegalArgumentException("S3 URL JSON 데이터가 비어 있습니다.");
+            return new S3LocationDTO("", "", "");
         }
 
-        List<S3LocationDTO> locations;
         try {
-            // 1. 파싱만 try-catch로 감쌉니다.
-            locations = objectMapper.readValue(
+            List<S3LocationDTO> locations = objectMapper.readValue(
                     jsonb,
                     new TypeReference<List<S3LocationDTO>>() {}
             );
-        } catch (Exception e) {
-            throw new RuntimeException("S3 URL JSON 파싱 중 오류 발생", e);
-        }
 
-        // 2. 파싱된 결과에서 찾는 과정은 try-catch 밖에서 수행하여 예외 메시지를 보존합니다.
-        return locations.stream()
-                .filter(loc -> channel.name().equalsIgnoreCase(loc.key()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException(
-                        String.format("해당 채널(%s)의 S3 정보를 찾을 수 없습니다. 데이터: %s", channel, jsonb)
-                ));
+            // 2. 찾지 못하더라도 예외를 던지지 않고 기본 객체 반환
+            return locations.stream()
+                    .filter(loc -> loc.key() != null && channel.name().equalsIgnoreCase(loc.key()))
+                    .findFirst()
+                    .orElseGet(() -> new S3LocationDTO("", "", ""));
+
+        } catch (Exception e) {
+            // 3. 파싱 에러가 나더라도 로그만 남기고 흐름을 유지
+            log.error("S3 URL JSON 파싱 실패 (데이터: {}), 에러: {}", jsonb, e.getMessage());
+            return new S3LocationDTO("", "", "");
+        }
     }
 
     public record S3LocationDTO(
