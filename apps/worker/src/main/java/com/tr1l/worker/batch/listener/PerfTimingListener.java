@@ -1,5 +1,6 @@
 package com.tr1l.worker.batch.listener;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.*;
 import org.springframework.batch.core.listener.ChunkListenerSupport;
@@ -7,6 +8,7 @@ import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ExecutionContext;
 
+import java.time.Duration;
 import java.util.function.Function;
 
 /**
@@ -81,6 +83,10 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
     private final ThreadLocal<Long> writeStart = new ThreadLocal<>();
     private final ThreadLocal<Long> chunkStart = new ThreadLocal<>();
 
+    private final MeterRegistry meterRegistry;
+    private final boolean logChunkSummaryAsError;
+    private final boolean logSlowAsError;
+
     public PerfTimingListener(
             long slowReadMs,
             long slowProcessMs,
@@ -88,11 +94,27 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
             long slowChunkMs,
             Function<I, String> itemIdExtractor
     ) {
+        this(slowReadMs, slowProcessMs, slowWriteMs, slowChunkMs, itemIdExtractor, null, false, false);
+    }
+
+    public PerfTimingListener(
+            long slowReadMs,
+            long slowProcessMs,
+            long slowWriteMs,
+            long slowChunkMs,
+            Function<I, String> itemIdExtractor,
+            MeterRegistry meterRegistry,
+            boolean logChunkSummaryAsError,
+            boolean logSlowAsError
+    ) {
         this.slowReadMs = slowReadMs;
         this.slowProcessMs = slowProcessMs;
         this.slowWriteMs = slowWriteMs;
         this.slowChunkMs = slowChunkMs;
         this.itemIdExtractor = itemIdExtractor;
+        this.meterRegistry = meterRegistry;
+        this.logChunkSummaryAsError = logChunkSummaryAsError;
+        this.logSlowAsError = logSlowAsError;
     }
 
     // =========================================================
@@ -137,7 +159,8 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
 
             long filterCnt = ctx.getLong(FILTER_CNT, 0L);
 
-            log.warn("""
+            if (logChunkSummaryAsError) {
+                log.error("""
                             ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
                             ┃           STEP TOTAL TIMING (SUMMARY)            ┃
                             ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
@@ -162,6 +185,33 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
                     stepExecution.getCommitCount(),
                     stepExecution.getRollbackCount()
             );
+            } else {
+                log.warn("""
+                            ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+                            ┃           STEP TOTAL TIMING (SUMMARY)            ┃
+                            ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+                            ┃ step       : {}                                  ┃
+                            ┃ status     : {}                                  ┃
+                            ┃ read       : {} ms   (count={})                  ┃
+                            ┃ process    : {} ms                               ┃
+                            ┃ write      : {} ms   (count={})                  ┃
+                            ┃ filter     : {}                                  ┃
+                            ┃ skip       : {}                                  ┃
+                            ┃ commit     : {}                                  ┃
+                            ┃ rollback   : {}                                  ┃
+                            ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+                            """,
+                        stepExecution.getStepName(),
+                        stepExecution.getExitStatus().getExitCode(),
+                        totalReadMs, stepExecution.getReadCount(),
+                        totalProcMs,
+                        totalWriteMs, stepExecution.getWriteCount(),
+                        filterCnt,
+                        stepExecution.getSkipCount(),
+                        stepExecution.getCommitCount(),
+                        stepExecution.getRollbackCount()
+                );
+            }
         } catch (Exception e) {
             // Listener가 배치를 죽이면 안 됨
             log.error("step={} TOTAL_TIMING_LOG_FAILED err={}", safeStepName(stepExecution), e.toString(), e);
@@ -235,10 +285,18 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
         );
 
         if (slowChunkMs > 0 && chunkElapsedMs >= slowChunkMs) {
-            log.info("SLOW_CHUNK {}", msg);
+            if (logSlowAsError) {
+                log.error("SLOW_CHUNK {}", msg);
+            } else {
+                log.info("SLOW_CHUNK {}", msg);
+            }
+        } else if (logChunkSummaryAsError) {
+            log.error("CHUNK {}", msg);
         } else {
             log.info("CHUNK {}", msg);
         }
+
+        recordMetrics(chunkElapsedMs, readMs, procMs, writeMs, readCnt, procCnt, writeCnt);
 
         // 다음 청크를 위해 chunk 누적값 리셋
         resetChunkAccumulatorsSafe();
@@ -273,7 +331,11 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
         // 느린 read만 WARN
         long elapsedMs = elapsedNs / 1_000_000;
         if (elapsedMs >= slowReadMs) {
-            log.info("step={} SLOW_READ {}ms itemId={}", stepName(), elapsedMs, safeId(item));
+            if (logSlowAsError) {
+                log.error("step={} SLOW_READ {}ms itemId={}", stepName(), elapsedMs, safeId(item));
+            } else {
+                log.info("step={} SLOW_READ {}ms itemId={}", stepName(), elapsedMs, safeId(item));
+            }
         }
     }
 
@@ -311,7 +373,11 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
 
         long elapsedMs = elapsedNs / 1_000_000;
         if (elapsedMs >= slowProcessMs) {
-            log.info("step={} SLOW_PROCESS {}ms itemId={}", stepName(), elapsedMs, safeId(item));
+            if (logSlowAsError) {
+                log.error("step={} SLOW_PROCESS {}ms itemId={}", stepName(), elapsedMs, safeId(item));
+            } else {
+                log.info("step={} SLOW_PROCESS {}ms itemId={}", stepName(), elapsedMs, safeId(item));
+            }
         }
     }
 
@@ -342,7 +408,11 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
 
         long elapsedMs = elapsedNs / 1_000_000;
         if (elapsedMs >= slowWriteMs) {
-            log.info("step={} SLOW_WRITE {}ms size={}", stepName(), elapsedMs, size);
+            if (logSlowAsError) {
+                log.error("step={} SLOW_WRITE {}ms size={}", stepName(), elapsedMs, size);
+            } else {
+                log.info("step={} SLOW_WRITE {}ms size={}", stepName(), elapsedMs, size);
+            }
         }
     }
 
@@ -365,6 +435,36 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
 
     private String safeStepName(StepExecution se) {
         return (se == null) ? "unknown-step" : se.getStepName();
+    }
+
+    private void recordMetrics(
+            long chunkMs,
+            long readMs,
+            long procMs,
+            long writeMs,
+            long readCnt,
+            long procCnt,
+            long writeCnt
+    ) {
+        if (meterRegistry == null || stepExecution == null) return;
+        String step = stepExecution.getStepName();
+        String job = stepExecution.getJobExecution().getJobInstance().getJobName();
+
+        meterRegistry.timer("batch.chunk.time", "job", job, "step", step, "phase", "chunk")
+                .record(Duration.ofMillis(chunkMs));
+        meterRegistry.timer("batch.chunk.time", "job", job, "step", step, "phase", "read")
+                .record(Duration.ofMillis(readMs));
+        meterRegistry.timer("batch.chunk.time", "job", job, "step", step, "phase", "process")
+                .record(Duration.ofMillis(procMs));
+        meterRegistry.timer("batch.chunk.time", "job", job, "step", step, "phase", "write")
+                .record(Duration.ofMillis(writeMs));
+
+        meterRegistry.counter("batch.chunk.item.count", "job", job, "step", step, "phase", "read")
+                .increment(readCnt);
+        meterRegistry.counter("batch.chunk.item.count", "job", job, "step", step, "phase", "process")
+                .increment(procCnt);
+        meterRegistry.counter("batch.chunk.item.count", "job", job, "step", step, "phase", "write")
+                .increment(writeCnt);
     }
 
     /**
