@@ -4,7 +4,6 @@ spring:
     username: ${PG_SUB_USER:postgres}
     password: ${PG_SUB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
-  # ... (이하 생략)
 
   jpa:
     open-in-view: false

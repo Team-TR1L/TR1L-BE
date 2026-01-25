@@ -45,6 +45,9 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        mongo.command.duration: true
 
 #Target DB
 app:
@@ -55,9 +58,10 @@ app:
 
       #Step01 - SQL1 fetch size
       reader:
-        fetchSize: 6000
+        fetchSize: 30000
+        bulkSize: 10000
       chunk:
-        chunkSize: 3000
+        chunkSize: 10000
 
   billing:
     step3:

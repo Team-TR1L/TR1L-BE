@@ -9,9 +9,11 @@ WITH active_contract AS (
         (date_part('year', age(uc.end_date, uc.start_date))::int * 12
             + date_part('month', age(uc.end_date, uc.start_date))::int) AS duration_months
 
-    FROM user_contract AS uc
-    WHERE uc.user_id  IN (:userIds)
-      AND uc.start_date <= :endDate::date
+    FROM temp_user_ids AS t
+
+    JOIN user_contract AS uc ON t.user_id = uc.user_id
+
+    WHERE uc.start_date <= :endDate::date
       AND uc.end_date >= :startDate::date
     ORDER BY uc.user_id , uc.start_date DESC
 )

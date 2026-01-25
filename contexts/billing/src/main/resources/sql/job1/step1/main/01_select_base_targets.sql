@@ -33,4 +33,7 @@ LEFT JOIN welfare_discount w ON w.welfare_code = u.welfare_code
 WHERE u.user_role = 'USER'
   AND u.user_status = 'ACTIVE'
   AND u.plan_code IS NOT NULL
-ORDER BY u.user_id;
+  AND u.user_id > ?
+
+ORDER BY u.user_id
+LiMIT ?;

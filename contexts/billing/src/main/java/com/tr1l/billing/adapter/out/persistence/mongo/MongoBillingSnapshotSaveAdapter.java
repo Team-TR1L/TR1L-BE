@@ -37,19 +37,49 @@ public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort 
     public void save(Billing billing) {
         if (billing == null) return;
 
-        String snapshotId = billing.billingId().value();
-        Instant now = Instant.now();
-        String workId = billing.idempotencyKey().value();
+        upsertOne(billing, Instant.now());
+    }
 
+    @Override
+    public void saveAll(List<Billing> billings) {
+        if (billings == null || billings.isEmpty()) return;
+
+        Instant now = Instant.now();
+        var bulk = mongoTemplate.bulkOps(org.springframework.data.mongodb.core.BulkOperations.BulkMode.UNORDERED, collectionName);
+
+        for (Billing billing : billings) {
+            Query q = new Query(Criteria.where("_id").is(billing.billingId().value()));
+            Update u = buildUpdate(billing, now);
+            bulk.upsert(q, u);
+        }
+
+        try {
+            bulk.execute();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to bulk upsert billing snapshots to Mongo", e);
+        }
+    }
+
+    private void upsertOne(Billing billing, Instant now) {
+        Query q = new Query(Criteria.where("_id").is(billing.billingId().value()));
+        Update u = buildUpdate(billing, now);
+
+        try {
+            mongoTemplate.upsert(q, u, collectionName);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to upsert billing snapshot to Mongo", e);
+        }
+    }
+
+    private Update buildUpdate(Billing billing, Instant now) {
+        String snapshotId = billing.billingId().value();
+        String workId = billing.idempotencyKey().value();
         Document payloadDoc = toRenderPayload(billing);
 
-        // 우선 조회 필드
         String billingMonth = billing.period().value().atDay(1).toString(); // "YYYY-MM-01"
         Long userId = billing.customerId().value();
 
-        Query q = new Query(Criteria.where("_id").is(snapshotId));
-
-        Update u = new Update()
+        return new Update()
                 .setOnInsert("_id", snapshotId)
                 .setOnInsert("createdAt", now)
                 .set("updatedAt", now)
@@ -63,15 +93,7 @@ public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort 
 
                 .set("payload", payloadDoc)
                 .set("schemaVersion", 1);
-
-        try {
-            log.info("upsert");
-            mongoTemplate.upsert(q, u, collectionName);
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to upsert billing snapshot to Mongo", e);
-        }
     }
-
 
 
     private Document toRenderPayload(Billing billing) {

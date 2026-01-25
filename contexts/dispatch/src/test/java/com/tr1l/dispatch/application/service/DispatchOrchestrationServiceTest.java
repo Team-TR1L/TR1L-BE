@@ -64,7 +64,7 @@ class DispatchOrchestrationServiceTest {
         BatchResult emptyBatch = BatchResult.empty(3L);
 
         when(batchService.loadAndPrepareBatch(
-                any(), any(), anyString(), anyInt(), anyLong(), anyInt()
+                any(), anyString(), anyInt(), anyLong(), anyInt()
         )).thenReturn(batch1, batch2, emptyBatch);
 
         when(asyncExecutor.execute(batch1.commands()))
@@ -84,7 +84,6 @@ class DispatchOrchestrationServiceTest {
         verify(batchService, times(3))
                 .loadAndPrepareBatch(
                         any(),
-                        any(LocalDate.class),
                         anyString(),
                         anyInt(),
                         anyLong(),
@@ -111,7 +110,7 @@ class DispatchOrchestrationServiceTest {
                 .thenReturn(policy);
 
         when(batchService.loadAndPrepareBatch(
-                any(), any(), anyString(), anyInt(), anyLong(), anyInt()
+                any(), anyString(), anyInt(), anyLong(), anyInt()
         )).thenReturn(BatchResult.empty(0L));
 
         // when

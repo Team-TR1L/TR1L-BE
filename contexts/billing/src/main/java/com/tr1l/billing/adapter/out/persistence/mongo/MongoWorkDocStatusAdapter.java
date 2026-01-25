@@ -9,6 +9,7 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.List;
 
 @Component
 public class MongoWorkDocStatusAdapter implements WorkDocStatusPort {
@@ -47,5 +48,40 @@ public class MongoWorkDocStatusAdapter implements WorkDocStatusPort {
                 .set("updatedAt", now);
 
         mongoTemplate.updateFirst(q, u, collectionName);
+    }
+
+    @Override
+    public void markCalculatedAll(List<CalculatedUpdate> updates, Instant now) {
+        if (updates == null || updates.isEmpty()) return;
+
+        var bulk = mongoTemplate.bulkOps(org.springframework.data.mongodb.core.BulkOperations.BulkMode.UNORDERED, collectionName);
+        for (CalculatedUpdate u : updates) {
+            Query q = new Query(Criteria.where("_id").is(u.workId()));
+            Update update = new Update()
+                    .set("status", "CALCULATED")
+                    .set("snapshotId", u.snapshotId())
+                    .unset("leaseUntil")
+                    .set("updatedAt", now);
+            bulk.updateOne(q, update);
+        }
+        bulk.execute();
+    }
+
+    @Override
+    public void markFailedAll(List<FailedUpdate> updates, Instant now) {
+        if (updates == null || updates.isEmpty()) return;
+
+        var bulk = mongoTemplate.bulkOps(org.springframework.data.mongodb.core.BulkOperations.BulkMode.UNORDERED, collectionName);
+        for (FailedUpdate u : updates) {
+            Query q = new Query(Criteria.where("_id").is(u.workId()));
+            Update update = new Update()
+                    .set("status", "FAILED")
+                    .set("lastErrorCode", u.errorCode())
+                    .set("lastErrorMessage", u.errorMessage())
+                    .unset("leaseUntil")
+                    .set("updatedAt", now);
+            bulk.updateOne(q, update);
+        }
+        bulk.execute();
     }
 }
