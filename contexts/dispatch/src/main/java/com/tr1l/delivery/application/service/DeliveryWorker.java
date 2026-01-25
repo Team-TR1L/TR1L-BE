@@ -32,9 +32,9 @@ public class DeliveryWorker {
 //                // 복호화
 //                String s3Url = decryptionPort.decrypt(event.getEncryptedS3Url());
 //                String destination = decryptionTool.decrypt(event.getEncryptedDestination());
-                log.warn("복호화 성공");
+//                log.warn("복호화 성공");
 //
-                // S3 다운로드
+//                // S3 다운로드
 //                String realContent = contentProvider.downloadContent(event.getEncryptedS3Url());
 //                log.warn("S3 조회 성공");
 //
