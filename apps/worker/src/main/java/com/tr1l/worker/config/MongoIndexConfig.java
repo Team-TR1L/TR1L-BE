@@ -57,7 +57,6 @@ import org.springframework.data.mongodb.core.index.Index;
  *  *     => "PROCESSING + leaseUntil < now" 회수 쿼리 최적화
  */
 @Configuration
-@ConditionalOnBean(MongoTemplate.class)
 public class MongoIndexConfig {
 
     @Bean
@@ -78,6 +77,22 @@ public class MongoIndexConfig {
                             .on("status", Sort.Direction.ASC)
                             .on("userId", Sort.Direction.ASC)
                             .named("idx_work_bm_status_user")
+            );
+            mongoTemplate.indexOps(workCol).createIndex(
+                    new Index()
+                            .on("billingMonth", Sort.Direction.ASC)
+                            .on("status", Sort.Direction.ASC)
+                            .on("leaseUntil", Sort.Direction.ASC)
+                            .on("userId", Sort.Direction.ASC)
+                            .named("idx_work_bm_status_lease_user")
+            );
+            mongoTemplate.indexOps(workCol).createIndex(
+                    new Index()
+                            .on("claimToken", Sort.Direction.ASC)
+                            .on("workerId", Sort.Direction.ASC)
+                            .on("billingMonth", Sort.Direction.ASC)
+                            .on("status", Sort.Direction.ASC)
+                            .named("idx_work_claim_token_worker_bm_status")
             );
 
             // ===== billing_snapshot =====

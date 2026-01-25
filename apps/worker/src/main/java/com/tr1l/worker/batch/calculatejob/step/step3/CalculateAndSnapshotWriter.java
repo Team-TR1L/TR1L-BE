@@ -2,7 +2,6 @@ package com.tr1l.worker.batch.calculatejob.step.step3;
 
 import com.tr1l.billing.application.port.out.BillingSnapshotSavePort;
 import com.tr1l.billing.application.port.out.WorkDocStatusPort;
-import com.tr1l.billing.application.service.IssueBillingService;
 import com.tr1l.billing.domain.model.aggregate.Billing;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.item.Chunk;
@@ -10,6 +9,8 @@ import org.springframework.batch.item.ItemWriter;
 import org.springframework.dao.DataAccessException;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 //
 @Slf4j
@@ -32,26 +33,32 @@ public class CalculateAndSnapshotWriter implements ItemWriter<CalculateBillingPr
 
         Instant now = Instant.now();
 
+        List<Billing> billings = new ArrayList<>(chunk.size());
+        List<WorkDocStatusPort.CalculatedUpdate> calculatedUpdates = new ArrayList<>(chunk.size());
+        List<WorkDocStatusPort.FailedUpdate> failedUpdates = new ArrayList<>();
+
         for (CalculateBillingProcessor.Result r : chunk) {
             String workId = r.work().id(); // 워커 마다 아이디 부여
 
-            // Process 단계에서 실패 값을 그대로 저장
             if (!r.isSuccess()) {
-                statusPort.markFailed(workId, r.errorCode(), r.errorMessage(), now);
+                failedUpdates.add(new WorkDocStatusPort.FailedUpdate(workId, r.errorCode(), r.errorMessage()));
                 continue;
             }
 
-            try {
-                // Mongo snapshot -> Issued 상태로 저장
-                Billing billing = r.billing();
-                snapshotSavePort.save(billing);
+            Billing billing = r.billing();
+            billings.add(billing);
+            calculatedUpdates.add(new WorkDocStatusPort.CalculatedUpdate(
+                    workId,
+                    billing.billingId().value()
+            ));
+        }
 
-                // Mongo billing_work -> Calculated 상태로 변경
-                String snapshotId = billing.billingId().value();
-                statusPort.markCalculated(workId, snapshotId, now);
-            } catch (DataAccessException dae) {
-                throw dae;
-            }
+        try {
+            snapshotSavePort.saveAll(billings);
+            statusPort.markCalculatedAll(calculatedUpdates, now);
+            statusPort.markFailedAll(failedUpdates, now);
+        } catch (DataAccessException dae) {
+            throw dae;
         }
     }
 }
