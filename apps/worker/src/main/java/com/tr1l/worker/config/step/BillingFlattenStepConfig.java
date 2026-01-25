@@ -64,10 +64,13 @@ public class BillingFlattenStepConfig {
     ) {
         var perf = new PerfTimingListener<BillingTargetBaseRow, BillingTargetBaseRow>(
                 30,
-                50,
-                300,
-                1000,
-                row -> Long.toString(row.userId())
+                80,
+                500,
+                1500,
+                row -> Long.toString(row.userId()),
+                meterRegistry,
+                true,
+                true
         );
         var sql = new SqlQueryCountListener(meterRegistry, "main", "target");
         return new StepBuilder("billingFlattenStep", jobRepository)

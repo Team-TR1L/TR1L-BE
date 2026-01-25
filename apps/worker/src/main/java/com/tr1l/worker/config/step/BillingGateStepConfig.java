@@ -1,7 +1,9 @@
 package com.tr1l.worker.config.step;
 
 import com.tr1l.worker.batch.calculatejob.step.step0.BillingGateTasklet;
+import com.tr1l.worker.batch.listener.PerfTimingListener;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -30,9 +32,17 @@ public class BillingGateStepConfig {
 
     @Bean
     public Step billingGateStep() {
+        var perf = new PerfTimingListener<Object, Object>(
+                30,
+                50,
+                300,
+                1000,
+                item -> "tasklet"
+        );
         return new StepBuilder("billingGateStep", jobRepository)
                 .tasklet(gateTasklet, transactionManager)
                 .listener(listener)
+                .listener((StepExecutionListener) perf)
                 .build();
     }
 }

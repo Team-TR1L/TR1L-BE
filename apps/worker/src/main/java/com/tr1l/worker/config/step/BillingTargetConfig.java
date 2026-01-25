@@ -52,10 +52,13 @@ public class BillingTargetConfig {
     ) {
         var perf = new PerfTimingListener<BillingTargetKey, WorkDoc>(
                 30,
-                50,
-                300,
-                1000,
-                item -> item.billingMonthDay() + ":" + item.userId()
+                80,
+                500,
+                1500,
+                item -> item.billingMonthDay() + ":" + item.userId(),
+                meterRegistry,
+                true,
+                true
         );
         var sql = new SqlQueryCountListener(meterRegistry, "main", "target");
         return new StepBuilder("billingTargetStep", jobRepository)
