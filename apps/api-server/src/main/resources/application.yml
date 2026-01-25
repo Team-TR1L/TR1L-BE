@@ -18,6 +18,13 @@ spring:
     change-log: classpath:/db/changelog/db.changelog-master.yml
     contexts: ${spring.config.activate.on-profile}
 
+  cloud:
+    aws:
+      region:
+        static: ap-northeast-2
+      stack:
+        auto: false
+
 server:
   port: 8080
 
@@ -35,6 +42,19 @@ app:
   liquibase:
     target:
       contexts: ${SPRING_PROFILES_ACTIVE:dev}
+
+# 카프카 의존성으로 인해 오류 해결
+kafka:
+  topic:
+    dispatch-events: dispatch-events
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    groups-order: DESC
+    operations-sorter: method
+  api-docs:
+    path: /v3/api-docs
 ---
 
 spring:
@@ -54,3 +74,8 @@ logging:
   level:
     org.hibernate.SQL: DEBUG
     org.hibernate.orm.jdbc.bind: TRACE
+
+# 여기도 추가
+kafka:
+  topic:
+    dispatch-events: dispatch-events

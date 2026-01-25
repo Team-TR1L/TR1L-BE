@@ -1,5 +1,8 @@
 package com.tr1l.dispatch.infra.persistence.repository;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.tr1l.dispatch.application.exception.DispatchDomainException;
+import com.tr1l.dispatch.application.exception.DispatchErrorCode;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
 import com.tr1l.dispatch.infra.persistence.mapper.DispatchPolicyMapper;
 import com.tr1l.dispatch.infra.persistence.entity.DispatchPolicyEntity;
@@ -18,9 +21,14 @@ public class DispatchPolicyRepositoryAdapter
 
     @Override
     public DispatchPolicy save(DispatchPolicy policy) {
-
-        DispatchPolicyEntity entity =
-                DispatchPolicyMapper.toEntity(policy);
+    
+            DispatchPolicyEntity entity =
+                null;
+        try {
+            entity = DispatchPolicyMapper.toEntity(policy);
+        } catch (JsonProcessingException e) {
+            throw new DispatchDomainException(DispatchErrorCode.JSON_MAPPING_ERROR);
+        }
 
         DispatchPolicyEntity saved =
                 jpaRepository.save(entity);
