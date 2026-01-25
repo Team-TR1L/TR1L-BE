@@ -48,6 +48,13 @@ kafka:
   topic:
     dispatch-events: dispatch-events
 
+tr1l:
+  control:
+    event-bus-name: tr1l-bus
+
+aws:
+  region: ap-northeast-2
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
@@ -79,3 +86,10 @@ logging:
 kafka:
   topic:
     dispatch-events: dispatch-events
+
+tr1l:
+  control:
+    event-bus-name: tr1l-bus
+
+aws:
+  region: ap-northeast-2

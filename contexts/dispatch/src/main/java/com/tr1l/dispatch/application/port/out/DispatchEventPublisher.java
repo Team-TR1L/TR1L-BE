@@ -10,7 +10,8 @@ public interface DispatchEventPublisher {
             Long userId,
             LocalDate billingMonth,
             ChannelType channelType,
-            String encryptedS3Url,
+            String encryptedS3Buket,
+            String encryptedS3Key,
             String destination
     );
 

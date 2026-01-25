@@ -29,18 +29,19 @@ public class DeliveryWorker {
         CompletableFuture.runAsync(() -> {
             boolean isSuccess = true;
             try {
-//                // 복호화
-//                String s3Url = decryptionPort.decrypt(event.getEncryptedS3Url());
-//                String destination = decryptionTool.decrypt(event.getEncryptedDestination());
-                log.warn("복호화 성공");
-//
+                // 복호화
+                String s3UrlBuket = decryptionTool.decrypt(event.getEncryptedS3Buket());
+                String s3UrlKey = decryptionTool.decrypt(event.getEncryptedS3Key());
+                String destination = decryptionTool.decrypt(event.getDestination());
+                log.info("복호화 성공");
+
                 // S3 다운로드
-                String realContent = contentProvider.downloadContent(event.getEncryptedS3Url());
-                log.warn("S3 조회 성공");
+                String realContent = contentProvider.downloadContent(s3UrlBuket, s3UrlKey);
+                log.info("S3 조회 성공");
 
                 // 1초 대기 발생
-                notificationClient.send(event.getEncryptedDestination(), realContent, event.getChannelType());
-                log.warn("메세지 발송 성공 user_id: {}", event.getUserId());
+                notificationClient.send(destination, realContent, event.getChannelType());
+                log.info("메세지 발송 성공 user_id: {}", event.getUserId());
 
             } catch (Exception e) {
                 // 해당 과정 중에 에러가 발생할 경우 예외를 삼키고 실패(false)로 결과 토픽 발행
@@ -50,8 +51,9 @@ public class DeliveryWorker {
                 // 결과 발행 (Result Topic)
                 try {
                     eventPort.publish(new DeliveryResultEvent(event.getUserId(), isSuccess, event.getBillingMonth()));
-                } catch (Exception e){
-                    log.error("결과 이벤트 발행 실패, user_id:{}, billing_month:{}, isSuccess:{}",event.getUserId(),event.getBillingMonth(),isSuccess);
+                } catch (Exception e) {
+                    log.error("결과 이벤트 발행 실패, user_id:{}, billing_month:{}, isSuccess:{}", event.getUserId(),
+                            event.getBillingMonth(), isSuccess);
                 }
             }
         }, notificationExecutor);
