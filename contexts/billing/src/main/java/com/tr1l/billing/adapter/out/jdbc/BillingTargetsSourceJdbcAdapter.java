@@ -6,28 +6,49 @@ import com.tr1l.billing.application.port.out.BillingTargetSourcePort;
 import com.tr1l.billing.application.model.ContractFact;
 import com.tr1l.billing.application.model.OptionItemRow;
 import com.tr1l.util.SqlResourceReader;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
 
+@Slf4j
 @Repository
 public class BillingTargetsSourceJdbcAdapter implements BillingTargetSourcePort {
-    private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
     private final SqlResourceReader resourceReader;
+    private final TransactionTemplate mainReadTx; //Main DB READ 컨트롤 Tx
+    private final JdbcTemplate jdbcTemplate;
+
+    @Value("${app.sql.step1.reader.bulkSize}")
+    private int bulkSize;
 
     public BillingTargetsSourceJdbcAdapter(
-            @Qualifier("mainNamedJdbcTemplate") NamedParameterJdbcTemplate jdbcTemplate,
+            @Qualifier("mainNamedJdbcTemplate") NamedParameterJdbcTemplate namedParameterJdbcTemplate,
+            @Qualifier("mainDataSource") DataSource dataSource,
+            @Qualifier("TX-main") PlatformTransactionManager transactionManager,
             SqlResourceReader resourceReader
     ) {
-        this.jdbcTemplate = jdbcTemplate;
+        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
         this.resourceReader = resourceReader;
+        this.jdbcTemplate = new JdbcTemplate(dataSource);
+
+        this.mainReadTx = new TransactionTemplate(transactionManager);
+
+        //main DB READ + temp table 1개의 커넥션으로 고정
+        this.mainReadTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
     }
 
     //SQL 파일 주입
@@ -42,12 +63,32 @@ public class BillingTargetsSourceJdbcAdapter implements BillingTargetSourcePort 
 
     @Override
     public BillingTargetFacts fetchFacts(List<Long> userIds, BillingTargetFlatParams params) {
-        Map<Long, Long> usage = fetchUsage(userIds, params.yearMonth());
-        Map<Long, ContractFact> contracts = fetchContracts(userIds, params.startDate(),params.endDate());
-        Set<Long> soldiers = fetchSoldiers(userIds, params.startDate());
-        List<OptionItemRow> options = fetchSubscriptionOptionItems(userIds, params.startDate(),params.endDate());
+        //temp table 생성/적재 -> 쿼리 같은 커넥션
+        return mainReadTx.execute(status -> {
+            //temp table setup
+            jdbcTemplate.execute("""
+                    CREATE TEMP TABLE IF NOT EXISTS temp_user_ids (
+                        user_id bigint PRIMARY KEY
+                    ) ON COMMIT PRESERVE ROWS;
+                    """);
 
-        return new BillingTargetFacts(usage, contracts, soldiers, options);
+            //ROLLBACK 이후 커넥션 재서용 시 항상 비우고 시작
+            jdbcTemplate.execute("TRUNCATE TABLE temp_user_ids");
+
+            jdbcTemplate.batchUpdate(
+                    "INSERT INTO temp_user_ids(user_id) VALUES (?) ON CONFLICT DO NOTHING ",
+                    userIds,
+                    bulkSize,
+                    (ps, id) -> ps.setLong(1, id)
+            );
+
+            //아래 쿼리는 동일 커넥션에서 temp table read
+            Map<Long, Long> usage = fetchUsage(params.yearMonth());
+            Map<Long, ContractFact> contracts = fetchContracts(params.startDate(), params.endDate());
+            Set<Long> soldiers = fetchSoldiers(params.startDate());
+            List<OptionItemRow> options = fetchSubscriptionOptionItems(params.startDate(), params.endDate());
+            return new BillingTargetFacts(usage, contracts, soldiers, options);
+        });
     }
 
     /*==========================
@@ -65,29 +106,23 @@ public class BillingTargetsSourceJdbcAdapter implements BillingTargetSourcePort 
     * @date 26. 1. 18.
     *
     ==========================**/
-    private Map<Long, Long> fetchUsage(List<Long> userIds, String yearMonth) {
-        if (userIds == null || userIds.isEmpty()) return Map.of();
-
+    private Map<Long, Long> fetchUsage(String yearMonth) {
         String sql = resourceReader.read(usageSql);
 
-        //파라미터
         var params = new MapSqlParameterSource()
-                .addValue("userIds", userIds)
                 .addValue("yearMonth", yearMonth);
 
-
-        return jdbcTemplate.query(sql, params, rs -> {
+        return namedParameterJdbcTemplate.query(sql, params, rs -> {
             Map<Long, Long> out = new HashMap<>();
 
             while (rs.next()) {
-                out.put(
-                        rs.getLong("user_id"),
-                        rs.getLong("used_data_mb")
-                );
+                out.put(rs.getLong("user_id"),
+                        rs.getLong("used_data_mb"));
             }
             return out;
         });
     }
+
     /*==========================
     *
     *BillingTargetsSourceJdbcAdapter
@@ -104,17 +139,13 @@ public class BillingTargetsSourceJdbcAdapter implements BillingTargetSourcePort 
     * @date 26. 1. 18.
     *
     ==========================**/
-    private Map<Long, ContractFact> fetchContracts(List<Long> userIds, LocalDate startDate, LocalDate endDate) {
-        if (userIds == null || userIds.isEmpty()) return Map.of();
-
+    private Map<Long, ContractFact> fetchContracts(LocalDate startDate, LocalDate endDate) {
         String sql = resourceReader.read(contractSql);
-        //파라미터 셋업
         var params = new MapSqlParameterSource()
-                .addValue("userIds", userIds)
                 .addValue("startDate", startDate)
                 .addValue("endDate", endDate);
 
-        return jdbcTemplate.query(sql, params, rs -> {
+        return namedParameterJdbcTemplate.query(sql, params, rs -> {
             Map<Long, ContractFact> out = new HashMap<>();
 
             while (rs.next()) {
@@ -144,17 +175,13 @@ public class BillingTargetsSourceJdbcAdapter implements BillingTargetSourcePort 
     * @date 26. 1. 18.
     *
     ==========================**/
-    private Set<Long> fetchSoldiers(List<Long> userIds, LocalDate startDate) {
-        if (userIds == null || userIds.isEmpty()) return Set.of();
-
-        //파라미터 셋업
-        var params = new MapSqlParameterSource()
-                .addValue("userIds", userIds)
-                .addValue("startDate", startDate);
-
+    private Set<Long> fetchSoldiers(LocalDate startDate) {
         String sql = resourceReader.read(soldiersSql);
 
-        return jdbcTemplate.query(sql, params, rs -> {
+        var params = new MapSqlParameterSource()
+                .addValue("startDate", startDate);
+
+        return namedParameterJdbcTemplate.query(sql, params, rs -> {
             Set<Long> out = new HashSet<>();
 
             while (rs.next()) {
@@ -183,18 +210,14 @@ public class BillingTargetsSourceJdbcAdapter implements BillingTargetSourcePort 
     * @date 26. 1. 18.
     *
     ==========================**/
-    private List<OptionItemRow> fetchSubscriptionOptionItems(List<Long> userIds, LocalDate startDate, LocalDate endDate) {
-        if (userIds == null || userIds.isEmpty()) return List.of();
-
+    private List<OptionItemRow> fetchSubscriptionOptionItems(LocalDate startDate, LocalDate endDate) {
         String sql = resourceReader.read(optionsSql);
 
-        //파라미터 셋업
         var params = new MapSqlParameterSource()
-                .addValue("userIds", userIds)
                 .addValue("startDate", startDate)
                 .addValue("endDate", endDate);
 
-        return jdbcTemplate.query(sql, params, (rs, rowNum) -> new OptionItemRow(
+        return namedParameterJdbcTemplate.query(sql, params, (rs, rowNum) -> new OptionItemRow(
                 rs.getLong("user_id"),
                 rs.getString("option_service_code"),
                 rs.getString("option_service_name"),
