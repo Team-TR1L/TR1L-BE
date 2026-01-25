@@ -12,9 +12,10 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class DispatchRequestedEvent {
 
-    private Long userId;
-    private LocalDate billingMonth;
-    private ChannelType channelType;
-    private String encryptedS3Url;
-    private String encryptedDestination;
+    public Long userId;
+    public LocalDate billingMonth;
+    public ChannelType channelType;
+    public String encryptedS3Buket;
+    public String encryptedS3Key;
+    public String destination;
 }
