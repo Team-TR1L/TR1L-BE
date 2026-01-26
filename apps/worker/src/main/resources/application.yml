@@ -91,7 +91,7 @@ app:
   mongo:
     snapshot:
       batch-size: 5000
-      chunk-size: 1000
+      chunk-size: 3000
 
   liquibase:
     target:
@@ -128,7 +128,7 @@ aws:
   s3:
     max-connections: 100
     upload:
-      concurrency: 8
+      concurrency: 16
       queue-capacity: 12000
 
 ---
