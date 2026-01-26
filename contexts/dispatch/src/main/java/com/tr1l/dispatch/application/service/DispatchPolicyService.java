@@ -116,14 +116,14 @@ public class DispatchPolicyService {
         LocalDate startDate = today.minusDays(6);
 
     /* =========================
-       1. billingMonth 계산
+       1. billingMonth 계산 (전송월 - 1)
        ========================= */
         Set<LocalDate> billingMonths = Stream.of(startDate, today)
-                .map(d -> d.withDayOfMonth(1))
+                .map(d -> d.minusMonths(1).withDayOfMonth(1))
                 .collect(Collectors.toSet());
 
     /* =========================
-       2. 일별 전송량 (Billing 기준)
+       2. 일별 전송량
        ========================= */
         String startDay = String.format("%02d", startDate.getDayOfMonth());
         String endDay   = String.format("%02d", today.getDayOfMonth());
@@ -139,6 +139,7 @@ public class DispatchPolicyService {
 
         for (BillingDailyCount row : rawDailyCounts) {
             LocalDate actualDate = row.billingMonth()
+                    .plusMonths(1) // 실제 전송월
                     .withDayOfMonth(Integer.parseInt(row.dayTime()));
             dailyCountMap.put(actualDate, row.count());
         }
@@ -207,7 +208,7 @@ public class DispatchPolicyService {
     /* =========================
        4. 오늘 성공 / 실패율
        ========================= */
-        LocalDate billingMonth = today.withDayOfMonth(1);
+        LocalDate billingMonth = today.minusMonths(1).withDayOfMonth(1);
         String todayDayTime = String.format("%02d", today.getDayOfMonth());
 
         BillingResultCount resultCount =
@@ -239,5 +240,4 @@ public class DispatchPolicyService {
                 .channelDistribution(channelDistribution)
                 .build();
     }
-
 }
