@@ -36,8 +36,10 @@ public class DispatchOrchestrationService implements DispatchOrchestrationUseCas
 
         // 2. 기준 시간 계산 (now 기준으로 통일)
         LocalDateTime nowKst = LocalDateTime.ofInstant(now, ZoneId.of("Asia/Seoul"));
-        int currentHour = nowKst.getHour();
+//        int currentHour = nowKst.getHour();
         String dayTime = String.format("%02d", nowKst.getDayOfMonth());
+        // ***==> mock 값으로 넣기 ****
+        int currentHour = 14;
 
         // 3. Cursor 초기화
         Long lastUserId = 0L;

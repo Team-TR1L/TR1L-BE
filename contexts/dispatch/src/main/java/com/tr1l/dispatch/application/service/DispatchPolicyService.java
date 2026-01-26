@@ -110,15 +110,15 @@ public class DispatchPolicyService {
        1. 일별 추이 (4일 하드코딩 + 오늘 발송량)
        ========================= */
             List<DailyTrendDto> dailyTrend = new ArrayList<>();
-            dailyTrend.add(new DailyTrendDto(today.minusDays(4).getMonthValue() + "/" + today.minusDays(4).getDayOfMonth(), 1250L));
-            dailyTrend.add(new DailyTrendDto(today.minusDays(3).getMonthValue() + "/" + today.minusDays(3).getDayOfMonth(), 2100L));
-            dailyTrend.add(new DailyTrendDto(today.minusDays(2).getMonthValue() + "/" + today.minusDays(2).getDayOfMonth(), 1850L));
+            dailyTrend.add(new DailyTrendDto(today.minusDays(4).getMonthValue() + "/" + today.minusDays(4).getDayOfMonth(), 2150L));
+            dailyTrend.add(new DailyTrendDto(today.minusDays(3).getMonthValue() + "/" + today.minusDays(3).getDayOfMonth(), 3000L));
+            dailyTrend.add(new DailyTrendDto(today.minusDays(2).getMonthValue() + "/" + today.minusDays(2).getDayOfMonth(), 2050L));
             dailyTrend.add(new DailyTrendDto(today.minusDays(1).getMonthValue() + "/" + today.minusDays(1).getDayOfMonth(), 2400L));
 
             // 오늘 발송 총합: 400(8시)+ 600(10시) + 850(12시) = 1850
             long todaySent = 1850L;
             // 실제 오늘 14시에 발송할 메시지 수 조회
-            BillingResultCount todaySent14 = messageRepository.countTodayResult(LocalDate.parse("2025-12-01"), "26");
+            BillingResultCount todaySent14 = messageRepository.countTodayResult(LocalDate.parse("2025-12-01"),  "27");
             long today14Total = todaySent14.failure() + todaySent14.success();
             dailyTrend.add(new DailyTrendDto(today.getMonthValue() + "/" + today.getDayOfMonth(), todaySent));
 
