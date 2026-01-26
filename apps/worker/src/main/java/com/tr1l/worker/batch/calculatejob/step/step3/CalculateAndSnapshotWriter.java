@@ -38,24 +38,34 @@ public class CalculateAndSnapshotWriter implements ItemWriter<CalculateBillingPr
         List<WorkDocStatusPort.FailedUpdate> failedUpdates = new ArrayList<>();
 
         for (CalculateBillingProcessor.Result r : chunk) {
-            String workId = r.work().id(); // 워커 마다 아이디 부여
+            String workId = r.work().id(); // 예: "2025-12-01:1"
 
             if (!r.isSuccess()) {
-                failedUpdates.add(new WorkDocStatusPort.FailedUpdate(workId, r.errorCode(), r.errorMessage()));
+                failedUpdates.add(new WorkDocStatusPort.FailedUpdate(
+                        workId,
+                        r.errorCode(),
+                        r.errorMessage()
+                ));
                 continue;
             }
 
             Billing billing = r.billing();
             billings.add(billing);
+
+            // snapshotId를 workId로 고정(권장: 멱등/재시작 안정성)
+            String snapshotId = workId;
+            String billingId = billing.billingId().value();
+
             calculatedUpdates.add(new WorkDocStatusPort.CalculatedUpdate(
                     workId,
-                    billing.billingId().value()
+                    snapshotId,
+                    billingId
             ));
         }
 
         try {
-            snapshotSavePort.saveAll(billings);
             statusPort.markCalculatedAll(calculatedUpdates, now);
+            snapshotSavePort.saveAll(billings);
             statusPort.markFailedAll(failedUpdates, now);
         } catch (DataAccessException dae) {
             throw dae;
