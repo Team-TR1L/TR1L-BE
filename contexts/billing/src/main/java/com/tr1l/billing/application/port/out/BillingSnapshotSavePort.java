@@ -8,10 +8,5 @@ import java.util.List;
 public interface BillingSnapshotSavePort {
     void save(Billing billing);
 
-    default void saveAll(List<Billing> billings) {
-        if (billings == null || billings.isEmpty()) return;
-        for (Billing billing : billings) {
-            save(billing);
-        }
-    }
+    void saveAll(List<Billing> billings);
 }

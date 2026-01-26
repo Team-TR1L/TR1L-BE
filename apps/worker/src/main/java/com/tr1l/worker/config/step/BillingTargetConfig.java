@@ -1,10 +1,8 @@
 package com.tr1l.worker.config.step;
 
 
-import com.tr1l.billing.application.port.out.WorkDocUpsertPort;
+import com.tr1l.billing.application.port.out.BillingWorkUpsertPort;
 import com.tr1l.worker.batch.calculatejob.model.BillingTargetKey;
-import com.tr1l.worker.batch.calculatejob.model.WorkDoc;
-import com.tr1l.worker.batch.calculatejob.step.step2.BillingTargetProcessor;
 import com.tr1l.worker.batch.calculatejob.step.step2.BillingTargetReader;
 import com.tr1l.worker.batch.calculatejob.step.step2.BillingTargetWriter;
 import com.tr1l.worker.batch.listener.PerfTimingListener;
@@ -49,7 +47,6 @@ public class BillingTargetConfig {
             JobRepository jobRepository,
             @Qualifier("TX-target") PlatformTransactionManager transactionManager,
             BillingTargetReader reader,
-            BillingTargetProcessor processor,
             BillingTargetWriter writer,
             StepLoggingListener listener,
             MeterRegistry meterRegistry,
@@ -58,7 +55,7 @@ public class BillingTargetConfig {
     )
 
     {
-        var perf = new PerfTimingListener<BillingTargetKey, WorkDoc>(
+        var perf = new PerfTimingListener<BillingTargetKey, BillingTargetKey>(
                 30,
                 80,
                 500,
@@ -70,17 +67,16 @@ public class BillingTargetConfig {
         );
         var sql = new SqlQueryCountListener(meterRegistry, "main", "target");
         return new StepBuilder("billingTargetStep", jobRepository)
-                .<BillingTargetKey, WorkDoc>chunk(chunkSize, transactionManager)
+                .<BillingTargetKey, BillingTargetKey>chunk(chunkSize, transactionManager)
                 .reader(reader)
                 .listener(listener)
-                .processor(processor)
                 .writer(writer)
                 .taskExecutor(taskExecutor)
                 .listener((StepExecutionListener) perf)
                 .listener((ChunkListener) perf)
                 .listener((ItemReadListener<BillingTargetKey>) perf)
-                .listener((ItemProcessListener<BillingTargetKey, WorkDoc>) perf)
-                .listener((ItemWriteListener<WorkDoc>) perf)
+                .listener((ItemProcessListener<BillingTargetKey, BillingTargetKey>) perf)
+                .listener((ItemWriteListener<BillingTargetKey>) perf)
                 .listener((StepExecutionListener) sql)
                 .listener((ChunkListener) sql)
                 .build();
@@ -102,16 +98,10 @@ public class BillingTargetConfig {
         return new BillingTargetReader(dataSource, viewName, billingMonth, pageSize);
     }
 
-    @Bean
-    public BillingTargetProcessor step2Processor() {
-        return new BillingTargetProcessor();
-    }
-
-
     //port등록 해서 DB 주입
     @Bean
-    public BillingTargetWriter step2Writer(WorkDocUpsertPort workDocUpsertPort) {
-        return new BillingTargetWriter(workDocUpsertPort);
+    public BillingTargetWriter step2Writer(BillingWorkUpsertPort billingWorkUpsertPort) {
+        return new BillingTargetWriter(billingWorkUpsertPort);
     }
 
     //병렬 처리

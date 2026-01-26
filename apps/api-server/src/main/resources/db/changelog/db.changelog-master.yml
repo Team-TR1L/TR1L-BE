@@ -33,6 +33,7 @@ databaseChangeLog:
       id: 900-schema-main-dev
       author: tkv00
       context: dev
+      runInTransaction: false #추가
       changes:
         - sqlFile:
             path: db/sql/schema_dev.sql

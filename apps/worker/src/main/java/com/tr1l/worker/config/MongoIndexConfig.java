@@ -63,22 +63,10 @@ public class MongoIndexConfig {
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public ApplicationRunner mongoIndexes(
             MongoTemplate mongoTemplate,
-            @Value("${app.billing.mongo.work.collection:billing_work}") String workCol,
             @Value("${app.billing.mongo.snapshot.collection:billing_snapshot}") String snapshotCol
     ) {
         return args -> {
-            ensureCollection(mongoTemplate, workCol);
             ensureCollection(mongoTemplate, snapshotCol);
-
-            // ===== billing_work =====
-            mongoTemplate.indexOps(workCol).createIndex(
-                    new Index()
-                            .on("billingMonth", Sort.Direction.ASC)
-                            .on("status", Sort.Direction.ASC)
-                            .on("userId", Sort.Direction.ASC)
-                            .named("idx_work_bm_status_user")
-            );
-
 
             // ===== billing_snapshot =====
             mongoTemplate.indexOps(snapshotCol).createIndex(

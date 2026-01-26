@@ -5,6 +5,7 @@ import com.tr1l.apiserver.dto.DispatchPolicyRequest;
 import com.tr1l.apiserver.service.ManualRunPublisher;
 import com.tr1l.dispatch.application.command.CreateDispatchPolicyCommand;
 import com.tr1l.dispatch.application.service.DispatchPolicyService;
+import com.tr1l.dispatch.domain.dto.DashboardStatsDto;
 import com.tr1l.dispatch.domain.model.aggregate.DispatchPolicy;
 import io.swagger.v3.oas.annotations.Operation;
 import java.security.Principal;
@@ -112,6 +113,15 @@ public class DispatchPolicyController {
             "requestId", requestId,
             "status", "REQUESTED"
         ));
+    }
+
+    @Operation(summary = "통계 데이터 조회", description = "대시보드에 표시할 통계 데이터를 조회합니다.")
+    @GetMapping("/dashboard/stats")
+    public ResponseEntity<DashboardStatsDto> getDashboardStats() {
+        DashboardStatsDto response =
+                service.getDashboardStats();
+
+        return ResponseEntity.ok(response);
     }
 }
 

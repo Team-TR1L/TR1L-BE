@@ -384,19 +384,17 @@ DB에는 파일 자체가 아닌 **파일 위치(S3 key)** 만 저장합니다.
 ### Job2 - 발송용 파일 만들기 (결과 저장: S3)
 Job1의 청구 데이터를 조회하여 Email/SMS 정책에 맞게 청구서를 생성하고, 압축하여 S3에 업로드합니다.
 
-<img width="582" height="717" alt="job2" src="https://github.com/user-attachments/assets/515834dc-d277-4a92-84a0-89223b19f185" />
+
+<img width="8192" height="2996" alt="Alice Bob Greeting Flow-2026-01-26-043722" src="https://github.com/user-attachments/assets/1ed4b7f0-8deb-4a99-baf6-135d488ba223" />
 
 
-- **Step0: Job1 결과 확인**
-  - 정산 스냅샷 준비 완료 여부 확인(미완료면 종료)
-- **Step1: 템플릿 생성에 필요한 데이터 적재**
-  - 정책/버전 조회 및 저장 경로 생성(버전별 경로로 섞임 방지)
-- **Step2: 정책에 맞는 템플릿 생성 및 메모리 적재**
-  - Email/SMS 템플릿을 생성하여 적재
-- **Step3: 청구서 생성**
-  - MongoDB 스냅샷 조회 → 템플릿 적용 → 결과물 생성 → 압축 → S3 업로드
-- **Step4: 업로드 결과 기반 상태 처리**
-  - 업로드 성공 시 완료 상태 기록 후 종료
+
+- **Reader**
+  - Mongo billing_snapshot(billingMonth)를 _id ASC로 읽고 lastId 체크포인트로 재시작 지점 관리
+- **Processor**:
+  - 정책/버전 기반 템플릿 컨텍스트 구성 → 복호화/마스킹 → Email/SMS 렌더링(+압축) 결과 생성
+- **Writer**:
+  - S3에 결정론적 Key로 업로드(멱등 overwrite) → PG billing_targets에 s3_url_jsonb 저장하고 send_status=READY 반영
 
 <br/>
 <br/>

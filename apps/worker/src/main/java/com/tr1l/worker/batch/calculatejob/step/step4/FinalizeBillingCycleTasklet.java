@@ -36,9 +36,6 @@ public class FinalizeBillingCycleTasklet implements Tasklet {
 
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
-        // 잡 파라미터에서 billingMonth(YYYY-MM)를 조회
-        var jobParams = chunkContext.getStepContext().getStepExecution().getJobParameters();
-
         // 문자열을 YearMonth로 변환 (필수 파라미터)
         YearMonth billingMonth = YearMonth.parse(billingYearMonth);
 

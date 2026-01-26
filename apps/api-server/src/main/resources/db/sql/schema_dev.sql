@@ -329,4 +329,4 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_soldier_user_start_end
 ON user_soldier (user_id, start_date, end_date);
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_contract_user_start
-O
+ON user_contract (user_id, start_date DESC);
