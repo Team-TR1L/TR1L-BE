@@ -79,12 +79,12 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
             String base = msg.period() + "/" + msg.userId() + "/";
 
             String emailKey = base + "EMAIL.gz";
-            String smsKey   = base + "SMS.gz";
+            String smsKey   = base + "SMS.txt"; // sms 압축 진행 x
 
             MsgCtx ctx = new MsgCtx(index++, billingYm, msg.userId(), om.createArrayNode());
             contexts.add(ctx);
 
-            // EMAIL 업로드(병렬)
+            // EMAIL 업로드(병렬) -> 압축 + 업로드
             if (hasText(msg.emailHtml())) {
                 final String emailHtml = msg.emailHtml();
                 byte[] raw = emailHtml.getBytes(StandardCharsets.UTF_8);
@@ -106,18 +106,18 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
                 uploadTasks.add(new UploadTask(ctx, "EMAIL", 0, emailKey, future));
             }
 
-            // SMS 업로드(병렬)
+            // SMS 업로드(병렬) -> 업로드만 진행, 작은 파일 압축 시 시간이 더 오래 걸림
             if (hasText(msg.smsText())) {
                 final String smsText = msg.smsText();
                 byte[] raw = smsText.getBytes(StandardCharsets.UTF_8);
-                byte[] gz  = gzip(raw); // 메인 배치 스레드에서 압축
+//                byte[] gz  = gzip(raw); // 메인 배치 스레드에서 압축
                 CompletableFuture<UploadOutcome> future = CompletableFuture.supplyAsync(() -> {
                     markStart();
                     try {
 //                    byte[] raw = smsText.getBytes(StandardCharsets.UTF_8);
 //                    byte[] gz  = gzip(raw);
                         S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
-                                bucket, smsKey, gz, "text/plain; charset=utf-8"
+                                bucket, smsKey, raw, "text/plain; charset=utf-8"
                         );
                         return new UploadOutcome(ctx, "SMS", 1, put);
                     } finally {
@@ -212,7 +212,8 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
             ));
         }
 
-        billingTargetS3UpdatePort.updateStatusBulk(updates);
+        // 함수 변경
+        billingTargetS3UpdatePort.updateStatusBulkSingleQuery(updates);
 
         long elapsedMs = (System.nanoTime() - t0) / 1_000_000;
         log.error("[Job2_Writer 완료] chunkSize={}, tasks={}, peakInflight={}, elapsedMs={}",

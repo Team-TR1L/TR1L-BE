@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -69,5 +70,43 @@ public class BillingTargetS3UploadAdapter implements BillingTargetS3UpdatePort {
 
        jdbc.batchUpdate(SQL, stream);
        log.error("Job2_벌크 연산 종료");
+    }
+
+    /**
+     * 01.26
+     * 진짜 찐버전;;
+     */
+    @Override
+    public void updateStatusBulkSingleQuery(List<UpdateRequest> requests) {
+        if (requests == null || requests.isEmpty()) return;
+
+        StringBuilder sql = new StringBuilder();
+        sql.append("""                                                                                                                                  
+          UPDATE billing_targets bt                                                                                                                   
+             SET send_status = 'READY',                                                                                                               
+                 s3_url_jsonb = v.s3_url_jsonb::jsonb                                                                                                 
+            FROM (VALUES                                                                                                                              
+      """);
+
+        List<Object> params = new ArrayList<>(requests.size() * 3);
+
+        for (int i = 0; i < requests.size(); i++) {
+            if (i > 0) sql.append(",");
+            sql.append("(?, ?, ?)");
+
+            UpdateRequest r = requests.get(i);
+            params.add(r.billingMonth().atDay(1));
+            params.add(r.userId());
+            params.add(r.s3UrlJsonb());
+        }
+
+        sql.append("""                                                                                                                                  
+          ) AS v(billing_month, user_id, s3_url_jsonb)                                                                                             
+           WHERE bt.billing_month = v.billing_month                                                                                                   
+             AND bt.user_id = v.user_id                                                                                                               
+      """);
+
+        jdbc.getJdbcTemplate().update(sql.toString(), params.toArray());
+        log.error("updateStatusBulkSingleQuery size={}", requests.size());
     }
 }
