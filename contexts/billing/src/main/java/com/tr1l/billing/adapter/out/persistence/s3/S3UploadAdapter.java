@@ -17,7 +17,7 @@ public class S3UploadAdapter  implements S3UploadPort {
 
     @Override
     public S3PutResult putBytes(String bucket, String key, byte[] body, String contentType) {
-        log.debug("[s3 원본 start] bucket={}, key={}, len={}", bucket, key, body.length);
+        log.debug("[Job2 압축 시작] bucket={}, key={}, len={}", bucket, key, body.length);
         s3Client.putObject(
                 PutObjectRequest.builder()
                         .bucket(bucket) // 버킷 이름
@@ -26,14 +26,14 @@ public class S3UploadAdapter  implements S3UploadPort {
                         .build(),
                 RequestBody.fromBytes(body) // 실제 청구서
         );
-        log.debug("[s3 원본 end]");
+        log.debug("[Job2 압축 종료]");
 
         return new S3PutResult(bucket, key);
     }
 
     @Override
     public S3PutResult putGzipBytes(String bucket, String key, byte[] body, String contentType) {
-        log.error("[Job2_gzip start] bucket={}, key={}, len={}", bucket, key, body.length);
+        log.error("[Job2 압축 시작] bucket={}, key={}, len={}", bucket, key, body.length);
         s3Client.putObject(
                 PutObjectRequest.builder()
                         .bucket(bucket)
@@ -44,7 +44,7 @@ public class S3UploadAdapter  implements S3UploadPort {
                 RequestBody.fromBytes(body)
         );
 
-        log.error("[Job2_gzip start] bucket={}, key={}, len={}", bucket, key, body.length);
+        log.error("[Job2 압축 종료] bucket={}, key={}, len={}", bucket, key, body.length);
         return new S3PutResult(bucket, key);
 
 

@@ -12,5 +12,8 @@ public interface BillingTargetS3UpdatePort {
     // bulk 연산용 추가
     void updateStatusBulk(List<UpdateRequest> requests);
 
+    // 단일 쿼리용 벌크 연산 01.26
+    void updateStatusBulkSingleQuery(List<UpdateRequest> requests);
+
     record UpdateRequest(YearMonth billingMonth, long userId, String s3UrlJsonb) {}
 }

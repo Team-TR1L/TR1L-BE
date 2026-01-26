@@ -28,19 +28,20 @@ public class S3Adapter implements ContentProviderPort {
     @Override
     public String downloadContent(String bucketName, String key) {
         try {
-            // S3 요청 객체 생성
-            // AWS SDK에게 "이 버킷에 있는, 이 키(파일)를 주세요"라고 요청을 만듦
             GetObjectRequest request = GetObjectRequest.builder()
                     .bucket(bucketName)
                     .key(key)
                     .build();
 
-            // ResponseInputStream은 S3에서 데이터를 조금씩 흘려보내주는 통로
             try (ResponseInputStream<GetObjectResponse> s3Stream = s3Client.getObject(request)) {
 
-                InputStream targetStream = new GZIPInputStream(s3Stream);
+                InputStream targetStream = s3Stream;
 
-                // 문자열로 변환하여 반환
+                // 확장자 기반: .gz 인 경우에만 gzip 해제
+                if (key != null && key.endsWith(".gz")) {
+                    targetStream = new GZIPInputStream(s3Stream);
+                }
+
                 return StreamUtils.copyToString(targetStream, StandardCharsets.UTF_8);
             }
         } catch (Exception e) {
