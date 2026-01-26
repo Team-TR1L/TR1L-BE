@@ -46,9 +46,11 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
     // process 시작
     @Override
     public RenderedMessageResult process(BillingSnapshotDoc doc) throws Exception {
+        log.error("[Job2_Processor 시작" );
         log.warn("doc = {}", doc.toString());
         if (doc.payload() == null) return null;
         return useCase.render(toQuery(doc));
+
     }
 
 
