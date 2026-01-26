@@ -1,5 +1,6 @@
 package com.tr1l.worker.config.s3;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,21 +10,30 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
+@Slf4j
 public class S3UploadExecutorConfig {
 
     @Bean(name = "s3UploadExecutor")
     public Executor s3UploadExecutor(
-            @Value("${aws.s3.upload.concurrency:32}") int concurrency,
+            @Value("${aws.s3.upload.concurrency:16}") int concurrency,
             @Value("${aws.s3.upload.queue-capacity:5000}") int queueCapacity
     ) {
         ThreadPoolTaskExecutor ex = new ThreadPoolTaskExecutor();
-        ex.setCorePoolSize(concurrency);
-        ex.setMaxPoolSize(concurrency);
-        ex.setQueueCapacity(queueCapacity);
+
+        ex.setCorePoolSize(concurrency); // 스레드 수
+        ex.setMaxPoolSize(concurrency);  //
+        ex.setQueueCapacity(queueCapacity); // 100개
         ex.setThreadNamePrefix("s3-upload-");
         // 큐가 가득 차면 배치 스레드에서 backpressure 처리
-//        ex.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        //  ex.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         ex.initialize();
+
+        // 로그
+        log.error("s3Exec 사용개수 active={}, pool={}, queue={}",
+                ex.getActiveCount(),
+                ex.getPoolSize(),
+                ex.getThreadPoolExecutor().getQueue().size());
+
         return ex;
     }
 }
