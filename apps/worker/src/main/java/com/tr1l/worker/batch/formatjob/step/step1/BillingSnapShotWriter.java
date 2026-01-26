@@ -59,6 +59,7 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
     @Override
     public void write(Chunk<? extends RenderedMessageResult> chunk) throws Exception {
         long t0 = System.nanoTime();
+        log.error("[Job2_Writer 시작" );
 
         List<MsgCtx> contexts = new ArrayList<>(chunk.size());
         List<UploadTask> uploadTasks = new ArrayList<>(chunk.size() * 2);

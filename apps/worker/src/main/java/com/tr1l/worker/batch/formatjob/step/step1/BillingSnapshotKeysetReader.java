@@ -65,6 +65,8 @@ public class BillingSnapshotKeysetReader extends ItemStreamSupport implements It
     @Override
     public BillingSnapshotDoc read() {
         //이미 데이터가 끝났으면 즉시 종료
+
+        log.error("[Job2_Reader 시작" );
         if (noMoreData) {
             return null;
         }
@@ -133,7 +135,7 @@ public class BillingSnapshotKeysetReader extends ItemStreamSupport implements It
             log.info("Keyset page fetched EMPTY. billingMonthDay={}, lastUserId(before)={}",
                     billingMonth, lastUserId);
         }
-
+        log.error("[Job2_Reader 종료" );
         return result;
     }
 
