@@ -19,6 +19,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
@@ -66,6 +69,7 @@ public class SecurityConfig {
         });
 
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // [필수 추가] CORS 활성화
                 .csrf(AbstractHttpConfigurer::disable)
                 // 중요: 전체 보안 설정에도 해당 저장소 등록
                 .securityContext(context -> context.securityContextRepository(repo))
@@ -82,16 +86,36 @@ public class SecurityConfig {
 
         http
                 .logout(logout -> logout
-                .logoutUrl("/api/auth/logout") // 로그아웃을 수행할 URL
-                .logoutSuccessHandler((req, res, auth) -> {
-                    res.setStatus(HttpServletResponse.SC_OK);
-                    res.setCharacterEncoding("UTF-8");
-                    res.getWriter().write("로그아웃 성공");
-                })
-                .invalidateHttpSession(true) // 서버 세션 무효화
-                .deleteCookies("JSESSIONID") // 클라이언트 쿠키 삭제
-        );
+                        .logoutUrl("/api/auth/logout") // 로그아웃을 수행할 URL
+                        .logoutSuccessHandler((req, res, auth) -> {
+                            res.setStatus(HttpServletResponse.SC_OK);
+                            res.setCharacterEncoding("UTF-8");
+                            res.getWriter().write("로그아웃 성공");
+                        })
+                        .invalidateHttpSession(true) // 서버 세션 무효화
+                        .deleteCookies("JSESSIONID") // 클라이언트 쿠키 삭제
+                );
 
         return http.build();
+    }
+
+    // CORS 설정을 위한 Bean 추가
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // 프론트엔드 배포 주소 허용
+        configuration.addAllowedOrigin("https://main.d27n7dug6je8px.amplifyapp.com");
+        // 로컬 테스트가 필요하다면 아래 주석 해제
+        // configuration.addAllowedOrigin("http://localhost:3000");
+
+        configuration.addAllowedMethod("*"); // 모든 HTTP 메서드 허용 (GET, POST, PUT 등)
+        configuration.addAllowedHeader("*"); // 모든 헤더 허용
+        configuration.setAllowCredentials(true); // 쿠키/세션 인증 허용 (JSESSIONID를 위해 필수)
+        configuration.setMaxAge(3600L); // 프리플라이트 캐싱 시간
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }
