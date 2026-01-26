@@ -95,8 +95,13 @@ public class BillingSnapshotKeysetReader extends ItemStreamSupport implements It
         // Keyset 조건: 마지막으로 처리한 userId 이후만 읽기
         q.addCriteria(Criteria.where("userId").gt(lastUserId));
 
+        //01.26 인덱스 추가
+        q.addCriteria(Criteria.where("status").is("ISSUED"));
+
         // 정렬: userId 오름차순 (Keyset은 정렬 기준과 where 조건이 같아야 함)
         q.with(Sort.by(Sort.Direction.ASC, "userId"));
+
+
 
         // 페이지 사이즈만큼만 가져오기
         q.limit(pageSize);
