@@ -59,6 +59,7 @@ public class BillingTargetS3UploadAdapter implements BillingTargetS3UpdatePort {
      */
     @Override
     public void updateStatusBulk(List<UpdateRequest> requests) {
+        log.error("Job2_벌크 연산 시작");
        var stream = requests.stream()
                .map(r -> new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
                        .addValue("billingMonth", r.billingMonth().atDay(1))
@@ -67,5 +68,6 @@ public class BillingTargetS3UploadAdapter implements BillingTargetS3UpdatePort {
                .toArray(org.springframework.jdbc.core.namedparam.SqlParameterSource[]::new);
 
        jdbc.batchUpdate(SQL, stream);
+       log.error("Job2_벌크 연산 종료");
     }
 }

@@ -33,7 +33,7 @@ public class S3UploadAdapter  implements S3UploadPort {
 
     @Override
     public S3PutResult putGzipBytes(String bucket, String key, byte[] body, String contentType) {
-        log.info("[s3 gzip start] bucket={}, key={}, len={}", bucket, key, body.length);
+        log.error("[Job2_gzip start] bucket={}, key={}, len={}", bucket, key, body.length);
         s3Client.putObject(
                 PutObjectRequest.builder()
                         .bucket(bucket)
@@ -44,7 +44,7 @@ public class S3UploadAdapter  implements S3UploadPort {
                 RequestBody.fromBytes(body)
         );
 
-        log.error("[s3 gzip end] bucket={}, key={}, len={}", bucket, key, body.length);
+        log.error("[Job2_gzip start] bucket={}, key={}, len={}", bucket, key, body.length);
         return new S3PutResult(bucket, key);
 
 
