@@ -28,12 +28,19 @@ public class FormatJobConfig {
     public Job formatJob(
             JobRepository jobRepository,
             JobExecutionListener formatJobContextInitializer,
-            @Qualifier("billingSnapShotStep") Step billingSnapShotStep
+            Step formatGateStep,
+            @Qualifier("billingSnapShotStep") Step billingSnapShotStep,
+            Step formatFinalizeStep
     ) {
         return new JobBuilder("formatJob", jobRepository)
-                .start(billingSnapShotStep)
                 .listener(formatJobContextInitializer)
+                .start(formatGateStep)
+                .on("NOOP").end()
+                .from(formatGateStep)
+                .on("*").to(billingSnapShotStep)
+                .from(billingSnapShotStep)
+                .on("*").to(formatFinalizeStep)
+                .end()
                 .build();
-
     }
 }
