@@ -7,7 +7,6 @@ import com.tr1l.billing.application.model.RenderedMessageResult;
 import com.tr1l.billing.application.port.out.BillingTargetS3UpdatePort;
 import com.tr1l.billing.application.port.out.S3UploadPort;
 import com.tr1l.util.EncryptionTool;
-import com.tr1l.billing.application.model.RenderedMessageResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.Chunk;
@@ -46,8 +45,9 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
         this.om = om;
         this.billingTargetS3UpdatePort = billingTargetS3UpdatePort;
         this.s3UploadExecutor = s3UploadExecutor;
-        this.encryptionTool=encryptionTool;
+        this.encryptionTool = encryptionTool;
     }
+
     // 한 유저에 대한 레코드 (email, sms)
     private record MsgCtx(int index, YearMonth billingYm, long userId, ArrayNode s3Array) {}
 
@@ -56,10 +56,18 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
     // 병렬 실패 시
     private record UploadTask(MsgCtx ctx, String channelKey, int channelIndex, String key, CompletableFuture<UploadOutcome> future) {}
 
+    // 실제 병렬 처리가 되는지 확인
+    private final java.util.concurrent.atomic.AtomicInteger inflight = new java.util.concurrent.atomic.AtomicInteger();
+    private final java.util.concurrent.atomic.AtomicInteger maxInflight = new java.util.concurrent.atomic.AtomicInteger();
+
     @Override
     public void write(Chunk<? extends RenderedMessageResult> chunk) throws Exception {
         long t0 = System.nanoTime();
-        log.error("[Job2_Writer 시작" );
+        log.error("[Job2_Writer 시작] chunkSize={}", chunk.size());
+
+        // 청크 단위 측정 리셋
+        inflight.set(0);
+        maxInflight.set(0);
 
         List<MsgCtx> contexts = new ArrayList<>(chunk.size());
         List<UploadTask> uploadTasks = new ArrayList<>(chunk.size() * 2);
@@ -82,12 +90,17 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
                 byte[] raw = emailHtml.getBytes(StandardCharsets.UTF_8);
                 byte[] gz  = gzip(raw); // 메인 배치 스레드에서 압축
                 CompletableFuture<UploadOutcome> future = CompletableFuture.supplyAsync(() -> {
+                    markStart();
+                    try {
 //                    byte[] raw = emailHtml.getBytes(StandardCharsets.UTF_8);
 //                    byte[] gz  = gzip(raw);
-                    S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
-                            bucket, emailKey, gz, "text/html; charset=utf-8"
-                    );
-                    return new UploadOutcome(ctx, "EMAIL", 0, put);
+                        S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
+                                bucket, emailKey, gz, "text/html; charset=utf-8"
+                        );
+                        return new UploadOutcome(ctx, "EMAIL", 0, put);
+                    } finally {
+                        markEnd();
+                    }
                 }, s3UploadExecutor);
 
                 uploadTasks.add(new UploadTask(ctx, "EMAIL", 0, emailKey, future));
@@ -99,18 +112,22 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
                 byte[] raw = smsText.getBytes(StandardCharsets.UTF_8);
                 byte[] gz  = gzip(raw); // 메인 배치 스레드에서 압축
                 CompletableFuture<UploadOutcome> future = CompletableFuture.supplyAsync(() -> {
+                    markStart();
+                    try {
 //                    byte[] raw = smsText.getBytes(StandardCharsets.UTF_8);
 //                    byte[] gz  = gzip(raw);
-                    S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
-                            bucket, smsKey, gz, "text/plain; charset=utf-8"
-                    );
-                    return new UploadOutcome(ctx, "SMS", 1, put);
+                        S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
+                                bucket, smsKey, gz, "text/plain; charset=utf-8"
+                        );
+                        return new UploadOutcome(ctx, "SMS", 1, put);
+                    } finally {
+                        markEnd();
+                    }
                 }, s3UploadExecutor);
 
                 uploadTasks.add(new UploadTask(ctx, "SMS", 1, smsKey, future));
             }
         }
-
 
         // 1) 먼저 한번에 완료 대기 -> 병렬성 유지
         CompletableFuture<?>[] futures = uploadTasks.stream()
@@ -125,7 +142,14 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
 
         // 2) 개별 join로 결과 수집, 실패 시 에러 로그
         S3UploadPort.S3PutResult[][] results = new S3UploadPort.S3PutResult[contexts.size()][2];
+
         Throwable firstFailure = null;
+        int failureCount = 0;
+
+        Long firstUserId = null;
+        YearMonth firstBillingYm = null;
+        String firstChannel = null;
+        String firstKey = null;
 
         for (UploadTask task : uploadTasks) {
             try {
@@ -133,14 +157,33 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
                 results[out.ctx().index()][out.channelIndex()] = out.put();
             } catch (RuntimeException e) {
                 Throwable cause = (e.getCause() != null) ? e.getCause() : e;
-                if (firstFailure == null) firstFailure = cause;
 
-                log.error("S3 upload failed. userId={}, billingYm={}, channel={}, key={}",
+                // 개별 실패 상세는 DEBUG로(청크당 ERROR 1줄 정책)
+                log.debug("S3 upload failed. userId={}, billingYm={}, channel={}, key={}",
                         task.ctx().userId(), task.ctx().billingYm(), task.channelKey(), task.key(), cause);
+
+                failureCount++;
+
+                if (firstFailure == null) {
+                    firstFailure = cause;
+                    firstUserId = task.ctx().userId();
+                    firstBillingYm = task.ctx().billingYm();
+                    firstChannel = task.channelKey();
+                    firstKey = task.key();
+                }
             }
-        }
+        } // <-- for 루프 닫기 (이게 빠져서 컴파일 에러가 났던 겁니다)
 
         if (firstFailure != null) {
+            // ERROR는 청크당 1번만
+            log.error("[S3 upload failed in chunk] chunkSize={}, tasks={}, failures={}, peakInflight={}, first(userId={}, billingYm={}, channel={}, key={})",
+                    chunk.size(),
+                    uploadTasks.size(),
+                    failureCount,
+                    maxInflight.get(),
+                    firstUserId, firstBillingYm, firstChannel, firstKey,
+                    firstFailure);
+
             throw new IllegalStateException("S3 upload failed", firstFailure);
         }
 
@@ -171,6 +214,9 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
 
         billingTargetS3UpdatePort.updateStatusBulk(updates);
 
+        long elapsedMs = (System.nanoTime() - t0) / 1_000_000;
+        log.error("[Job2_Writer 완료] chunkSize={}, tasks={}, peakInflight={}, elapsedMs={}",
+                chunk.size(), uploadTasks.size(), maxInflight.get(), elapsedMs);
     }
 
     private ObjectNode s3UrlItem(String channelKey, String bucket, String s3Key) {
@@ -178,7 +224,6 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
         n.put("key", channelKey);
         n.put("bucket", encryptionTool.encrypt(bucket));
         n.put("s3_key", encryptionTool.encrypt(s3Key));
-
         return n;
     }
 
@@ -202,5 +247,14 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
         } catch (IOException e) {
             throw new IllegalStateException("gzip compression failed", e);
         }
+    }
+
+    private void markStart() {
+        int now = inflight.incrementAndGet();
+        maxInflight.accumulateAndGet(now, Math::max);
+    }
+
+    private void markEnd() {
+        inflight.decrementAndGet();
     }
 }

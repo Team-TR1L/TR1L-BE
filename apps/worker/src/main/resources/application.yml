@@ -129,7 +129,7 @@ aws:
   s3:
     max-connections: 100
     upload:
-      concurrency: 16
+      concurrency: 32
       queue-capacity: 12000
 
 # 암/복호화 키
