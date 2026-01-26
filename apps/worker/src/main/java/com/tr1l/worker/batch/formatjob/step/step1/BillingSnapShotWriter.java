@@ -79,9 +79,11 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
             // EMAIL 업로드(병렬)
             if (hasText(msg.emailHtml())) {
                 final String emailHtml = msg.emailHtml();
+                byte[] raw = emailHtml.getBytes(StandardCharsets.UTF_8);
+                byte[] gz  = gzip(raw); // 메인 배치 스레드에서 압축
                 CompletableFuture<UploadOutcome> future = CompletableFuture.supplyAsync(() -> {
-                    byte[] raw = emailHtml.getBytes(StandardCharsets.UTF_8);
-                    byte[] gz  = gzip(raw);
+//                    byte[] raw = emailHtml.getBytes(StandardCharsets.UTF_8);
+//                    byte[] gz  = gzip(raw);
                     S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
                             bucket, emailKey, gz, "text/html; charset=utf-8"
                     );
@@ -94,9 +96,11 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
             // SMS 업로드(병렬)
             if (hasText(msg.smsText())) {
                 final String smsText = msg.smsText();
+                byte[] raw = smsText.getBytes(StandardCharsets.UTF_8);
+                byte[] gz  = gzip(raw); // 메인 배치 스레드에서 압축
                 CompletableFuture<UploadOutcome> future = CompletableFuture.supplyAsync(() -> {
-                    byte[] raw = smsText.getBytes(StandardCharsets.UTF_8);
-                    byte[] gz  = gzip(raw);
+//                    byte[] raw = smsText.getBytes(StandardCharsets.UTF_8);
+//                    byte[] gz  = gzip(raw);
                     S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
                             bucket, smsKey, gz, "text/plain; charset=utf-8"
                     );
