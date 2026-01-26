@@ -12,5 +12,5 @@ import lombok.NoArgsConstructor;
 public class ChannelDistributionDto {
 
     private String name;   // 예: SMS, EMAIL
-    private int value;     // 비율 (퍼센트)
+    private int value;
 }
