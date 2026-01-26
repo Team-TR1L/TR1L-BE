@@ -3,6 +3,7 @@ databaseChangeLog:
       id: 001-schema-main-prod
       author: tkv00
       context: prod
+      runInTransaction: false
       changes:
         - sqlFile:
             path: db/sql/schema_prod.sql
