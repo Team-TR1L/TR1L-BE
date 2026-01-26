@@ -14,6 +14,7 @@ import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotProcessor;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotWriter;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapshotKeysetReader;
 import com.tr1l.worker.batch.listener.PerfTimingListener;
+import com.tr1l.worker.config.step.StepLoggingListener;
 import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.repository.JobRepository;
@@ -59,6 +60,7 @@ public class BillingSnapShotStepConfig {
             BillingSnapshotKeysetReader reader,
             BillingSnapShotProcessor processor,
             BillingSnapShotWriter writer,
+            StepLoggingListener listener, // add
             @Value("${app.mongo.snapshot.chunk-size:200}") int chunkSize
     ){
         var perf = new PerfTimingListener<BillingSnapshotDoc,RenderedMessageResult>(
@@ -72,6 +74,7 @@ public class BillingSnapShotStepConfig {
                 .<BillingSnapshotDoc, RenderedMessageResult>chunk(chunkSize,transactionManager)
                 .reader(reader)
                 .processor(processor)
+                .listener(listener)  // add
                 .writer(writer)
                 .listener((StepExecutionListener) perf)
                 .listener((ChunkListener) perf)

@@ -22,7 +22,7 @@ public class S3UploadExecutorConfig {
         ex.setQueueCapacity(queueCapacity);
         ex.setThreadNamePrefix("s3-upload-");
         // 큐가 가득 차면 배치 스레드에서 backpressure 처리
-        ex.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+//        ex.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         ex.initialize();
         return ex;
     }
