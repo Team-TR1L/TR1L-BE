@@ -91,7 +91,7 @@ app:
   mongo:
     snapshot:
       batch-size: 5000
-      chunk-size: 5000
+      chunk-size: 1000
 
   liquibase:
     target:
