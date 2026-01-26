@@ -44,7 +44,7 @@ public class S3UploadAdapter  implements S3UploadPort {
                 RequestBody.fromBytes(body)
         );
 
-        log.info("[s3 gzip end] bucket={}, key={}, len={}", bucket, key, body.length);
+        log.error("[s3 gzip end] bucket={}, key={}, len={}", bucket, key, body.length);
         return new S3PutResult(bucket, key);
 
 
