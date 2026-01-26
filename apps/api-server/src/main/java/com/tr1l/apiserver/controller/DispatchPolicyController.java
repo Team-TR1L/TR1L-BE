@@ -116,12 +116,12 @@ public class DispatchPolicyController {
     }
 
     @Operation(summary = "통계 데이터 조회", description = "대시보드에 표시할 통계 데이터를 조회합니다.")
-        @GetMapping("/dashboard/stats")
-        public ResponseEntity<DashboardStatsDto> getDashboardStats() {
-            DashboardStatsDto response =
-                    service.getDashboardStats();
+    @GetMapping("/dashboard/stats")
+    public ResponseEntity<DashboardStatsDto> getDashboardStats() {
+        DashboardStatsDto response =
+                service.getDashboardStats();
 
-            return ResponseEntity.ok(response);
+        return ResponseEntity.ok(response);
     }
 }
 
