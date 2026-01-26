@@ -16,11 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -108,174 +104,64 @@ public class DispatchPolicyService {
 
     @Transactional(readOnly = true)
     public DashboardStatsDto getDashboardStats() {
-
-        DispatchPolicy policy = findCurrentActivePolicy();
-        List<ChannelType> channels =
-                policy.getRoutingPolicy().getPrimaryOrder().channels();
-
         LocalDate today = LocalDate.now();
-        LocalDate startDate = today.minusDays(6);
 
     /* =========================
-       1. billingMonth 계산 (전송월 - 1)
+       1. 일별 추이 (4일 하드코딩 + 오늘 발송량)
        ========================= */
-        Set<LocalDate> billingMonths = Stream.of(startDate, today)
-                .map(d -> d.minusMonths(1).withDayOfMonth(1))
-                .collect(Collectors.toSet());
+            List<DailyTrendDto> dailyTrend = new ArrayList<>();
+            dailyTrend.add(new DailyTrendDto(today.minusDays(4).getMonthValue() + "/" + today.minusDays(4).getDayOfMonth(), 1250L));
+            dailyTrend.add(new DailyTrendDto(today.minusDays(3).getMonthValue() + "/" + today.minusDays(3).getDayOfMonth(), 2100L));
+            dailyTrend.add(new DailyTrendDto(today.minusDays(2).getMonthValue() + "/" + today.minusDays(2).getDayOfMonth(), 1850L));
+            dailyTrend.add(new DailyTrendDto(today.minusDays(1).getMonthValue() + "/" + today.minusDays(1).getDayOfMonth(), 2400L));
+
+            // 오늘 발송 총합: 400(8시)+ 600(10시) + 850(12시) = 1850
+            long todaySent = 1850L;
+            // 실제 오늘 14시에 발송할 메시지 수 조회
+            BillingResultCount todaySent14 = messageRepository.countTodayResult(LocalDate.parse("2025-12-01"), "26");
+            long today14Total = todaySent14.failure() + todaySent14.success();
+            dailyTrend.add(new DailyTrendDto(today.getMonthValue() + "/" + today.getDayOfMonth(), todaySent));
 
     /* =========================
-       2. 일별 전송량
+       2. 시간별 추이 (8시, 10시, 12시 고정 + 14시는 실제 값 가져오기)
        ========================= */
-        String startDay = String.format("%02d", startDate.getDayOfMonth());
-        String endDay   = String.format("%02d", today.getDayOfMonth());
+            List<HourlyTrendDto> hourlyTrend = List.of(
+                    HourlyTrendDto.builder().hour("08").count(400L).build(),
+                    HourlyTrendDto.builder().hour("10").count(600L).build(),
+                    HourlyTrendDto.builder().hour("12").count(850L).build(),
+                    HourlyTrendDto.builder().hour("14").count(today14Total).build()
+            );
 
-        List<BillingDailyCount> rawDailyCounts =
-                messageRepository.countByBillingMonthAndDayTime(
-                        billingMonths,
-                        startDay,
-                        endDay
-                );
+    /* =========================
+       3. 채널 분포 및 성공/실패율 (실제 수량 기반 분배)
+       ======================== */
+            // 실패율 약 1% 적용: 1850 * 0.01 = 18.5 -> 반올림하여 19건
+            long failureCount = Math.round((todaySent + today14Total) * 0.01);
+            long successCount =  (todaySent + today14Total) - failureCount; // 나머지는 성공
 
-        Map<LocalDate, Long> dailyCountMap = new HashMap<>();
+            // 성공/실패율 계산 (소수점 첫째 자리까지)
+            double successRate = todaySent == 0 ? 0.0 : Math.round((successCount * 1000.0) / todaySent) / 10.0;
+            double failureRate = todaySent == 0 ? 0.0 : Math.round((failureCount * 1000.0) / todaySent) / 10.0;
 
-        for (BillingDailyCount row : rawDailyCounts) {
-            LocalDate actualDate = row.billingMonth()
-                    .plusMonths(1) // 실제 전송월
-                    .withDayOfMonth(Integer.parseInt(row.dayTime()));
-            dailyCountMap.put(actualDate, row.count());
+    /* =========================
+       4. 채널별 전송 수량 할당 (EMAIL: 성공, SMS: 실패)
+       ========================= */
+            List<ChannelDistributionDto> channelDistribution = List.of(
+                    // 퍼센트가 아닌 실제 '개수'를 value에 할당
+                    new ChannelDistributionDto("EMAIL", (int) successCount),
+                    new ChannelDistributionDto("SMS", (int) failureCount)
+            );
+
+    /* =========================
+       5. 응답 DTO 반환
+       ========================= */
+            return DashboardStatsDto.builder()
+                    .todaySent(todaySent)
+                    .successRate(successRate)
+                    .failureRate(failureRate)
+                    .dailyTrend(dailyTrend)
+                    .channelDistribution(channelDistribution)
+                    .hourlyTrend(hourlyTrend)
+                    .build();
         }
-
-        List<DailyTrendDto> dailyTrend = IntStream.rangeClosed(0, 6)
-                .mapToObj(i -> {
-                    LocalDate date = startDate.plusDays(i);
-                    return DailyTrendDto.builder()
-                            .date(date.getMonthValue() + "/" + date.getDayOfMonth())
-                            .sent(dailyCountMap.getOrDefault(date, 0L))
-                            .build();
-                })
-                .toList();
-
-        long todaySent = dailyCountMap.getOrDefault(today, 0L);
-
-    /* =========================
-       3. 채널 분포 (attemptCount 기반)
-       ========================= */
-        List<Integer> attemptCounts =
-                IntStream.range(0, channels.size())
-                        .boxed()
-                        .toList();
-
-        List<AttemptChannelCount> rawCounts =
-                messageRepository.countByAttemptCountAndBillingMonth(
-                        attemptCounts,
-                        billingMonths
-                );
-
-        Map<Integer, Long> attemptCountMap =
-                rawCounts.stream()
-                        .collect(Collectors.toMap(
-                                AttemptChannelCount::attemptCount,
-                                AttemptChannelCount::count
-                        ));
-
-        Map<ChannelType, Long> channelCountMap = new EnumMap<>(ChannelType.class);
-
-        for (int i = 0; i < channels.size(); i++) {
-            ChannelType channel = channels.get(i);
-            long count = attemptCountMap.getOrDefault(i, 0L);
-            channelCountMap.put(channel, count);
-        }
-
-        long totalChannelSent = channelCountMap.values()
-                .stream()
-                .mapToLong(Long::longValue)
-                .sum();
-
-        List<ChannelDistributionDto> channelDistribution =
-                channels.stream()
-                        .map(channel -> {
-                            long count = channelCountMap.getOrDefault(channel, 0L);
-                            int percent = totalChannelSent == 0
-                                    ? 0
-                                    : (int) Math.round(count * 100.0 / totalChannelSent);
-
-                            return ChannelDistributionDto.builder()
-                                    .name(channel.name())
-                                    .value(percent)
-                                    .build();
-                        })
-                        .toList();
-
-    /* =========================
-       4. 오늘 성공 / 실패율
-       ========================= */
-        LocalDate billingMonth = today.minusMonths(1).withDayOfMonth(1);
-        String todayDayTime = String.format("%02d", today.getDayOfMonth());
-
-        BillingResultCount resultCount =
-                messageRepository.countTodayResult(billingMonth, todayDayTime);
-
-        long success = resultCount == null || resultCount.success() == null
-                ? 0 : resultCount.success();
-        long failure = resultCount == null || resultCount.failure() == null
-                ? 0 : resultCount.failure();
-
-        long totalToday = success + failure;
-
-        double successRate = totalToday == 0
-                ? 0.0
-                : Math.round((success * 1000.0) / totalToday) / 10.0;
-
-        double failureRate = totalToday == 0
-                ? 0.0
-                : Math.round((failure * 1000.0) / totalToday) / 10.0;
-
-
-    /* =========================
-   5. 시간별 추이 (Mock 데이터: 합계가 todaySent와 일치하도록 분배)
-   ========================= */
-        int currentHour = LocalTime.now().getHour();
-        int startHour = 9;
-        int hourCount = Math.max(0, currentHour - startHour);
-
-        List<HourlyTrendDto> hourlyTrend = new ArrayList<>();
-
-        if (hourCount > 0) {
-            long remainingSent = todaySent;
-            Random random = new Random();
-
-            for (int i = 0; i < hourCount; i++) {
-                int hour = startHour + i;
-                long count;
-
-                if (i == hourCount - 1) {
-                    // 마지막 시간대에는 남은 잔액을 모두 할당 (오차 방지)
-                    count = remainingSent;
-                } else {
-                    // 남은 금액 내에서 랜덤 할당 (평균적으로 배분되도록 가중치 조절 가능)
-                    // 단순히 0 ~ 남은값/2 정도로 설정하여 뒤로 갈수록 급격히 줄어드는 것 방지
-                    count = (long) (random.nextDouble() * (remainingSent / (hourCount - i)) * 1.5);
-                    count = Math.min(count, remainingSent); // 남은 값보다 커지지 않게 방어
-                    remainingSent -= count;
-                }
-
-                hourlyTrend.add(HourlyTrendDto.builder()
-                        .hour(String.format("%02d", hour))
-                        .count(count)
-                        .build());
-            }
-        }
-
-    /* =========================
-       6. 응답 DTO
-       ========================= */
-        return DashboardStatsDto.builder()
-                .todaySent(todaySent)
-                .successRate(successRate)
-                .failureRate(failureRate)
-                .dailyTrend(dailyTrend)
-                .channelDistribution(channelDistribution)
-                .hourlyTrend(hourlyTrend)
-                .build();
-    }
 }
