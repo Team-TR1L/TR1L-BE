@@ -64,8 +64,8 @@ public class CalculateAndSnapshotWriter implements ItemWriter<CalculateBillingPr
         }
 
         try {
-            statusPort.markCalculatedAll(calculatedUpdates, now);
             snapshotSavePort.saveAll(billings);
+            statusPort.markCalculatedAll(calculatedUpdates, now);
             statusPort.markFailedAll(failedUpdates, now);
         } catch (DataAccessException dae) {
             throw dae;
