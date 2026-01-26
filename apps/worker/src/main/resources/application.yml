@@ -68,7 +68,7 @@ app:
       chunk-size: 2000
       fetch-size: 2000
       partition:
-        grid-size: 8
+        grid-size: 16
 
       lease-seconds: ${BATCH_JOB1_STEP3_LEASE_SECONDS:3000}
     mongo:
