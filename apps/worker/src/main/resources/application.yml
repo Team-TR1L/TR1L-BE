@@ -126,10 +126,10 @@ aws:
   region: ${AWS_REGION:}
 
   s3:
-    max-connections: ${S3_MAX_CONNECTIONS:200}
+    max-connections: 100
     upload:
-      concurrency: ${S3_UPLOAD_CONCURRENCY:32}
-      queue-capacity: ${S3_UPLOAD_QUEUE_CAPACITY:12000}
+      concurrency: 8
+      queue-capacity: 12000
 
 ---
 
