@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -229,8 +230,44 @@ public class DispatchPolicyService {
                 ? 0.0
                 : Math.round((failure * 1000.0) / totalToday) / 10.0;
 
+
     /* =========================
-       5. 응답 DTO
+   5. 시간별 추이 (Mock 데이터: 합계가 todaySent와 일치하도록 분배)
+   ========================= */
+        int currentHour = LocalTime.now().getHour();
+        int startHour = 9;
+        int hourCount = Math.max(0, currentHour - startHour);
+
+        List<HourlyTrendDto> hourlyTrend = new ArrayList<>();
+
+        if (hourCount > 0) {
+            long remainingSent = todaySent;
+            Random random = new Random();
+
+            for (int i = 0; i < hourCount; i++) {
+                int hour = startHour + i;
+                long count;
+
+                if (i == hourCount - 1) {
+                    // 마지막 시간대에는 남은 잔액을 모두 할당 (오차 방지)
+                    count = remainingSent;
+                } else {
+                    // 남은 금액 내에서 랜덤 할당 (평균적으로 배분되도록 가중치 조절 가능)
+                    // 단순히 0 ~ 남은값/2 정도로 설정하여 뒤로 갈수록 급격히 줄어드는 것 방지
+                    count = (long) (random.nextDouble() * (remainingSent / (hourCount - i)) * 1.5);
+                    count = Math.min(count, remainingSent); // 남은 값보다 커지지 않게 방어
+                    remainingSent -= count;
+                }
+
+                hourlyTrend.add(HourlyTrendDto.builder()
+                        .hour(String.format("%02d", hour))
+                        .count(count)
+                        .build());
+            }
+        }
+
+    /* =========================
+       6. 응답 DTO
        ========================= */
         return DashboardStatsDto.builder()
                 .todaySent(todaySent)
@@ -238,6 +275,7 @@ public class DispatchPolicyService {
                 .failureRate(failureRate)
                 .dailyTrend(dailyTrend)
                 .channelDistribution(channelDistribution)
+                .hourlyTrend(hourlyTrend)
                 .build();
     }
 }

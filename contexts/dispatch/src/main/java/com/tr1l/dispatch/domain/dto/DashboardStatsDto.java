@@ -18,4 +18,5 @@ public class DashboardStatsDto {
     private double failureRate;
     private List<DailyTrendDto> dailyTrend;
     private List<ChannelDistributionDto> channelDistribution;
+    private List<HourlyTrendDto> hourlyTrend;
 }
