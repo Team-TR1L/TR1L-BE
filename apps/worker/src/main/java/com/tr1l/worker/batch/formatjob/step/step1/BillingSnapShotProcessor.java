@@ -46,7 +46,7 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
     // process 시작
     @Override
     public RenderedMessageResult process(BillingSnapshotDoc doc) throws Exception {
-        log.error("[Job2_Processor 시작" );
+        log.error("[Job2_Processor] 시작" );
         log.warn("doc = {}", doc.toString());
         if (doc.payload() == null) return null;
         return useCase.render(toQuery(doc));
@@ -70,8 +70,8 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
         String recipientPhoneEnc = safeStr(p.recipient() != null ? p.recipient().phone() : null);
 
         //  암호문(Base64)이면 복호화
-        String recipientEmail = decryptionTool.decrypt(recipientEmailEnc);
-        String recipientPhone = decryptionTool.decrypt(recipientPhoneEnc);
+        String recipientEmail = maybeDecrypt(recipientEmailEnc);
+        String recipientPhone = maybeDecrypt(recipientPhoneEnc);
 
 
         String workId = doc.workId();
@@ -117,6 +117,7 @@ public class BillingSnapShotProcessor implements ItemProcessor<BillingSnapshotDo
         }
 
 
+        log.error("[Job2_Processor] 종료" );
         return new RenderBillingMessageQuery(
                 doc.billingMonth(),
                 doc.userId(),
