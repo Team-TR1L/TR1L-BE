@@ -215,7 +215,7 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
         billingTargetS3UpdatePort.updateStatusBulk(updates);
 
         long elapsedMs = (System.nanoTime() - t0) / 1_000_000;
-        log.info("[Job2_Writer 완료] chunkSize={}, tasks={}, peakInflight={}, elapsedMs={}",
+        log.error("[Job2_Writer 완료] chunkSize={}, tasks={}, peakInflight={}, elapsedMs={}",
                 chunk.size(), uploadTasks.size(), maxInflight.get(), elapsedMs);
     }
 
