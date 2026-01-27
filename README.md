@@ -1,7 +1,52 @@
+
+
 # 💼 Billing & Notification Platform
 
 대규모 청구/정산 데이터를 기반으로 고객별 청구서를 생성하고, 메시지 발송(Email/SMS)을 **중복 없이 안정적으로 처리**하는 플랫폼입니다.  
 특히 월 100만 건 이상의 정산/발송 규모를 전제로 **장애 내성**, **수평 확장**, **비용 최적화**에 초점을 맞추었습니다.
+
+---
+
+## 목차
+
+1. [핵심 요구사항](#핵심-요구사항)
+2. [🧠 Design Architecture](#-design-architecture)
+   - [출발점: 기존 모놀리식 접근의 한계](#출발점-기존-모놀리식-접근의-한계)
+   - [선택한 방향: 느슨한 결합 + 실행 단위 분리](#선택한-방향-느슨한-결합--실행-단위-분리)
+   - [이벤트 기반 결합(비동기)으로 바꾼 이유](#이벤트-기반-결합비동기으로-바꾼-이유)
+   - [최종 구조](#최종-구조)
+   - [ERD](#erd)
+   - [정리](#정리)
+3. [☁️ Infrastructure Architecture](#️-infrastructure-architecture)
+   - [출발점: EC2 단독 운영의 한계](#출발점-ec2-단독-운영의-한계)
+   - [선택 기준: 컴포넌트마다 운영 특성이 다름름](#선택-기준-컴포넌트마다-운영-특성이-다름름)
+   - [ECS/Fargate 채택 이유: 수평 확장 + 운영 단순화](#ecsfargate-채택-이유-수평-확장--운영-단순화)
+   - [전부 Fargate? (혼합 전략)](#전부-fargate-혼합-전략)
+   - [Trade-off](#trade-off)
+   - [Monitoring](#monitoring)
+   - [Lag 기반 확장 선택 이유](#lag-기반-확장-선택-이유)
+   - [Lag 기반 확장 처리 방식](#lag-기반-확장-처리-방식)
+   - [Monitoring 서버 + CloudWatch 메트릭 조합](#monitoring-서버--cloudwatch-메트릭-조합)
+4. [⚖️ 기술 선택 근거](#️-기술-선택-근거)
+   - [Message Broker: Apache Kafka](#message-broker-apache-kafka)
+   - [Batch Framework: Spring Batch](#batch-framework-spring-batch)
+   - [Database: PostgreSQL](#database-postgresql)
+   - [Snapshot Store: MongoDB Atlas](#snapshot-store-mongodb-atlas)
+   - [File Storage: Amazon S3](#file-storage-amazon-s3)
+5. [⚙️ Batch 설계 전략](#️-batch-설계-전략)
+   - [초기 접근: 단일 Step(Reader-Processor-Writer)](#초기-접근-단일-stepreader-processor-writer)
+   - [개선 접근: Step 분리 + 상태 저장(CheckPoint) + Chunk](#개선-접근-step-분리--상태-저장checkpoint--chunk)
+   - [Batch Job 구성](#batch-job-구성)
+     - [Job1 - 정산 스냅샷 만들기 (결과 저장: MongoDB)](#job1---정산-스냅샷-만들기-결과-저장-mongodb)
+     - [Job2 - 청구서 발송용 파일 만들기 (결과 저장: S3)](#job2---청구서-발송용-파일-만들기-결과-저장-s3)
+6. [✉️ 메시지 발송(Dispatcher/Consumer) 설계 전략](#️-메시지-발송dispatcherconsumer-설계-전략)
+7. [Implementation Details](#3-implementation-details)
+   - [배압 제어 (Backpressure)](#️-배압-제어-backpressure)
+   - [결함 내성 (Fault Tolerance)](#️-결함-내성-fault-tolerance)
+   - [확장성 (Extensibility)](#-확장성-extensibility)
+
+
+
 
 ---
 
@@ -17,11 +62,10 @@
 <br/>
 <br/>
 <br/>
-<br/>
-<br/>
 
 
 ## 🧠 Design Architecture
+
 
 ### 출발점: 기존 모놀리식 접근의 한계
 <img width="196" height="402" alt="image" src="https://github.com/user-attachments/assets/e952b694-3762-4b20-910d-6d71539b4807" />
@@ -106,7 +150,21 @@
 **Batch는 재실행 가능한 작업 단위로**, **Delivery는 폭발적으로 확장 가능하게**라는
 운영 요구를 그대로 반영한 결과입니다.
 
+### ERD
+
+<br/>
+
+#### Main Database
+
+<img width="3140" height="2788" alt="KakaoTalk_Photo_2026-01-26-22-22-25-1" src="https://github.com/user-attachments/assets/01ba1c20-ffd7-430e-81d6-a07ff5dd734a" />
+
+
+#### Sub Database
+
+<img width="500" height="1000" alt="KakaoTalk_Photo_2026-01-26-22-22-25-2" src="https://github.com/user-attachments/assets/312557f8-d94f-49ad-9103-557949c33be7" />
+
 ---
+
 
 ### 정리
 - **수평 확장이 필요한 구간(Worker)을 독립시키기 위해**
@@ -274,14 +332,11 @@ Lag를 스케일 기준으로 삼는 것이 가장 직접적이고 비용 효율
 ## ⚖️ 기술 선택 근거
 
 ### Message Broker: Apache Kafka
-본 시스템은 **실시간**과 **안정성과 재처리**가 중요한 구조입니다.  
-배치/디스패처에서 생성된 발송 대상 이벤트를 Kafka 토픽에 발행하면,  
-발송 서버와 전송 책임 서버가 느슨하게 결합되고 장애 상황에서도 메시지 유실을 방지할 수 있습니다.
+단순 큐(RabbitMQ 등) 대비 높은 처리량과 신뢰성이 요구되어 카프카를 선택했습니다.
 
-- **비동기 이벤트 처리**로 서비스 결합도 감소
-- 컨슈머 장애 시에도 Kafka Offset 기반으로 재처리 가능(유실 방지)
-- 컨슈머 수평 확장으로 대량 발송 처리량 확보
-- Backpressure(외부 발송 API 지연/장애) 완충 효과
+- **대용량 처리 (High Throughput):** 디스크 순차 쓰기(Sequential I/O)를 통해 수십만 건의 버스트 트래픽을 지연 없이 수용합니다.
+- **장애 복구 (Replayability):** 메시지를 즉시 삭제하지 않고 보존하므로, 장애 발생 시 오프셋(Offset)을 되감아 데이터를 재처리할 수 있습니다.
+- **수평적 확장성 (Scalability):** 파티션 모델을 통해 컨슈머 서버 증설만으로 병렬 처리 성능을 유연하게 확장합니다.
 
 ---
 
@@ -356,120 +411,312 @@ DB에는 파일 자체가 아닌 **파일 위치(S3 key)** 만 저장합니다.
 ### Job1 - 정산 스냅샷 만들기 (결과 저장: MongoDB)
 이번 달 사용분을 정산하여 “청구서에 들어갈 데이터” 스냅샷을 생성합니다.
 
-<img width="4310" height="7845" alt="job1" src="https://github.com/user-attachments/assets/d9906ee2-dc57-4ff0-8fea-66aff826fe83" />
+#### [ Sequence Diagram ]
 
-- **Step0: 정산 기간 고정(billing_cycle)**
-  - 정산 대상 월의 기간(cutoff_at)을 확정
-  - billing_cycle 테이블의 해당 월의 status를 조회 후 상태에 따른 종료 or 다음 스텝 실행
-  - → 정산 기간, 상태값을 통해 중복 실행을 막거나 같은 범위에 대한 배치 처리 보장
-- **Step1: 정산에 필요한 View 생성(billing_targets)**
-  - 해당 월의 **정산에 필요한 사용자(사용 중, 해지)와 정책(결합, 요금제)**를 RDB에 생성
+```mermaid
+---
+config:
+  theme: dark
+---
+sequenceDiagram
+  participant R as BatchRunner
+  participant J as SpringBatchJob
+  participant M as Main DB
+  participant T as Target DB
+  participant G as MongoDB
+  autonumber
+
+  R->>J: Job 실행(cutoff, 채널순서)
+  J->>M: 컨텍스트 초기화(최대 user_id, 기간 계산)
+  M-->>J: 실행컨텍스트 반환
+
+  J->>T: Step0 게이트(월/컷오프)
+  alt NOOP
+    T-->>J: 종료
+  else 진행
+    T-->>J: 통과
+  end
+
+  J->>M: Step1 유저 조회(키셋 페이징)
+  loop 청크 반복
+    M-->>J: userIds 청크
+    J->>M: temp_user_ids 생성 + JOIN으로 정책/사용량 조회
+    M-->>J: 정산에 필요한 사실(facts)
+    J->>T: billing_targets 업서트
+  end
+
+  J->>T: Step2 billing_targets 읽기
+  T-->>J: 대상 키 목록
+  J->>T: billing_work 생성/업서트
+
+  J->>J: Step3 파티셔닝(워커 분배)
+  loop 워커별 반복
+    J->>T: workdoc 클레임(리스)
+    T-->>J: 작업 + userIds
+    J->>T: billing_targets 로드
+    T-->>J: 타겟 데이터
+    J->>J: 요금 계산(정산)
+    J->>G: 스냅샷 저장(bulk upsert)
+    J->>T: work 상태 업데이트(CALCULATED/FAILED)
+  end
+```
+
+<br/>
+<br/>
+
+#### [ Flow Chart ]
+
+```mermaid
+---
+config:
+  theme: redux-dark
+---
+flowchart LR
+    A(["시작"]) --> B["컨텍스트 초기화"]
+    B --> C{"BillingGateStep(cutoff)"}
+    C -- NOOP --> Z(["종료"])
+    C -- 진행 --> D["Step1 평탄화<br>(유저→billing_targets)"]
+    D --> E{"남은 청크?"}
+    E -- 예 --> D
+    E -- 아니오 --> F["Step2 작업 생성<br>(billing_work)"]
+    F --> G["Step3 계산/스냅샷<br>(파티셔닝)"]
+    G --> H{"남은 작업?"}
+    H -- 예 --> G
+    H -- 아니오 --> I(["완료"])
+```
+
+#### [ **Step0: 정산 기간 고정(billing_cycle) - BillingGateStep** ]
+  - `billing_cycle`에서 해당 월 row 조회 후 상태에 따라 분기
+  - `FINISHED`: 이미 완료 → Job1 종료 또는 이후 Step 스킵
+  - `RUNNING/PROCESSING`: 실행 중 → 중복 실행 차단
+  - 실행 가능: cutoff 확정 + 상태를 `RUNNING`으로 원자 전이
+
+
+  
+#### [ **Step1: 정산에 필요한 View 생성(billing_targets) - BillingFlattenStep** ]
+  - 정산 월 기준으로 계산에 필요한 정책/요금제/식별 정보를 유저 단위로 평탄화
   - 다양한 정책을 다중 조인을 통해 한 명의 유저에 대하여 평탄화 진행
-  - → 정산 스탭에서 모든 사용자에 대한 RDB 다중 조인 재수행을 제거하여 성능 향상 
-- **Step2: 정산 작업 큐 생성(work_collection)**
-  - Reader : billing_targets를 Keyset 방식으로 조회하여 스캔
-  - Processor : row → document 형식으로 변환
-  - Writer : MongDB work 컬렉션에 저장
+  - 정산 스탭에서 모든 사용자에 대한 RDB 다중 조인 재수행을 제거하여 성능 향상
+
+
+#### [ **Step2: 정산 작업 큐 생성(work_collection) - BillingTargetStep** ]
+  - “정산 대상(billing_targets)”과 “실제 처리 단위(work)”를 분리하여
+  - Step3에서 Claim 기반 처리/재시작/확장 용
   - → 사용자에 대한 상태 값을 TARGET으로 upsert 이후 상태는 다음 스텝에서 관리
-- **Step3: 정산 및 스냅샷 저장**
-  - Reader : MongDB에서 상태 값이 TARGET인 유저를 원자적으로 선점하여 chunk 단위로 PROCESSING
+  - Reader: billing_targets 순차 스캔(키셋/조인 전략 등)
+  - Writer: billing_work 멱등 upsert
+
+
+
+#### [ **Step3: 정산 및 스냅샷 저장 - BillingCalculateAndSnapshotStep** ]
+  - Reader : PostgreSQL의 billing_work를 lease 기반 claim하여 PROCESSING 선점 / Step2에서 생성된 billing_targets table에서 청구서 생성에 필요한 데이터 KeySet 방식 조회
   - Processor : 선점된 userID를 기반으로 도메인 객체에서 계산 수행
   - Writer : 계산 결과를 MongDB에 저장하고 해당 사용자의 status를 CALCULATED로 업데이트
-  - → 상태 전이는 원자적으로 업데이트 되기에 실패한 건수에 대한 재선점 처리
-- **Step4: 월 정산 완료**
+  - Snapshot ID를 workId로 두어 멱등성 보장
+
+
+
+#### [ **Step4: 월 정산 완료 - FinalizeBillingCycleStep** ]
   - MongDB에서 유저 마다의 상태를 확인하여 billing_cycle를 FINISHED or FAILED 업데이트
 
 ---
 
-### Job2 - 발송용 파일 만들기 (결과 저장: S3)
-Job1의 청구 데이터를 조회하여 Email/SMS 정책에 맞게 청구서를 생성하고, 압축하여 S3에 업로드합니다.
+### Job2 - 청구서 발송용 파일 만들기 (결과 저장: S3)
+Job2는 Job1이 생성한 월 정산 결과 스냅샷(billing_snapshot, MongoDB)을 입력으로 받아, 템플릿 렌더링 및 산출물(S3) 생성 후 결과 키를 Postgres에 기록하는 배치 Job
+
+ #### [ Sequence Diagram ]
+
+ ```mermaid
+---
+config:
+  theme: redux-dark
+---
+sequenceDiagram
+  autonumber
+  participant Runner as JobLauncher
+  participant FC as format_cycle(PG)
+  participant BC as billing_cycle(PG)
+  participant Mongo as billing_snapshot(Mongo)
+  participant S3 as S3
+  participant PG as billing_targets(PG)
+
+  Runner->>FC: claim RUNNING (insert if absent)
+  Runner->>BC: check billing_cycle FINISHED?
+
+  alt claim 실패/NOOP
+    Runner-->>Runner: NOOP 종료
+  else 진행
+    Runner->>Mongo: keyset read and process
+    Runner->>S3: upload rendered artifacts
+    Runner->>PG: update S3 link/status
+    Runner->>FC: Finalize -> FINISHED
+  end
+```
+
+#### [ Flow Chart ]
+
+```mermaid
+---
+config:
+  layout: elk
+  look: classic
+  theme: redux-dark
+---
+flowchart LR
+    A(["Start: JobLauncher 실행"]) --> B["format_cycle(PG)<br>claim RUNNING (insert if absent)"]
+    B --> C{"claim 성공?"}
+    C -- NO --> Z(["종료: 이미 완료"])
+    C -- YES --> D["billing_cycle(PG)<br>FINISHED 여부 체크"]
+    D --> E{"billing_cycle == FINISHED?"}
+    E -- NO --> Z
+    E -- YES --> F["billing_snapshot(Mongo)<br>keyset read + process"]
+    F --> G["S3<br>rendered artifacts 업로드"]
+    G --> H["billing_targets(PG)<br>S3 link/status 업데이트"]
+    H --> I["format_cycle(PG)<br>Finalize -&gt; FINISHED"]
+    I --> Y(["End"])
+```
+
+#### [ **Reader** ]
+  - MongoDB `billing_snapshot` 컬렉션에서 대상 스냅샷을 **정확히 조회**한다.
+  - 대량 데이터 환경에서 **중복/누락 없이 안정적으로 순회**할 수 있도록 정렬/페이징 전략을 고정한다.
+  - 배치 재시작(restart) 시, “어디부터 다시 읽을지”가 명확하도록 **체크포인트(lastKey)를 관리**한다
 
 
-<img width="8192" height="2996" alt="Alice Bob Greeting Flow-2026-01-26-043722" src="https://github.com/user-attachments/assets/1ed4b7f0-8deb-4a99-baf6-135d488ba223" />
+#### [ **Processor** ]
+  - `BillingSnapShotProcessor`는 Reader가 MongoDB에서 읽어온 `BillingSnapshotDoc`을 입력으로 받아, **발송/저장 가능한 “렌더링 결과물(RenderedMessageResult)”** 로 변환한다. 이 Processor는 단순 변환기가 아니라, Job2의 핵심 도메인 규칙을 포함한다.
+  - 스냅샷 payload에서 템플릿에 필요한 데이터를 추출
+  - PII(이메일/전화번호 등) **복호화(decrypt)**
+  - (정책에 따라) 마스킹(masking) 처리
+  - chargeLines / discountLines를 템플릿 ViewModel 형태로 평탄화<LIst>
+  - 최종적으로 `RenderBillingMessageUseCase`를 호출하여 **HTML/SMS 텍스트 렌더링 결과**를 생성
 
-
-
-- **Reader**
-  - Mongo billing_snapshot(billingMonth)를 _id ASC로 읽고 lastId 체크포인트로 재시작 지점 관리
-- **Processor**:
-  - 정책/버전 기반 템플릿 컨텍스트 구성 → 복호화/마스킹 → Email/SMS 렌더링(+압축) 결과 생성
-- **Writer**:
-  - S3에 결정론적 Key로 업로드(멱등 overwrite) → PG billing_targets에 s3_url_jsonb 저장하고 send_status=READY 반영
+    
+#### [ **Writer** ]
+  1. **S3 업로드(산출물 적재)**
+    - 정책에 맞는 청구서 플랫폼 를 받아서 S3에 업로드를 한다.
+    - 플랫폼은 마스킹 처리가 되어 있으며 AWS의 권한이 있는 사람만 업로드 가능하다.
+    - 업로드의 결과인 버킷명, 키를 JsonB 형식으로 파싱한다.
+    - 단일 스레드가 아닌 병렬처리를 진행하여 업로드 속도를 개선하였다.
+ 
+   2. **RDB(billing_targets) 최종 상태 반영**
+    - `s3_url_jsonb` 과`send_status`를 `READY`로 update를 하며 추후 카프카에서 전송 매체로 사용
+    - 해당 s3_url은 버킷명과 키를 저장하기 때문에 암호화를 하여 저장된다
 
 <br/>
-<br/>
-<br/>
-<br/>
-<br/>
+
 
 ## ✉️ 메시지 발송(Dispatcher/Consumer) 설계 전략
 
-<img width="5542" height="8192" alt="RDB Dedup Delivery Pipeline-2026-01-15-044201" src="https://github.com/user-attachments/assets/f6091930-6ea2-400c-a106-d92772fcd14b" />
+```mermaid
+---
+config:
+  theme: default
+  look: neo
+---
+flowchart TB
+subgraph Stage1["Orchestration (Dispatch Server)"]
+    A(["2시간 주기 타이머"])
+    B["발송 메시지 후보 RDB 조회<br>
+       send_status IN (READY, FAILED)<br>
+       availableTime <= now<br>
+       FOR UPDATE SKIP LOCKED<br>
+       LIMIT N"]
+    C{"발송 정책 검증"}
+    C1["Pause 처리"]
+    E["Kafka 발행<br>Topic_Request"]
+    F{"Kafka 발행 성공?"}
+    G["FAILED 처리<br>재시도 대기"]
+end
+subgraph Kafka_Bus["Message Broker: Kafka"]
+    K1[["Topic: 발송 요청 (암호화됨)"]]
+    K2[["Topic: 발송 결과"]]
+end
+subgraph Stage2["Delivery"]
+    E2["Kafka Consume"]
+    F2["send_status 업데이트"]
+    G2{"updatedCount == 0 <br>중복 체크"}
+    H2["메시지 폐기"]
 
-- **Step1. 발송 메시지 후보**
-    - 발송 메시지 후보 테이블에는 다음 정보가 저장된다.
-        - 발송 가능 시간 (`availableTime`)
-        - 상태값 (`READY`)
-        - 암호화된 청구서 S3 URL
-        - 전송 매체 (EMAIL, SMS 등)
-        - 전송 종착지 정보 (이메일 주소, 전화번호)
-        - 유저 PK, 청구서 PK 등
-    - 테이블은 다음 조건을 기준으로 인덱싱된다. (`status` ,`availableTime`)
+    subgraph Stage4["Worker Thread"]
+        K11["개인 정보 복호화"]
+        K12["S3로부터 청구서 다운로드"]
+        K13["청구서 발송(1초 대기)"]
+        K14["결과 이벤트 발행"]
+    end
 
-- **Step2. Dispatch Orchestration Server 기동**
-    - Dispatch Orchestration Server가 2시간 주기 타이머에 의해 실행된다.
-    - 이 서버는 전송 흐름 전반에 대한 오케스트레이션 책임을 가진다.
-    - 이 시점부터 Dispatch Server는 “발송 가능 여부 판단 + 이벤트 발행”까지만 담당한다.
+    subgraph Stage3["Result Handler"]
+        K["Result Consumer"]
+        L2["발송 메시지 후보 RDB 업데이트"]
+    end
+end
+MasterDB[("[Postgres_Targets DB] <br>billing_targets")]
+A --> B
+B --> C
 
-- **Step3. 발송 메시지 후보 테이블 조회**
-    - Dispatch Orchestration Server는 다음 조건으로 데이터를 조회한다.
-        - `status = READY, availableTime ≤ 현재 시간`
-    - 이를 통해 발송 금지 시간에 해당하지 않는 데이터만 선별하고 이미 처리 중이거나 완료된 데이터는 재조회되지 않도록 보장
+C -- 정책 불일치 --> C1
 
-- **Step4. 관리자 정책 검증 (전송 매체 정책 일치 여부)**
-    - 조회된 발송 후보에 대해 관리자 정책 테이블을 기준으로 검증을 수행한다.
-    - 검증 항목:
-        - 현재 관리자 정책의 허용 전송 매체
-        - 발송 메시지 후보 테이블에 저장된 전송 매체 정책
-    - 두 정책이 일치하지 않는 경우
-        - 해당 발송 후보는 대기 상태를 유지
-        - 상태 변경 및 Kafka 발행을 수행하지 않는다.
-    - 정책이 일치하는 경우에만 다음 단계로 진행한다.
+C -- 정책 일치 --> E
+E --> F
 
-- **Step5. 상태 변경 및 Kafka 이벤트 발행**
-    - 정책 검증을 통과한 발송 대상에 대해:
-        - 발송 메시지 후보 테이블의 상태를 `PROCESSING`으로 변경
-    - 이후 Kafka의 매체별 전송 토픽에 발송 이벤트를 발행한다.
-    - Kafka 이벤트에는 암호화된 다음 정보가 포함된다.
-        - 청구서 S3 URL
-        - 전송 종착지 (이메일 주소 / 전화번호)
-    - 이 시점부터 Dispatch Orchestration Server의 책임은 종료된다.
+F -- 성공 --> K1
+F -- 실패 --> G
+G -. UPDATE<br>Status = FAILED .-> MasterDB
+K1 --> E2
+E2 --> F2
+F2 --> G2
+F2 -. "UPDATE<br>Status='SENT'" .-> MasterDB
+G2 -- TRUE<br>중복 이벤트 --> H2
+G2 -. FALSE<br>정상 이벤트 .-> Stage4
 
-- **Step6. Delivery Server 이벤트 수신 (Consumer)**
-    - Delivery Server는 Kafka의 Consumer로 동작한다.
-    - 각 Delivery Server는 특정 매체(EMAIL, SMS 등)를 담당할 수 있으며, 이를 통해 수평 확장 구조를 가진다.
-    - 전송 토픽에 이벤트가 적재되면 즉시 Delivery Server가 반응한다.
+K11 --> K12
+K12 --> K13
+K13 --> K14
+K14 --> K2
 
-- **Step7. 데이터 복호화 및 중복 발송 검증**
-    - Delivery Server는 다음 작업을 수행한다.
-        1. 이벤트에 포함된 S3 URL 및 민감 데이터를 복호화
-        2. 발송 메시지 후보 테이블을 조회
-            - 이미 `SENT / FAILED / SUCCEED`  상태인지 확인
-            - 이미 발송 이력이 있는 경우에는 중복 발송 방지를 위해 즉시 처리 종료
-    - 발송 이력이 없는 경우에만 실제 발송 단계로 진행한다.
+K2 --> Stage3
+K --> L2
+L2 -. UPDATE<br>성공: SUCCEED / 실패: FAILED<br>attemptCount 증가 .-> MasterDB
 
-- **Step8. 외부 채널 발송 및 결과 이벤트 발행**
-    - 정책에 맞는 외부 전송 채널(SMS, 이메일 등)로 청구서를 발송한다.
-    - 발송 결과를 Kafka의 발송 결과 토픽에 이벤트로 적재한다.
+B -. Status == READY<br>availableTime <= 현재시각 .-> MasterDB
+style MasterDB fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+style K1 fill:#fff9c4,stroke:#fbc02d
+style K2 fill:#fff9c4,stroke:#fbc02d
+style Stage1 fill:#f9f9f9,stroke:#333
+style Stage2 fill:#f9f9f9,stroke:#333
+style Stage3 fill:#f9f9f9,stroke:#333
+```
 
-- **Step9. 발송 결과 처리 (Result Consumer)**
-    - Result Consumer는 발송 결과 토픽을 지속적으로 확인한다.
-    - 결과 이벤트에 따라:
-        - 성공 시에는 발송 메시지 후보 상태를 `SUCCEED`로 변경
-        - 실패 시에는 상태를 `FAILED`로 변경
-    - 이 단계에서 발송 메시지 후보 테이블의 최종 상태가 확정된다.
+<br/>
 
-- **Step10. 청구서 제작 배치 Job2 이벤트 전달**
-    - 발송 결과 처리가 완료되면:
-        - Result Consumer는 청구서 제작 배치 Job2 서버로 이벤트를 발행한다.
-    - 실패 이벤트는 이후 재시도 배치 잡을 통해 다시 Step2부터 재진입할 수 있다.
+
+| 단계 | 주요 컴포넌트 | 핵심 기술 및 전략 |
+| --- | --- | --- |
+| **Step 1. Dispatch** | CandidateBatchService | `SKIP LOCKED` 기반 병렬 조회, Partial Index로 성능 290배 개선 |
+| **Step 2. Delivery** | DispatchEventListener | 수신 즉시 DB 상태 변경 (`READY → SENT`)으로 중복 처리 차단 |
+| **Step 3. Worker** | DeliveryWorker | AES-256 복호화, S3 템플릿 다운로드 및 비동기 발송 실행 |
+| **Step 4. Loopback** | DeliveryResultListener | 발송 성공/실패 여부를 수신하여 최종 DB 상태 업데이트 |
+
+
+<br/>
+
+## 3. Implementation Details
+
+### ⚙️ 배압 제어 (Backpressure)
+
+시스템 과부하 시 메모리 폭증(OOM)을 방지하기 위해 **Custom Blocking Policy**를 적용했습니다.
+
+- **Zero Capacity Queue:** 대기열을 없애 서버 다운 시 메모리 내 데이터 증발 리스크를 제거했습니다.
+- **Blocking Policy:** 스레드 풀 포화 시 컨슈머 스레드를 직접 대기시켜(`put()`) 인입 속도를 자동 조절합니다.
+
+### 🛡️ 결함 내성 (Fault Tolerance)
+
+장애 시나리오별 대응을 통해 **'데이터 유실 0건'**을 보장합니다.
+
+- **DB 장애:** 업데이트 실패 시 **NACK** 전송으로 Kafka 재처리 유도.
+- **로직 에러:** 예외 포착 즉시 실패 이벤트를 발행하여 DB 상태 확정.
+- **결과 처리 장애:** DB 복구 시까지 결과 이벤트를 **무한 재시도**하여 정합성 확보.
+- **좀비 데이터:** 서버 셧다운 등으로 `SENT`에 머문 데이터는 관리자 대시보드에서 수동 복구.
+
+### 🔌 확장성 (Extensibility)
+
+- *전략 패턴(Strategy Pattern)**을 적용하여 EMAIL, SMS 외에 카카오톡 등 새로운 매체 추가 시 기존 코드 수정 없이 확장 가능(OCP 준수)하도록 설계했습니다.
