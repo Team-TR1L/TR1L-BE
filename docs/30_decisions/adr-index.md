@@ -17,6 +17,5 @@ nav_order: 1
 > 6. **Evidence** - 증빙/측정/지표
 
 # ADRs
-- **ADR-0001** Flatten User Table JOIN 과부하 제거
-- **ADR-0002** KeySet 페이지네이션 도입
-- **ADR-0003** BillingTarget 멀티 스레드 도입
+- **ADR-0001** [Flatten User Table JOIN 과부하 제거](adr-0001-flattening-join-explosion.md)
+- **ADR-0002** [KeySet 페이지네이션 도입](adr-0002-keyset-pagination.md)
