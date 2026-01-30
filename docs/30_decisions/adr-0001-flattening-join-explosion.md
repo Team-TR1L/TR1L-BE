@@ -4,8 +4,45 @@ parent: 당위성/의사결정(Decisions)
 nav_order: 10
 ---
 
-> #### 작성자 : 김도연
+<div class="tr1l-participants" aria-label="participants">
+  <a class="tr1l-chip" href="https://github.com/tkv00" aria-label="김도연 GitHub">
+    <img class="tr1l-avatar" src="https://github.com/tkv00.png?size=120" alt="김도연" />
+    <span class="tr1l-name">김도연</span>
+  </a>
+</div>
+
+<style>
+  .tr1l-participants{
+    display:flex; flex-wrap:wrap; gap:10px;
+    align-items:center; margin:8px 0 2px;
+  }
+  .tr1l-chip{
+    display:inline-flex; align-items:center; gap:10px;
+    padding:8px 12px; border-radius:999px;
+    text-decoration:none !important;
+    border:1px solid rgba(127,127,127,.28);
+    background:rgba(127,127,127,.10);
+    backdrop-filter:saturate(140%) blur(4px);
+    transition:transform .12s ease, border-color .12s ease, background .12s ease;
+  }
+  .tr1l-chip:hover{
+    transform:translateY(-1px);
+    border-color:rgba(127,127,127,.45);
+    background:rgba(127,127,127,.14);
+  }
+  .tr1l-avatar{
+    width:28px; height:28px; border-radius:50%;
+    display:block; flex:0 0 auto;
+    box-shadow:0 0 0 1px rgba(127,127,127,.22);
+  }
+  .tr1l-name{
+    font-weight:650; font-size:14px;
+    line-height:1; letter-spacing:-0.2px;
+    color:inherit;
+  }
+</style>
 > #### 작성일 : 2026-01-28
+
 
 ---
 ## 1. Context (상황/배경)
@@ -74,8 +111,9 @@ nav_order: 10
   - 스키마 변경 시 마이그레이션 필요
 
 #### Quick Compare (간단 비교)
+
 | Option | 성능(Performance) | 안정성(Reliability) | 운영성(Operability) |     비용(Cost) |    개발(DevEx) | 결론(Verdict) |
-| ------ | --------------: | ---------------: | ---------------: | -----------: | -----------: | ----------- |
+|--------|----------------:|-----------------:|-----------------:|-------------:|-------------:|-------------|
 | A      |     낮음(반복 JOIN) |   낮음(재시도 경계 불명확) |               낮음 |           중간 |           중간 | Rejected    |
 | B      | 중간~낮음(대형쿼리 리스크) |  낮음(실패 시 전량 재처리) |               낮음 |           중간 | 낮음(유지보수 어려움) | Rejected    |
 | C      | 높음(Join 1회로 고정) |   높음(rerun-safe) |     높음(지표/제어 용이) | 중간~높음(저장/쓰기) |   높음(코드 단순화) | **Chosen**  |

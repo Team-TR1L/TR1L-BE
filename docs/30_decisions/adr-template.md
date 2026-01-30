@@ -1,5 +1,43 @@
-> #### 작성자 :
-> #### 작성일 :
+
+<div class="tr1l-participants" aria-label="participants">
+  <a class="tr1l-chip" href="https://github.com/tkv00" aria-label="김도연 GitHub">
+    <img class="tr1l-avatar" src="https://github.com/tkv00.png?size=120" alt="김도연" />
+    <span class="tr1l-name">김도연</span>
+  </a>
+</div>
+
+<style>
+  .tr1l-participants{
+    display:flex; flex-wrap:wrap; gap:10px;
+    align-items:center; margin:8px 0 2px;
+  }
+  .tr1l-chip{
+    display:inline-flex; align-items:center; gap:10px;
+    padding:8px 12px; border-radius:999px;
+    text-decoration:none !important;
+    border:1px solid rgba(127,127,127,.28);
+    background:rgba(127,127,127,.10);
+    backdrop-filter:saturate(140%) blur(4px);
+    transition:transform .12s ease, border-color .12s ease, background .12s ease;
+  }
+  .tr1l-chip:hover{
+    transform:translateY(-1px);
+    border-color:rgba(127,127,127,.45);
+    background:rgba(127,127,127,.14);
+  }
+  .tr1l-avatar{
+    width:28px; height:28px; border-radius:50%;
+    display:block; flex:0 0 auto;
+    box-shadow:0 0 0 1px rgba(127,127,127,.22);
+  }
+  .tr1l-name{
+    font-weight:650; font-size:14px;
+    line-height:1; letter-spacing:-0.2px;
+    color:inherit;
+  }
+</style>
+> #### 작성일 : 2026-01-28
+
 
 ---
 
@@ -46,10 +84,10 @@
 
 #### Quick Compare (간단 비교)
 | Option | 성능(Performance) | 안정성(Reliability) | 운영성(Operability) | 비용(Cost) | 개발(DevEx) | 결론(Verdict) |
-|---|---:|---:|---:|---:|---:|---|
-| A | | | | | | |
-| B | | | | | | |
-| C | | | | | | |
+|--------|----------------:|-----------------:|-----------------:|---------:|----------:|-------------|
+| A      |                 |                  |                  |          |           |             |
+| B      |                 |                  |                  |          |           |             |
+| C      |                 |                  |                  |          |           |             |
 
 ---
 
