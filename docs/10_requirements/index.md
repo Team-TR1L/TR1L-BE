@@ -18,3 +18,4 @@ nav_order: 10
 # Documents
 - [Epics (Jira 요약)](epics.md)
 - [회의록](meeting-doc.md)
+- [Team Convention](convention.md)
