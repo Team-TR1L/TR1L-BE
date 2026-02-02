@@ -19,3 +19,5 @@ nav_order: 1
 # ADRs
 - **ADR-0001** [Flatten User Table JOIN 과부하 제거](adr-0001-flattening-join-explosion.md)
 - **ADR-0002** [KeySet 페이지네이션 도입](adr-0002-keyset-pagination.md)
+- **ADR-0003** [Snapshot용 MongoDB 도입](adr-0003-snapshot-store-mongo-vs-rds.md)
+- **ADR-0004** [RDB 선정 - PostgreSQL VS MySQL](adr-0004-postgresql.md)
