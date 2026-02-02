@@ -16,6 +16,9 @@ TR1L은 **대규모 청구/정산(Billing) + 발송(Delivery)**을 전제로
 ## Quick Links
 - [프로젝트 개요(Overview)](./00_overview.md)
 
+### 프로젝트 형상 관리(Software Configuration Management)
+- [프로젝트 형상 관리 (Software Configuration Management (SCM))](./10_requirements/index.md)
+
 ### 아키텍처(Architecture)
 - [System/Domain Architecture](./20_architecture/system_domain.md)
 - [Infrastructure Architecture](./20_architecture/infrastructure.md)

@@ -1,7 +1,13 @@
 <!-- Mermaid diagrams for GitHub Pages(Jekyll) -->
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="/assets/js/vendor/mermaid.min.js"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    mermaid.initialize({ startOnLoad: true });
-  });
+  function renderMermaid() {
+    if (!window.mermaid) return;
+    mermaid.initialize({ startOnLoad: false });
+    mermaid.init(undefined, document.querySelectorAll(".mermaid:not([data-processed])"));
+  }
+
+  document.addEventListener("DOMContentLoaded", renderMermaid);
+  document.addEventListener("turbolinks:load", renderMermaid);
+  document.addEventListener("turbo:load", renderMermaid);
 </script>
