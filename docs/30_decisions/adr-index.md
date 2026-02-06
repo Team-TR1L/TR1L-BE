@@ -21,3 +21,4 @@ nav_order: 1
 - **ADR-0002** [KeySet 페이지네이션 도입](adr-0002-keyset-pagination.md)
 - **ADR-0003** [Snapshot용 MongoDB 도입](adr-0003-snapshot-store-mongo-vs-rds.md)
 - **ADR-0004** [RDB 선정 - PostgreSQL VS MySQL](adr-0004-postgresql.md)
+- **ADR-0005** [S3 선정 - S3 vs PostgresSQL vs IPFS](adr-0005-s3.md)
