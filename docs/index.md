@@ -25,6 +25,7 @@ TR1L은 **대규모 청구/정산(Billing) + 발송(Delivery)**을 전제로
 - [Database Architecture](./20_architecture/database.md)
 - [Message Queue Architecture](./20_architecture/message_queue.md)
 - [Batch Architecture](./20_architecture/batch.md)
+- [S3 Architecture](./20_architecture/s3.md)
 
 ### 운영(Operations)
 - [운영 가이드(Runbook)](./40_operations/runbook.md)
