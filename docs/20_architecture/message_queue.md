@@ -113,7 +113,7 @@ style Stage1 fill:#f9f9f9,stroke:#333
 
 ## 5) 참고 (ADR)
 
-- `30_decisions/adr-0006-producer-triggering.md` — Producer 트리거(Cron vs Scheduler) 및 실행 단위 결정
+- `30_decisions/adr-0006-cursor-skip-locked.md` — Cursor Paging + SKIP LOCKED 후보 조회/경합 제어 결정
 
 ---
 
