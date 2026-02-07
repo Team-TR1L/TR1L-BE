@@ -22,3 +22,4 @@ nav_order: 1
 - **ADR-0003** [Snapshot용 MongoDB 도입](adr-0003-snapshot-store-mongo-vs-rds.md)
 - **ADR-0004** [RDB 선정 - PostgreSQL VS MySQL](adr-0004-postgresql.md)
 - **ADR-0005** [S3 선정 - S3 vs PostgresSQL vs IPFS](adr-0005-s3.md)
+- **ADR-0006** [메시지 후보군 조회 쿼리 - Skip Locked 적용](adr-0006-cursor-skip-locked.md)
