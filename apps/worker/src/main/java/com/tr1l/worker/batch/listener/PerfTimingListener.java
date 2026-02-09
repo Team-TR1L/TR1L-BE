@@ -186,7 +186,7 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
                     stepExecution.getRollbackCount()
             );
             } else {
-                log.warn("""
+                log.error("""
                             ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
                             ┃           STEP TOTAL TIMING (SUMMARY)            ┃
                             ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
