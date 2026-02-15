@@ -26,13 +26,16 @@ dependencies {
     //thymelaf
     implementation "org.springframework.boot:spring-boot-starter-thymeleaf"
 
-    // s3 의존성 설치
+    // s3 의존성 설치, 비동기 클라이언트 추가
     implementation platform("software.amazon.awssdk:bom:2.41.10")
     implementation "software.amazon.awssdk:s3"
     implementation "software.amazon.awssdk:auth"
     implementation "software.amazon.awssdk:aws-core"
     implementation "software.amazon.awssdk:sdk-core"
     implementation "software.amazon.awssdk:apache-client"
+    implementation("software.amazon.awssdk:netty-nio-client")
+    implementation("io.micrometer:micrometer-core")
+
 
 
     //Liquibase
