@@ -107,6 +107,6 @@ public class BillingTargetS3UploadAdapter implements BillingTargetS3UpdatePort {
       """);
 
         jdbc.getJdbcTemplate().update(sql.toString(), params.toArray());
-        log.error("updateStatusBulkSingleQuery size={}", requests.size());
+        log.error("벌크 연산 진행 size={}", requests.size());
     }
 }

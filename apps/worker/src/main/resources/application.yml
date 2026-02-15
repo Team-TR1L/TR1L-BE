@@ -122,6 +122,9 @@ logging:
 # S3 설정값
 s3:
   bucket: ${S3_BUCKET:}
+  gzip:
+    threads: 1
+    queue: 2000
 
 aws:
   region: ${AWS_REGION:}
@@ -131,6 +134,10 @@ aws:
     upload:
       concurrency: 32
       queue-capacity: 12000
+
+    http:
+      max-concurrency: 128
+      max-pending-acquires: 1024
 
 # 암/복호화 키
 secret-key: ${SECRET_KEY}
@@ -163,3 +170,4 @@ s3:
 
 aws:
   region: ${AWS_REGION:ap-northeast-2}
+
