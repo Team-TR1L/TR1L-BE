@@ -1,0 +1,157 @@
+{
+  "uid": "postgres-slow-queries",
+  "title": "Postgres Slow Queries",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Slow Call Ratio (mean >= 500ms)",
+      "datasource": "PostgresTarget",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT COALESCE(100.0 * SUM(CASE WHEN mean_exec_time >= 500 THEN calls ELSE 0 END)::numeric / NULLIF(SUM(calls), 0), 0) AS slow_call_ratio_pct FROM pg_stat_statements;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 6 }
+    },
+    {
+      "type": "stat",
+      "title": "Total Exec Time (s)",
+      "datasource": "PostgresTarget",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT COALESCE(SUM(total_exec_time) / 1000.0, 0) AS total_exec_seconds FROM pg_stat_statements;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 6 }
+    },
+    {
+      "type": "stat",
+      "title": "Tracked Statements",
+      "datasource": "PostgresTarget",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) AS statement_count FROM pg_stat_statements;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 6 }
+    },
+    {
+      "type": "table",
+      "title": "Top 20 Slow Queries by Mean Time",
+      "datasource": "PostgresTarget",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT queryid, calls, ROUND(mean_exec_time::numeric, 2) AS mean_exec_ms, ROUND(total_exec_time::numeric, 2) AS total_exec_ms, LEFT(REGEXP_REPLACE(query, '\\s+', ' ', 'g'), 220) AS query_sample FROM pg_stat_statements WHERE calls >= 5 ORDER BY mean_exec_time DESC LIMIT 20;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "mean_exec_ms" },
+            "properties": [
+              { "id": "unit", "value": "ms" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "total_exec_ms" },
+            "properties": [
+              { "id": "unit", "value": "ms" }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 9 }
+    },
+    {
+      "type": "table",
+      "title": "Top 20 Heavy Queries by Total Time",
+      "datasource": "PostgresTarget",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT queryid, calls, ROUND(total_exec_time::numeric, 2) AS total_exec_ms, ROUND(mean_exec_time::numeric, 2) AS mean_exec_ms, LEFT(REGEXP_REPLACE(query, '\\s+', ' ', 'g'), 220) AS query_sample FROM pg_stat_statements WHERE calls >= 5 ORDER BY total_exec_time DESC LIMIT 20;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "mean_exec_ms" },
+            "properties": [
+              { "id": "unit", "value": "ms" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "total_exec_ms" },
+            "properties": [
+              { "id": "unit", "value": "ms" }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "x": 0, "y": 15, "w": 24, "h": 9 }
+    },
+    {
+      "type": "table",
+      "title": "pg_stat_statements Reset Time",
+      "datasource": "PostgresTarget",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT stats_reset FROM pg_stat_statements_info;",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 5 }
+    }
+  ],
+  "templating": { "list": [] },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  }
+}
