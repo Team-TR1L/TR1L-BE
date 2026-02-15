@@ -4,12 +4,13 @@ import com.tr1l.billing.application.model.WorkAndTargetRow;
 import com.tr1l.billing.application.port.out.BillingSnapshotSavePort;
 import com.tr1l.billing.application.port.out.BillingTargetLoadPort;
 import com.tr1l.billing.application.port.out.WorkDocClaimPort;
+import com.tr1l.billing.application.port.out.WorkDocRangePort;
 import com.tr1l.billing.application.port.out.WorkDocStatusPort;
 import com.tr1l.billing.application.service.IssueBillingService;
 import com.tr1l.worker.batch.calculatejob.step.step3.CalculateAndSnapshotWriter;
 import com.tr1l.worker.batch.calculatejob.step.step3.WorkDocClaimAndTargetRowReader;
 import com.tr1l.worker.batch.calculatejob.step.step3.CalculateBillingProcessor;
-import com.tr1l.worker.batch.calculatejob.support.WorkerIdPartitioner;
+import com.tr1l.worker.batch.calculatejob.support.BillingWorkRangePartitioner;
 import com.tr1l.worker.batch.listener.PerfTimingListener;
 import com.tr1l.worker.batch.listener.SqlQueryCountListener;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -101,15 +102,13 @@ public class BillingCalculateAndSnapshotConfig {
             @Value("${app.billing.step3.lease-seconds:500}") long leaseSeconds,
             @Qualifier("billingWorkerId") String workerId,
             @Value("#{stepExecutionContext['workerId']}") String partitionWorkerId,
-            @Value("#{stepExecutionContext['partitionIndex']}") Integer partitionIndex,
-            @Value("#{stepExecutionContext['partitionCount']}") Integer partitionCount
+            @Value("#{stepExecutionContext['userIdStart']}") Long userIdStart,
+            @Value("#{stepExecutionContext['userIdEnd']}") Long userIdEnd
     ) {
         YearMonth billingMonth = YearMonth.parse(billingYearMonth); // YYYY-MM
         String effectiveWorkerId = (partitionWorkerId == null || partitionWorkerId.isBlank())
                 ? workerId
                 : partitionWorkerId;
-        int effectivePartitionIndex = (partitionIndex == null) ? 0 : partitionIndex;
-        int effectivePartitionCount = (partitionCount == null || partitionCount <= 0) ? 1 : partitionCount;
 
         return new WorkDocClaimAndTargetRowReader(
                 claimPort,
@@ -118,8 +117,8 @@ public class BillingCalculateAndSnapshotConfig {
                 fetchSize,
                 Duration.ofSeconds(leaseSeconds),
                 effectiveWorkerId,
-                effectivePartitionIndex,
-                effectivePartitionCount
+                userIdStart,
+                userIdEnd
         );
     }
 
@@ -162,11 +161,15 @@ public class BillingCalculateAndSnapshotConfig {
     }
 
     @Bean(name = "step3Partitioner")
+    @StepScope
     public Partitioner step3Partitioner(
+            WorkDocRangePort rangePort,
             @Qualifier("billingWorkerId") String workerId,
+            @Value("#{jobExecutionContext['billingYearMonth']}") String billingYearMonth,
             @Value("${app.billing.step3.partition.grid-size}") int gridSize
     ) {
-        return new WorkerIdPartitioner(workerId, gridSize);
+        YearMonth billingMonth = YearMonth.parse(billingYearMonth); // YYYY-MM
+        return new BillingWorkRangePartitioner(rangePort, workerId, billingMonth, gridSize);
     }
 
     @Bean

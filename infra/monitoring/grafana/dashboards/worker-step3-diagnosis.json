@@ -1,0 +1,188 @@
+{
+  "uid": "worker-step3-diagnosis",
+  "title": "Worker Step3 Diagnosis",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Step3 Avg Phase Time (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "(sum by (phase) (rate(batch_chunk_time_seconds_sum{step=~\"billingCalculateAndSnapshotStep.*\"}[1m])) / sum by (phase) (rate(batch_chunk_time_seconds_count{step=~\"billingCalculateAndSnapshotStep.*\"}[1m]))) * 1000",
+          "legendFormat": "{{phase}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Step3 Write Throughput (items/s)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(batch_chunk_item_count_total{step=~\"billingCalculateAndSnapshotStep.*\",phase=\"write\"}[1m]))",
+          "legendFormat": "write"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Step3 SQL QPS by Type (target)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (type) (rate(batch_sql_query_count_total{step=~\"billingCalculateAndSnapshotStep.*\",datasource=\"target\"}[1m]))",
+          "legendFormat": "{{type}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Step3 Avg SQL Time (ms) by Datasource",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "(rate(batch_sql_query_time_seconds_sum{step=~\"billingCalculateAndSnapshotStep.*\",datasource=~\"main|target\"}[1m]) / rate(batch_sql_query_time_seconds_count{step=~\"billingCalculateAndSnapshotStep.*\",datasource=~\"main|target\"}[1m])) * 1000",
+          "legendFormat": "{{datasource}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Mongo Avg Duration (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "(rate(mongo_command_duration_seconds_sum{status=\"ok\"}[5m]) / rate(mongo_command_duration_seconds_count{status=\"ok\"}[5m])) * 1000",
+          "legendFormat": "{{cmd}}/{{collection}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 8 }
+    },
+    {
+      "type": "stat",
+      "title": "Lock Wait Sessions",
+      "datasource": "PostgresTarget",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) AS lock_waits FROM pg_stat_activity WHERE wait_event_type = 'Lock';",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 40, "w": 6, "h": 6 }
+    },
+    {
+      "type": "stat",
+      "title": "billing_work Dead Tuple %",
+      "datasource": "PostgresTarget",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT ROUND(100.0 * n_dead_tup / NULLIF(n_live_tup + n_dead_tup, 0), 2) AS dead_pct FROM pg_stat_user_tables WHERE relname = 'billing_work';",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 6, "y": 40, "w": 6, "h": 6 }
+    },
+    {
+      "type": "table",
+      "title": "Blocked Sessions Detail",
+      "datasource": "PostgresTarget",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT bl.pid AS blocked_pid, ka.usename AS blocked_user, now() - ka.query_start AS blocked_for, ka.query AS blocked_query, kl.pid AS blocking_pid, kb.usename AS blocking_user, kb.query AS blocking_query, bl.relation::regclass AS relation FROM pg_locks bl JOIN pg_stat_activity ka ON ka.pid = bl.pid JOIN pg_locks kl ON kl.locktype = bl.locktype AND kl.database IS NOT DISTINCT FROM bl.database AND kl.relation IS NOT DISTINCT FROM bl.relation AND kl.page IS NOT DISTINCT FROM bl.page AND kl.tuple IS NOT DISTINCT FROM bl.tuple AND kl.virtualxid IS NOT DISTINCT FROM bl.virtualxid AND kl.transactionid IS NOT DISTINCT FROM bl.transactionid AND kl.classid IS NOT DISTINCT FROM bl.classid AND kl.objid IS NOT DISTINCT FROM bl.objid AND kl.objsubid IS NOT DISTINCT FROM bl.objsubid AND kl.pid <> bl.pid JOIN pg_stat_activity kb ON kb.pid = kl.pid WHERE NOT bl.granted ORDER BY blocked_for DESC LIMIT 20;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": { "x": 12, "y": 40, "w": 12, "h": 12 }
+    },
+    {
+      "type": "table",
+      "title": "billing_work Table Stats",
+      "datasource": "PostgresTarget",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT relname, n_live_tup, n_dead_tup, last_vacuum, last_autovacuum FROM pg_stat_user_tables WHERE relname = 'billing_work';",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 46, "w": 12, "h": 6 }
+    }
+  ],
+  "templating": { "list": [] },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  }
+}

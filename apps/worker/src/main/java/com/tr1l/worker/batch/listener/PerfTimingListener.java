@@ -86,6 +86,7 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
     private final MeterRegistry meterRegistry;
     private final boolean logChunkSummaryAsError;
     private final boolean logSlowAsError;
+    private static final String DEBUG_JOB_NAME = "calculateJob";
 
     public PerfTimingListener(
             long slowReadMs,
@@ -285,7 +286,9 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
         );
 
         if (slowChunkMs > 0 && chunkElapsedMs >= slowChunkMs) {
-            if (logSlowAsError) {
+            if (isDebugJob()) {
+                log.debug("SLOW_CHUNK {}", msg);
+            } else if (logSlowAsError) {
                 log.error("SLOW_CHUNK {}", msg);
             } else {
                 log.info("SLOW_CHUNK {}", msg);
@@ -331,7 +334,9 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
         // 느린 read만 WARN
         long elapsedMs = elapsedNs / 1_000_000;
         if (elapsedMs >= slowReadMs) {
-            if (logSlowAsError) {
+            if (isDebugJob()) {
+                log.debug("step={} SLOW_READ {}ms itemId={}", stepName(), elapsedMs, safeId(item));
+            } else if (logSlowAsError) {
                 log.error("step={} SLOW_READ {}ms itemId={}", stepName(), elapsedMs, safeId(item));
             } else {
                 log.info("step={} SLOW_READ {}ms itemId={}", stepName(), elapsedMs, safeId(item));
@@ -373,7 +378,9 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
 
         long elapsedMs = elapsedNs / 1_000_000;
         if (elapsedMs >= slowProcessMs) {
-            if (logSlowAsError) {
+            if (isDebugJob()) {
+                log.debug("step={} SLOW_PROCESS {}ms itemId={}", stepName(), elapsedMs, safeId(item));
+            } else if (logSlowAsError) {
                 log.error("step={} SLOW_PROCESS {}ms itemId={}", stepName(), elapsedMs, safeId(item));
             } else {
                 log.info("step={} SLOW_PROCESS {}ms itemId={}", stepName(), elapsedMs, safeId(item));
@@ -408,7 +415,9 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
 
         long elapsedMs = elapsedNs / 1_000_000;
         if (elapsedMs >= slowWriteMs) {
-            if (logSlowAsError) {
+            if (isDebugJob()) {
+                log.debug("step={} SLOW_WRITE {}ms size={}", stepName(), elapsedMs, size);
+            } else if (logSlowAsError) {
                 log.error("step={} SLOW_WRITE {}ms size={}", stepName(), elapsedMs, size);
             } else {
                 log.info("step={} SLOW_WRITE {}ms size={}", stepName(), elapsedMs, size);
@@ -435,6 +444,12 @@ public class PerfTimingListener<I, O> extends ChunkListenerSupport
 
     private String safeStepName(StepExecution se) {
         return (se == null) ? "unknown-step" : se.getStepName();
+    }
+
+    private boolean isDebugJob() {
+        if (stepExecution == null) return false;
+        String job = stepExecution.getJobExecution().getJobInstance().getJobName();
+        return DEBUG_JOB_NAME.equals(job);
     }
 
     private void recordMetrics(
