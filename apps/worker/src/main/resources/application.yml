@@ -62,10 +62,11 @@ app:
         bulkSize: 10000
       chunk:
         chunkSize: 10000
-
+    step2:
+      targetBase: classpath:sql/job1/step2/target
   billing:
     step3:
-      chunk-size: 2000
+      chunk-size: 1000
       fetch-size: 2000
       partition:
         grid-size: 16
@@ -131,12 +132,17 @@ aws:
   s3:
     max-connections: 100
     upload:
-      concurrency: 48
+      concurrency: 32
       queue-capacity: 12000
 
     http:
       max-concurrency: 128
       max-pending-acquires: 1024
+
+# 암/복호화 키
+secret-key: ${SECRET_KEY}
+algorithm: ${ALGORITHM:AES}
+transformation: ${TRANSFORMATION}
 
 ---
 
@@ -165,7 +171,3 @@ s3:
 aws:
   region: ${AWS_REGION:ap-northeast-2}
 
-# 암/복호화 키
-secret-key: ${SECRET_KEY}
-algorithm: ${ALGORITHM:AES}
-transformation: ${TRANSFORMATION}

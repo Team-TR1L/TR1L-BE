@@ -8,6 +8,7 @@ services:
       postgres_target:
         condition: service_healthy
     environment:
+      SECRET_KEY: Xy9zPvQ3kL5mRnJwT8bH2cD4fG7jA1sE
       SPRING_DATASOURCE_URL: jdbc:postgresql://host.docker.internal:5432/billing # local
       TARGET_DATASOURCE_URL: jdbc:postgresql://postgres_target:5432/billing_target  #docker
       PG_SUB_HOST: jdbc:postgresql://postgres_target:5432/billing_target
@@ -20,6 +21,8 @@ services:
       OTEL_SERVICE_NAME: worker
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      TRANSFORMATION: awe
+      ALGORITHM: awe
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: none
       OTEL_LOGS_EXPORTER: none

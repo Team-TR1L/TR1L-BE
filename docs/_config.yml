@@ -1,0 +1,12 @@
+title: TR1L 기술 문서 (Engineering Docs)
+description: 성능(Performance) · 장애 컨트롤(Reliability) · 아키텍처(Architecture)
+
+remote_theme: just-the-docs/just-the-docs
+plugins:
+  - jekyll-remote-theme
+
+# Dark theme
+color_scheme: dark
+search_enabled: true
+
+baseurl: "/TR1L-BE"

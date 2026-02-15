@@ -6,9 +6,12 @@ import com.tr1l.billing.api.usecase.RenderBillingMessageUseCase;
 import com.tr1l.billing.application.port.out.BillingTargetS3UpdatePort;
 import com.tr1l.billing.application.port.out.S3UploadPort;
 import com.tr1l.util.DecryptionTool;
+import com.tr1l.billing.domain.model.aggregate.Billing;
 import com.tr1l.util.EncryptionTool;
 import com.tr1l.worker.batch.formatjob.domain.BillingSnapshotDoc;
 import com.tr1l.billing.application.model.RenderedMessageResult;
+import com.tr1l.worker.batch.formatjob.step.step0.FormatGateTasklet;
+import com.tr1l.worker.batch.formatjob.step.step2.FormatFinalizeTasklet;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotProcessor;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapShotWriter;
 import com.tr1l.worker.batch.formatjob.step.step1.BillingSnapshotKeysetReader;
@@ -18,11 +21,14 @@ import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.core.step.skip.SkipPolicy;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.retry.RetryPolicy;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.thymeleaf.TemplateEngine;
 
@@ -31,7 +37,7 @@ import java.util.concurrent.Executor;
 /**
  * ==========================
  * BillingSnapShotStepConfig
- *
+ * <p>
  * BillingSnapShotStep들을 모아 step 연결하는곳
  *
  * @author nonstop
@@ -39,7 +45,6 @@ import java.util.concurrent.Executor;
  * @since 2026-01-20
  * ==========================
  */
-
 
 
 @Configuration
@@ -60,21 +65,26 @@ public class BillingSnapShotStepConfig {
             BillingSnapShotProcessor processor,
             BillingSnapShotWriter writer,
             StepLoggingListener listener, // add
+            @Qualifier("formatJobRetryPolicy") RetryPolicy formatJobRetryPolicy,
+            @Qualifier("formatJobSkipPolicy") SkipPolicy formatJobSkipPolicy,
             @Value("${app.mongo.snapshot.chunk-size:200}") int chunkSize
-    ){
-        var perf = new PerfTimingListener<BillingSnapshotDoc,RenderedMessageResult>(
+    ) {
+        var perf = new PerfTimingListener<BillingSnapshotDoc, RenderedMessageResult>(
                 30,   // slowReadMs
                 50,   // slowProcessMs
                 300,  // slowWriteMs
                 1000, // slowChunkMs
                 doc -> doc.id() //
         );
-        return new StepBuilder("billingSnapShotStep",jobRepository)
-                .<BillingSnapshotDoc, RenderedMessageResult>chunk(chunkSize,transactionManager)
+        return new StepBuilder("billingSnapShotStep", jobRepository)
+                .<BillingSnapshotDoc, RenderedMessageResult>chunk(chunkSize, transactionManager)
                 .reader(reader)
                 .processor(processor)
                 .listener(listener)  // add
                 .writer(writer)
+                .faultTolerant()
+                .retryPolicy(formatJobRetryPolicy)
+                .skipPolicy(formatJobSkipPolicy)
                 .listener((StepExecutionListener) perf)
                 .listener((ChunkListener) perf)
                 .listener((ItemReadListener<BillingSnapshotDoc>) perf)
@@ -82,6 +92,51 @@ public class BillingSnapShotStepConfig {
                 .listener((ItemWriteListener<RenderedMessageResult>) perf)
                 .build();
     }
+
+    @Bean
+    @StepScope
+    public FormatGateTasklet formatGateTasklet(
+            @Qualifier("targetJdbcTemplate") JdbcTemplate jdbcTemplate
+    ) {
+        return new FormatGateTasklet(jdbcTemplate);
+    }
+
+    @Bean
+    @StepScope
+    public FormatFinalizeTasklet formatFinalizeTasklet(
+            @Qualifier("targetJdbcTemplate") JdbcTemplate jdbcTemplate
+    ) {
+        return new FormatFinalizeTasklet(jdbcTemplate);
+    }
+
+    // ✅ Step0 Step Bean
+    @Bean
+    public Step formatGateStep(
+            JobRepository jobRepository,
+            @Qualifier("TX-target") PlatformTransactionManager transactionManager,
+            FormatGateTasklet formatGateTasklet,
+            StepLoggingListener listener
+    ) {
+        return new StepBuilder("formatGateStep", jobRepository)
+                .tasklet(formatGateTasklet, transactionManager)
+                .listener(listener)
+                .build();
+    }
+
+    // Step2 Step Bean
+    @Bean
+    public Step formatFinalizeStep(
+            JobRepository jobRepository,
+            @Qualifier("TX-target") PlatformTransactionManager transactionManager,
+            FormatFinalizeTasklet formatFinalizeTasklet,
+            StepLoggingListener listener
+    ) {
+        return new StepBuilder("formatFinalizeStep", jobRepository)
+                .tasklet(formatFinalizeTasklet, transactionManager)
+                .listener(listener)
+                .build();
+    }
+
 
     @Bean
     @StepScope
@@ -94,12 +149,13 @@ public class BillingSnapShotStepConfig {
         return new BillingSnapshotKeysetReader(mongoTemplate, collection, billingYear, pageSize);
     }
 
+
     @Bean
     @StepScope
-    public BillingSnapShotProcessor billingSnapShotProcessor (
+    public BillingSnapShotProcessor billingSnapShotProcessor(
             RenderBillingMessageUseCase useCase,
             DecryptionTool decryptionTool
-    ){
+    ) {
         return new BillingSnapShotProcessor(useCase, decryptionTool);
     }
 

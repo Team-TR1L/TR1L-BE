@@ -1,0 +1,13 @@
+<!-- Mermaid diagrams for GitHub Pages(Jekyll) -->
+<script src="/assets/js/vendor/mermaid.min.js"></script>
+<script>
+  function renderMermaid() {
+    if (!window.mermaid) return;
+    mermaid.initialize({ startOnLoad: false });
+    mermaid.init(undefined, document.querySelectorAll(".mermaid:not([data-processed])"));
+  }
+
+  document.addEventListener("DOMContentLoaded", renderMermaid);
+  document.addEventListener("turbolinks:load", renderMermaid);
+  document.addEventListener("turbo:load", renderMermaid);
+</script>

@@ -5,10 +5,12 @@ spring:
   config:
     import:
       - postgres.yml
+
   jpa:
     hibernate:
       ddl-auto: validate
     show-sql: false
+
   sql:
     init:
       mode: never
@@ -16,7 +18,8 @@ spring:
   liquibase:
     enabled: true
     change-log: classpath:/db/changelog/db.changelog-master.yml
-    contexts: ${spring.config.activate.on-profile}
+    # ✅ 우선순위: SPRING_LIQUIBASE_CONTEXTS > SPRING_PROFILES_ACTIVE > dev
+    contexts: ${SPRING_LIQUIBASE_CONTEXTS:${SPRING_PROFILES_ACTIVE:dev}}
 
   cloud:
     aws:
@@ -32,12 +35,10 @@ logging:
   level:
     root: info
     org.hibernate.sql: WARN
-    #Jdbc template
     org.springframework.jdbc.core: WARN
-    #driver
     org.postgresql: WARN
 
-#Liquibase
+# (선택) 커스텀 설정 - spring.liquibase랑은 별개지만 일단 유지
 app:
   liquibase:
     target:
@@ -62,15 +63,14 @@ springdoc:
     operations-sorter: method
   api-docs:
     path: /v3/api-docs
----
 
+---
 spring:
   config:
     activate:
       on-profile: dev
+
   jpa:
-    hibernate:
-      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
@@ -82,7 +82,7 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.orm.jdbc.bind: TRACE
 
-# 여기도 추가
+# dev에서도 동일하게 유지(원하면 dev만 다른 토픽으로 분리 가능)
 kafka:
   topic:
     dispatch-events: dispatch-events
