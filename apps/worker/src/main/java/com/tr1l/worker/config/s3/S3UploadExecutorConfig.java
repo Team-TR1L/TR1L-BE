@@ -27,13 +27,6 @@ public class S3UploadExecutorConfig {
         // 큐가 가득 차면 배치 스레드에서 backpressure 처리
         //  ex.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         ex.initialize();
-
-        // 로그
-        log.error("s3Exec 사용개수 active={}, pool={}, queue={}",
-                ex.getActiveCount(),
-                ex.getPoolSize(),
-                ex.getThreadPoolExecutor().getQueue().size());
-
         return ex;
     }
 }

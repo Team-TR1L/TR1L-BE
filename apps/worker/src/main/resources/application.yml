@@ -121,6 +121,9 @@ logging:
 # S3 설정값
 s3:
   bucket: ${S3_BUCKET:}
+  gzip:
+    threads: 1
+    queue: 2000
 
 aws:
   region: ${AWS_REGION:}
@@ -128,8 +131,12 @@ aws:
   s3:
     max-connections: 100
     upload:
-      concurrency: 32
+      concurrency: 48
       queue-capacity: 12000
+
+    http:
+      max-concurrency: 128
+      max-pending-acquires: 1024
 
 ---
 
