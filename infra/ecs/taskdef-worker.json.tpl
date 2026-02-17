@@ -24,6 +24,10 @@
         { "name": "PG_SUB_PASSWORD", "value": "${PG_SUB_PASSWORD}" },
         { "name": "PG_MAIN_DB", "value": "${PG_MAIN_DB}" },
         { "name": "PG_MAIN_USER", "value": "${PG_MAIN_USER}" },
+        { "name": "SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE", "value": "30" },
+        { "name": "SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE", "value": "10" },
+        { "name": "APP_DATASOURCE_TARGET_HIKARI_MAXIMUM_POOL_SIZE", "value": "30" },
+        { "name": "APP_DATASOURCE_TARGET_HIKARI_MINIMUM_IDLE", "value": "10" },
 
         { "name": "S3_BUCKET", "value": "${S3_BUCKET}" },
         { "name": "AWS_ACCESS_KEY_ID", "value": "${AWS_ACCESS_KEY_ID}" },
