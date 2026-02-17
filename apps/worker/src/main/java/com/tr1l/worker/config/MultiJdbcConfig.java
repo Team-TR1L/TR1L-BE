@@ -1,6 +1,7 @@
 package com.tr1l.worker.config;
 
 import com.zaxxer.hikari.HikariDataSource;
+import lombok.extern.slf4j.Slf4j;
 import net.ttddyy.dsproxy.listener.QueryExecutionListener;
 import net.ttddyy.dsproxy.support.ProxyDataSourceBuilder;
 
@@ -16,7 +17,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 @Configuration
+@Slf4j
 public class MultiJdbcConfig {
+    private static final int FIXED_MAX_POOL_SIZE = 30;
+    private static final int FIXED_MIN_IDLE = 10;
+    private static final String MAIN_POOL_NAME = "main-pool";
+    private static final String TARGET_POOL_NAME = "target-pool";
 
     // ===== MAIN Postgres =====
     @Bean
@@ -26,17 +32,29 @@ public class MultiJdbcConfig {
         return new DataSourceProperties();
     }
 
-    @Bean(name = "mainDataSource")
-    @Primary
-    @ConfigurationProperties("spring.datasource.hikari")
-    public DataSource mainDataSource(
-            @Qualifier("mainDataSourceProperties") DataSourceProperties props,
-            org.springframework.beans.factory.ObjectProvider<QueryExecutionListener> queryExecutionListenerProvider
+    @Bean(name = "mainHikariDataSource")
+    public HikariDataSource mainHikariDataSource(
+            @Qualifier("mainDataSourceProperties") DataSourceProperties props
     ) {
-        HikariDataSource dataSource = props.initializeDataSourceBuilder()
+        HikariDataSource ds = props.initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
                 .build();
-        ProxyDataSourceBuilder builder = ProxyDataSourceBuilder.create(dataSource)
+        forceFixedPoolConfig(ds, MAIN_POOL_NAME);
+        return ds;
+    }
+
+    @Bean(name = "mainDataSource")
+    @Primary
+    public DataSource mainDataSource(
+            @Qualifier("mainHikariDataSource") HikariDataSource hikariDataSource,
+            org.springframework.beans.factory.ObjectProvider<QueryExecutionListener> queryExecutionListenerProvider
+    ) {
+        log.info("main hikari configured poolName={} maxPoolSize={} minIdle={} connectionTimeoutMs={}",
+                hikariDataSource.getPoolName(),
+                hikariDataSource.getMaximumPoolSize(),
+                hikariDataSource.getMinimumIdle(),
+                hikariDataSource.getConnectionTimeout());
+        ProxyDataSourceBuilder builder = ProxyDataSourceBuilder.create(hikariDataSource)
                 .name("main")
                 .countQuery();
         QueryExecutionListener listener = queryExecutionListenerProvider.getIfAvailable();
@@ -68,16 +86,28 @@ public class MultiJdbcConfig {
         return new DataSourceProperties();
     }
 
-    @Bean(name = "targetDataSource")
-    @ConfigurationProperties("app.datasource.target.hikari")
-    public DataSource targetDataSource(
-            @Qualifier("targetDataSourceProperties") DataSourceProperties props,
-            org.springframework.beans.factory.ObjectProvider<QueryExecutionListener> queryExecutionListenerProvider
+    @Bean(name = "targetHikariDataSource")
+    public HikariDataSource targetHikariDataSource(
+            @Qualifier("targetDataSourceProperties") DataSourceProperties props
     ) {
-        HikariDataSource dataSource = props.initializeDataSourceBuilder()
+        HikariDataSource ds = props.initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
                 .build();
-        ProxyDataSourceBuilder builder = ProxyDataSourceBuilder.create(dataSource)
+        forceFixedPoolConfig(ds, TARGET_POOL_NAME);
+        return ds;
+    }
+
+    @Bean(name = "targetDataSource")
+    public DataSource targetDataSource(
+            @Qualifier("targetHikariDataSource") HikariDataSource hikariDataSource,
+            org.springframework.beans.factory.ObjectProvider<QueryExecutionListener> queryExecutionListenerProvider
+    ) {
+        log.info("target hikari configured poolName={} maxPoolSize={} minIdle={} connectionTimeoutMs={}",
+                hikariDataSource.getPoolName(),
+                hikariDataSource.getMaximumPoolSize(),
+                hikariDataSource.getMinimumIdle(),
+                hikariDataSource.getConnectionTimeout());
+        ProxyDataSourceBuilder builder = ProxyDataSourceBuilder.create(hikariDataSource)
                 .name("target")
                 .countQuery();
         QueryExecutionListener listener = queryExecutionListenerProvider.getIfAvailable();
@@ -97,5 +127,11 @@ public class MultiJdbcConfig {
             @Qualifier("targetDataSource") DataSource ds
     ) {
         return new NamedParameterJdbcTemplate(ds);
+    }
+
+    private static void forceFixedPoolConfig(HikariDataSource ds, String poolName) {
+        ds.setPoolName(poolName);
+        ds.setMaximumPoolSize(FIXED_MAX_POOL_SIZE);
+        ds.setMinimumIdle(FIXED_MIN_IDLE);
     }
 }
