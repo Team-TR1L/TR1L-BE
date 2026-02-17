@@ -167,13 +167,17 @@ public class BillingSnapShotStepConfig {
             ObjectMapper om,
             BillingTargetS3UpdatePort billingTargetS3UpdatePort,
             EncryptionTool encryptionTool,
-            @Qualifier("s3UploadExecutor") Executor s3UploadExecutor
+            @Value("${aws.s3.http.max-concurrency:32}") int maxConcurrency,
+            @Qualifier("gzipExecutor") Executor gzipExecutor
     ) {
-        return new BillingSnapShotWriter(bucket,
+        return new BillingSnapShotWriter(
+                bucket,
                 s3UploadPort,
                 om,
                 billingTargetS3UpdatePort,
                 encryptionTool,
-                s3UploadExecutor);
+                maxConcurrency,
+                gzipExecutor
+        );
     }
 }

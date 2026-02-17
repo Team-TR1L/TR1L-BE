@@ -1,19 +1,30 @@
 services:
   postgres_target:
+    container_name: postgres_target
+    networks:
+      - default
+      - tr1l-monitoring
+  postgres-exporter:
+    container_name: postgres-exporter
     networks:
       - default
       - tr1l-monitoring
   worker:
+    container_name: worker
     depends_on:
       postgres_target:
         condition: service_healthy
     environment:
       SECRET_KEY: Xy9zPvQ3kL5mRnJwT8bH2cD4fG7jA1sE
       SPRING_DATASOURCE_URL: jdbc:postgresql://host.docker.internal:5432/billing # local
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "30"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "10"
       TARGET_DATASOURCE_URL: jdbc:postgresql://postgres_target:5432/billing_target  #docker
       PG_SUB_HOST: jdbc:postgresql://postgres_target:5432/billing_target
       PG_SUB_USER: ${PG_SUB_USER:-postgres}
       PG_SUB_PASSWORD: ${PG_SUB_PASSWORD:-postgres}
+      APP_DATASOURCE_TARGET_HIKARI_MAXIMUM_POOL_SIZE: "30"
+      APP_DATASOURCE_TARGET_HIKARI_MINIMUM_IDLE: "10"
       SPRING_DATA_MONGODB_URI: mongodb://host.docker.internal:27017/tr1l
       CHANNEL_ORDER: ${CHANNEL_ORDER:-EMAIL,SMS}
       BATCH_EXIT_ON_COMPLETE: "false"

@@ -97,6 +97,16 @@ services:
       timeout: 3s
       retries: 20
 
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    depends_on:
+      postgres_target:
+        condition: service_healthy
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${PG_SUB_USER}:${PG_SUB_PASSWORD}@postgres_target:5432/${PG_SUB_DB}?sslmode=disable"
+    command:
+      - "--collector.stat_statements"
+
   mongo:
     image: mongo:7
     environment:
@@ -210,14 +220,17 @@ services:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
 
       # JPA
-      SPRING_DATASOURCE_URL: ${PG_MAIN_HOST}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${PG_MAIN_DB}
       SPRING_DATASOURCE_USERNAME: ${PG_MAIN_USER}
       SPRING_DATASOURCE_PASSWORD: ${PG_MAIN_PASSWORD}
 
       # target
-      TARGET_DATASOURCE_URL: ${PG_SUB_HOST}
+      TARGET_DATASOURCE_URL: jdbc:postgresql://postgres_target:5432/${PG_SUB_DB}
       TARGET_DATASOURCE_USERNAME: ${PG_SUB_USER}
       TARGET_DATASOURCE_PASSWORD: ${PG_SUB_PASSWORD}
+      PG_SUB_HOST: jdbc:postgresql://postgres_target:5432/${PG_SUB_DB}
+      PG_SUB_USER: ${PG_SUB_USER}
+      PG_SUB_PASSWORD: ${PG_SUB_PASSWORD}
 
       # Mongo
       SPRING_DATA_MONGODB_URI: ${MONGODB_URI}

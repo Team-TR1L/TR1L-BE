@@ -23,7 +23,7 @@ dispatch:
 	docker compose up -d dispatch-server kafka postgres_target
 
 batch:
-	docker compose up -d worker postgres postgres_target mongo
+	docker compose up -d worker postgres_target mongo
 
 delivery:
 	docker compose up -d delivery-server kafka postgres_target
@@ -64,7 +64,10 @@ local-worker-monitor:
 	docker compose -f docker-compose.local.monitoring.yml up -d
 	docker compose --profile batch --compatibility \
 		-f docker-compose.yml -f docker-compose.local.worker.yml \
-		up --build postgres_target worker
+		up -d --build --no-deps postgres_target postgres-exporter worker
+	docker compose --profile batch --compatibility \
+		-f docker-compose.yml -f docker-compose.local.worker.yml \
+		exec -T postgres_target sh -c 'psql -U "$${PG_SUB_USER:-postgres}" -d "$${PG_SUB_DB:-billing_target}" -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"'
 
 local-worker-monitor-down:
 	docker compose -f docker-compose.local.monitoring.yml down

@@ -4,9 +4,7 @@ import com.tr1l.billing.application.dto.BillingTargetRow;
 import com.tr1l.billing.application.model.WorkAndTargetRow;
 import com.tr1l.billing.application.port.out.BillingTargetLoadPort;
 import com.tr1l.billing.application.port.out.WorkDocClaimPort;
-import com.tr1l.worker.batch.calculatejob.model.BillingTargetKey;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.support.AbstractItemStreamItemReader;
 
 import java.time.Duration;
@@ -28,8 +26,8 @@ public class WorkDocClaimAndTargetRowReader
     private final int fetchSize;
     private final Duration leaseDuration;
     private final String workerId;
-    private final int partitionIndex;
-    private final int partitionCount;
+    private final Long userIdStart;
+    private final Long userIdEnd;
 
     // 멀티스레드 환경 보호
     private final Deque<WorkAndTargetRow> buffer = new ArrayDeque<>();
@@ -50,8 +48,8 @@ public class WorkDocClaimAndTargetRowReader
             int fetchSize,
             Duration leaseDuration,
             String workerId,
-            int partitionIndex,
-            int partitionCount
+            Long userIdStart,
+            Long userIdEnd
     ) {
         this.claimPort = claimPort;
         this.targetLoadPort = targetLoadPort;
@@ -59,8 +57,8 @@ public class WorkDocClaimAndTargetRowReader
         this.fetchSize = fetchSize;
         this.leaseDuration = leaseDuration;
         this.workerId = workerId;
-        this.partitionIndex = partitionIndex;
-        this.partitionCount = partitionCount;
+        this.userIdStart = userIdStart;
+        this.userIdEnd = userIdEnd;
         setName("step3WorkDocClaimAndTargetRowReader");
     }
 
@@ -81,8 +79,8 @@ public class WorkDocClaimAndTargetRowReader
                         leaseDuration,
                         workerId,
                         now,
-                        partitionIndex,
-                        partitionCount
+                        userIdStart,
+                        userIdEnd
                 );
                 long claimNanos = System.nanoTime() - claimStart;
 
@@ -117,7 +115,7 @@ public class WorkDocClaimAndTargetRowReader
                 totalBatches++;
 
                 log.info(
-                        "step3.reader batch={} claimed={} distinctUsers={} missingRows={} claimMs={} loadMs={} totalClaimMs={} totalLoadMs={}",
+                        "step3.reader batch={} claimed={} distinctUsers={} missingRows={} claimMs={} loadMs={} totalClaimMs={} totalLoadMs={} range={}..{}",
                         totalBatches,
                         claimed.size(),
                         userIds.size(),
@@ -125,7 +123,9 @@ public class WorkDocClaimAndTargetRowReader
                         claimNanos / 1_000_000,
                         loadNanos / 1_000_000,
                         totalClaimNanos / 1_000_000,
-                        totalLoadNanos / 1_000_000
+                        totalLoadNanos / 1_000_000,
+                        userIdStart,
+                        userIdEnd
                 );
 
                 // claimed는 있는데 전부 missing이면 다음 batch로 재시도

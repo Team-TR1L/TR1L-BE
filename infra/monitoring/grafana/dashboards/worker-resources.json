@@ -12,7 +12,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{container=~\".*worker.*\", image!=\"\"}[30s]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"cadvisor\", name=~\".*worker.*\"}[30s]))",
           "legendFormat": "worker"
         }
       ],
@@ -24,11 +24,101 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "container_memory_working_set_bytes{container=~\".*worker.*\", image!=\"\"} / 1024 / 1024",
+          "expr": "container_memory_working_set_bytes{job=\"cadvisor\", name=~\".*worker.*\"} / 1024 / 1024",
           "legendFormat": "worker"
         }
       ],
       "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "JVM Heap Used (MB)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(jvm_memory_used_bytes{job=\"worker\", area=\"heap\"}) / 1024 / 1024",
+          "legendFormat": "worker"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "MB"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "JVM GC Time (s/sec)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(jvm_gc_pause_seconds_sum{job=\"worker\"}[1m]))",
+          "legendFormat": "worker"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Network TX (bytes/sec)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(container_network_transmit_bytes_total{job=\"cadvisor\", name=~\".*worker.*\"}[30s]))",
+          "legendFormat": "worker"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Network RX (bytes/sec)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(container_network_receive_bytes_total{job=\"cadvisor\", name=~\".*worker.*\"}[30s]))",
+          "legendFormat": "worker"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 40, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "S3 PUT p95 Latency (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(s3_put_latency_seconds_bucket{job=\"worker\"}[5m]))) * 1000",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 48, "w": 24, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU Throttle (seconds/sec)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_cfs_throttled_seconds_total{job=\"cadvisor\", name=~\".*worker.*\"}[30s]))",
+          "legendFormat": "worker"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 56, "w": 24, "h": 8 }
     }
   ],
   "templating": { "list": [] },

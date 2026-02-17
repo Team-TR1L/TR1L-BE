@@ -1,0 +1,197 @@
+---
+title: ADR-0002 플랫닝(Flattening)으로 Join 폭발 제거
+parent: 당위성/의사결정(Decisions)
+nav_order: 10
+---
+
+<div class="tr1l-participants" aria-label="participants">
+  <a class="tr1l-chip" href="https://github.com/tkv00" aria-label="김도연 GitHub">
+    <img class="tr1l-avatar" src="https://github.com/tkv00.png?size=120" alt="김도연" />
+    <span class="tr1l-name">김도연</span>
+  </a>
+</div>
+
+<style>
+  .tr1l-participants{
+    display:flex; flex-wrap:wrap; gap:10px;
+    align-items:center; margin:8px 0 2px;
+  }
+  .tr1l-chip{
+    display:inline-flex; align-items:center; gap:10px;
+    padding:8px 12px; border-radius:999px;
+    text-decoration:none !important;
+    border:1px solid rgba(127,127,127,.28);
+    background:rgba(127,127,127,.10);
+    backdrop-filter:saturate(140%) blur(4px);
+    transition:transform .12s ease, border-color .12s ease, background .12s ease;
+  }
+  .tr1l-chip:hover{
+    transform:translateY(-1px);
+    border-color:rgba(127,127,127,.45);
+    background:rgba(127,127,127,.14);
+  }
+  .tr1l-avatar{
+    width:28px; height:28px; border-radius:50%;
+    display:block; flex:0 0 auto;
+    box-shadow:0 0 0 1px rgba(127,127,127,.22);
+  }
+  .tr1l-name{
+    font-weight:650; font-size:14px;
+    line-height:1; letter-spacing:-0.2px;
+    color:inherit;
+  }
+</style>
+> #### 작성일 : 2026-01-28
+
+
+---
+## 1. Context (상황/배경)
+>여기는 배경 설명만 한다. **언제/어디서/규모(Scale)**, 그리고 당시 우리가 가진 제약 조건을 담는다.
+
+- **어디 이야기인가요? (Scope)**: CalculateJob(Job1) - BillingFlattenStep(Step01)
+- **규모는 어느 정도인가요? (Scale)**: 1,000,000 users(rows)
+- **피할 수 없는 조건은? (Constraints)**: 
+  - 유저의 청구서 정산을 위한 복지 할인 정책(welfare_discount), option_service(부가 서비스 종류),monthly_data_usage(월별 데이터 사용량)등 12개 table과 JOIN 과정이 필수.
+  - 정산은 월 단위(billing_month)로 반복 실행되며 실패 시 재실행이 운영상 전제
+- **현재 흐름은? (Current flow)**: 
+  - 평탄화 테이블 없이 각 step에서 필요한 데이터를 그때그때 JOIN하여 입력을 만들고, 계산/스냅샷을 수행.
+  - 결과적으로 같은 의미의 JOIN이 Step마다 반복되먀 쿼리가 비대(최대 300 lines)해지며, 재시도 관리가 어려워짐.
+
+---
+
+## 2. Problem (문제)
+>지금 방식이 왜 힘든지, 어디서 위험해지는지를 적는다.  
+보통은 **증상(Symptom)** → **원인(Root cause)** → **리스크(Risk)** 순서.
+
+- **증상(Symptom)**: 
+  - CalculateJob을 **단일 Step**(ItemReader→Processor→Writer)로 진행하면 실패 시 “어디까지 완료했는지/어디부터 재시도해야 하는지” 경계가 모호
+  - 다중 Step(총 5 Step)로 쪼개더라도, 청구서 조립/계산 단계에서 결국 유저 입력을 모두 끌어와야 해서 복잡 JOIN은 계속 발생
+  - “한 번에 다 가져오는” 전략은 ~300줄 규모의 매우 큰 Query가 되어 유지보수/튜닝/장애 대응이 어려움
+- **원인(Root cause)**: 
+  - 정산 입력 데이터가 정규화된 여러 테이블(약 12개)에 분산되어 있어, 유저 단위 계산을 하려면 JOIN이 필수
+  - Step3(계산) 또는 각 Step에서 동일한 성격의 JOIN을 반복 수행 → 100만 유저 기준, “테이블당 1회 조인”만 가정해도 최소 1,200만 단위의 조인 연산이 구조적으로 발생
+  - 대량 유저 처리 과정에서 IN 기반 분할 호출/반복 조회가 섞이면 DB 커넥션/락/IO 부하가 증가하고, 처리시간 변동성이 커짐
+- **리스크(Risk)**:
+  - DB 부하 증가(쿼리 시간 증가, 락 경합, 커넥션 고갈) → 배치 지연/실패로 이어져 운영 리스크 증가
+  - 재실행 시점이 불명확하면 중복 정산/부분 정산 같은 데이터 정합성 리스크가 커짐
+
+
+---
+
+## 3. Options (대안)
+>선택지는 **2~4개 정도**가 가장 좋다.  
+각 옵션은 “한 문장 요약 + 핵심 포인트” 정도로만 정리하고, 깊은 반론(왜 버렸는지)은 `Rejected Alternatives`에 모아 링크.
+
+### Option A — Step마다 JOIN 수행
+- **한 줄 요약(Summary)**: 각 Step/로직에서 필요한 데이터를 그때그때 JOIN으로 조립.
+- **좋은 점(Pros)**: 
+  - 중복 데이터 저장이 없음(스토리지 비용 최소화)
+  - 스키마 변경 시 별도 평탄화 테이블 마이그레이션 부담이 적음.
+- **아쉬운 점(Cons)**:
+  - Step3 실제 청구서 정산 구간에서 JOIN 폭발 → 처리시간/부하가 예측 불가
+  - 장애 시 재처리 범위가 흐릿하다고 판단.
+
+### Option B — 단일 Mega Query로 한 번에 조립
+- **한 줄 요약(Summary)**: 1개의 쿼리로 모든 입력을 JOIN하여 스트리밍 처리.
+- **좋은 점(Pros)**:
+  - 어플리케이션 로직이 단순해 보임.
+  - 중간 테이블이 존재하지 않아 스토리지가 덜 듦.
+- **아쉬운 점(Cons)**:
+  - 쿼리 복잡도가 극단적으로 커져 튜닝/장애 대응/스키마 변경 대응이 어려움.
+  - 실패 시 재시도 지점이 불명확하여 rerun-safe가 약함.
+- **왜 버렸나요? (Link)**: [Rejected - B](./02_rejected-alternatives.md#opt-b-mega-query)
+
+### Option C — Step1에서 Flatten Table(billing_targets)로 입력을 고정
+- **한 줄 요약(Summary)**: Step1에서 유저별 정산 입력을 한  번만 JOIN/집계히어 billing_targets에 적재 후, Step2,3에서 이를 기반으로 하여 처리.
+- **좋은 점(Pros)**:
+  - 반복 JOIN 제거 → Step3에서는 단일 테이블/단순 조회로 계산.
+  - 입력이 고정 → 멱등성/재실행/재시작 경계가 명확해짐.
+- **아쉬운 점(Cons)**:
+  - 데이터 추가 저장(RDB 쓰기 비용 증가)
+  - 스키마 변경 시 마이그레이션 필요
+
+#### Quick Compare (간단 비교)
+
+| Option | 성능(Performance) | 안정성(Reliability) | 운영성(Operability) |     비용(Cost) |    개발(DevEx) | 결론(Verdict) |
+|--------|----------------:|-----------------:|-----------------:|-------------:|-------------:|-------------|
+| A      |     낮음(반복 JOIN) |   낮음(재시도 경계 불명확) |               낮음 |           중간 |           중간 | Rejected    |
+| B      | 중간~낮음(대형쿼리 리스크) |  낮음(실패 시 전량 재처리) |               낮음 |           중간 | 낮음(유지보수 어려움) | Rejected    |
+| C      | 높음(Join 1회로 고정) |   높음(rerun-safe) |     높음(지표/제어 용이) | 중간~높음(저장/쓰기) |   높음(코드 단순화) | **Chosen**  |
+
+
+---
+
+## 4. Decision (최종 선택)
+>결론만을 딱 정리한다. “무엇을 선택했는지”가 한 번에 보이면 된다.
+
+- **우리는 이것을 선택했다(Decision)**: **Option C - Flatten Table(billing_targets)**
+- **한 줄 이유(One-liner)**: Batch 처리 중 가장 실패가능성이 높은 Step3(청구서 실제 정산)에서 제거하여 우리의 이번 프로젝트 목표인 **안정성**과 **장애 대응**을 달성하기 위해서.
+
+---
+
+## 5. Consequences (결과/영향)
+>결정은 항상 대가가 따른다. 좋은 점만 쓰면 오히려 신뢰도가 떨어진다.  
+운영 관점 변화(모니터링/알림/복구 난이도)가 있으면 같이 적는다.
+
+### ✅ 좋아진 점(Pros)
+- Step3 계산 단계의 반복 JOIN 제거 → DB 부하/처리시간 변동성 감소
+- 실패 구간 분리 → Step1(입력 생성)과 Step3(계산) 경계가 명확해져 재시도 범위가 선명
+- billing_targets(billing_month, user_id) 같은 정렬 가능한 키를 기반으로 Keyset Pagination / 병렬 처리 / 파티셔닝(RANGE 등) 최적화가 쉬워짐
+
+### ⚠️ 감수한 점(Cons)
+- 추가 저장/쓰기 비용(1개월 기준 100 rows 수준의 입력 스냅샷 테이블)
+- 스키마/마이그레이션 관리 필요(원본 테이블 users, plans 변경 시 billing_targets 테이블도 변경)
+
+### 🔧 운영 관점(Ops notes)
+- Step1 적재량, Step1 소요시간 추세
+- billing_targets 테이블 디스크 I/O 사용량
+- locks/connection pool 사용량
+
+---
+
+## 6. Evidence (증빙)
+>“이 선택이 맞다”는 말로 끝내지 말고, 우리가 실제로 확인한 근거를 남긴다.  
+가능하면 **전/후(Before/After)** 또는 **대안 비교** 중 하나는 꼭 넣는다.
+
+이번 ADR은 “수치가 좋아졌다”를 먼저 보여주기보다는, **왜 구조를 바꾸는 게 필요했는지**를 더 필요한 기록이다.  
+우리가 **BillingTargetFlatten(Step01)**을 논의할 때 핵심은 단순 SQL 튜닝이 아니라, **월 정산(1M users)에서 가장 위험한 구간을 구조적으로 안전하게 만들기**였다.
+
+---
+
+### 6.1 왜 기존 방식이 계속 불편했는지 (관찰 기반 근거)
+
+- **쿼리가 너무 커졌다**  
+  입력을 한 번에 만들려다 보니 JOIN이 계속 쌓였고, 결과적으로 쿼리가 수백 줄로 비대해졌다.  
+  이 상태에서는 “어디가 병목인지”를 찾는 것도 어렵고, 스키마/정책이 조금만 바뀌어도 영향 범위가 넓어져서 운영 리스크가 커졌다.
+  또한, 쿼리 계획을 확인하더라도 어디 지점이 튜닝 포인트인지도 알아차리기 어렵다.
+
+- **JOIN이 Step마다 반복되는 구조였다**  
+  Step을 쪼개도, 결국 계산(특히 Step3)에서 유저별 입력을 구성하려면 같은 성격의 JOIN이 다시 등장했다.  
+  즉, 문제는 “쿼리 한 방”의 성능이 아니라, **정산 입력을 만드는 방식 자체가 반복 비용을 만든다**는 구조적인 문제였다.
+
+- **월 정산은 재시도가 전제인데, 재시도 경계가 흐릿했다**  
+  실패했을 때 “어디까지 성공했고 어디부터 다시 해야 하는지”를 깔끔하게 자르기 어려웠다.  
+  월 단위 배치는 결국 반복 실행되는 운영 작업이라, 이 애매함은 곧 장애 대응 부담으로 이어진다고 봤다.
+
+---
+
+
+
+### 6.2 Flatten Table로 무엇이 달라졌는지 (구조 변화 자체가 증거)
+
+우리가 선택한 Flatten Table의 포인트는 “성능” 이전에 **개발자가 제어 가능힌가** 이었다.
+
+- **입력이 한 번 고정된다**  
+  Step01에서 billing_targets에 유저별 정산 입력을 “한 번만” 만들어두면, Step3는 더 이상 여러 테이블을 끌고 와서 조립할 필요가 없다.  
+  이 덕분에 계산이 도메인 레벨에서 훨씬 단순해지고, 장애가 나도 “입력은 그대로”라는 전제가 생긴다.
+
+- **가장 위험한 Step3를 가볍게 만든다**  
+  우리가 계속 얘기했던 것처럼, 월 정산에서 진짜 위험한 구간은 Step3(계산/정산)이다.  
+  Flatten은 Step3에서 발생하던 JOIN 폭발/쿼리 비대를 Step01로 밀어내고, Step3를 “단순 조회 + 계산” 구간으로 바꾼다.
+
+- **운영 관점에서 제어가 쉬워진다**  
+  billing_targets를 (billing_month, user_id) 같은 정렬 가능한 키로 잡아두면,  
+  Keyset Pagination, 병렬 처리, 재시작 범위 관리가 훨씬 명확해진다.  
+  즉, “배치가 길어지고 실패할 때”도 통제가 되는 방향으로 구조가 바뀐다.
+
+---

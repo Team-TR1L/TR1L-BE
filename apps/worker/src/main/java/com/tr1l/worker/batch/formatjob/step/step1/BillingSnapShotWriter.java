@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Semaphore;
 import java.util.zip.GZIPOutputStream;
 
 @Slf4j
@@ -31,39 +32,43 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
     private final S3UploadPort s3UploadPort;
     private final BillingTargetS3UpdatePort billingTargetS3UpdatePort;
     private final ObjectMapper om;
-    private final Executor s3UploadExecutor;
     private final EncryptionTool encryptionTool;
+
+    private final int maxConcurrency;
+    private final Executor gzipExecutor;
 
     public BillingSnapShotWriter(String bucket,
                                  S3UploadPort s3UploadPort,
                                  ObjectMapper om,
                                  BillingTargetS3UpdatePort billingTargetS3UpdatePort,
                                  EncryptionTool encryptionTool,
-                                 @Qualifier("s3UploadExecutor") Executor s3UploadExecutor) {
+                                 int maxConcurrency,
+                                 Executor gzipExecutor
+    ) {
         this.bucket = bucket;
         this.s3UploadPort = s3UploadPort;
         this.om = om;
         this.billingTargetS3UpdatePort = billingTargetS3UpdatePort;
-        this.s3UploadExecutor = s3UploadExecutor;
         this.encryptionTool = encryptionTool;
+        this.maxConcurrency = maxConcurrency;
+        this.gzipExecutor = gzipExecutor;
     }
 
-    // 한 유저에 대한 레코드 (email, sms)
     private record MsgCtx(int index, YearMonth billingYm, long userId, ArrayNode s3Array) {}
-
     private record UploadOutcome(MsgCtx ctx, String channelKey, int channelIndex, S3UploadPort.S3PutResult put) {}
-
-    // 병렬 실패 시
     private record UploadTask(MsgCtx ctx, String channelKey, int channelIndex, String key, CompletableFuture<UploadOutcome> future) {}
 
-    // 실제 병렬 처리가 되는지 확인
+
     private final java.util.concurrent.atomic.AtomicInteger inflight = new java.util.concurrent.atomic.AtomicInteger();
     private final java.util.concurrent.atomic.AtomicInteger maxInflight = new java.util.concurrent.atomic.AtomicInteger();
 
     @Override
     public void write(Chunk<? extends RenderedMessageResult> chunk) throws Exception {
+        Semaphore sem = new Semaphore(maxConcurrency);
+
+
         long t0 = System.nanoTime();
-        log.error("[Job2_Writer 시작] chunkSize={}", chunk.size());
+        log.info("[Job2_Writer 시작] chunkSize={}, maxConcurrency={}", chunk.size(), maxConcurrency);
 
         // 청크 단위 측정 리셋
         inflight.set(0);
@@ -71,65 +76,57 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
 
         List<MsgCtx> contexts = new ArrayList<>(chunk.size());
         List<UploadTask> uploadTasks = new ArrayList<>(chunk.size() * 2);
+
         int index = 0;
 
         for (RenderedMessageResult msg : chunk) {
             YearMonth billingYm = resolveBillingYearMonth(msg);
 
             String base = msg.period() + "/" + msg.userId() + "/";
-
             String emailKey = base + "EMAIL.gz";
             String smsKey   = base + "SMS.txt"; // sms 압축 진행 x
 
             MsgCtx ctx = new MsgCtx(index++, billingYm, msg.userId(), om.createArrayNode());
             contexts.add(ctx);
 
-            // EMAIL 업로드(병렬) -> 압축 + 업로드
+            // EMAIL 업로드(병렬) -> gzip은 gzipExecutor에서, 업로드만 세마포어로 조절
             if (hasText(msg.emailHtml())) {
                 final String emailHtml = msg.emailHtml();
-                byte[] raw = emailHtml.getBytes(StandardCharsets.UTF_8);
-                byte[] gz  = gzip(raw); // 메인 배치 스레드에서 압축
-                CompletableFuture<UploadOutcome> future = CompletableFuture.supplyAsync(() -> {
-                    markStart();
-                    try {
-//                    byte[] raw = emailHtml.getBytes(StandardCharsets.UTF_8);
-//                    byte[] gz  = gzip(raw);
-                        S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
-                                bucket, emailKey, gz, "text/html; charset=utf-8"
-                        );
-                        return new UploadOutcome(ctx, "EMAIL", 0, put);
-                    } finally {
-                        markEnd();
-                    }
-                }, s3UploadExecutor);
+
+                CompletableFuture<UploadOutcome> future =
+                        CompletableFuture
+                                .supplyAsync(() -> {
+                                    byte[] raw = emailHtml.getBytes(StandardCharsets.UTF_8);
+                                    return gzip(raw);
+                                }, gzipExecutor)
+                                // 업로드 단계만 backpressure
+                                .thenCompose(gz ->
+                                        startUpload(sem, () ->
+                                                s3UploadPort.putGzipBytesAsync(
+                                                        bucket, emailKey, gz, "text/html; charset=utf-8"
+                                                )
+                                        )
+                                )
+                                .thenApply(put -> new UploadOutcome(ctx, "EMAIL", 0, put));
 
                 uploadTasks.add(new UploadTask(ctx, "EMAIL", 0, emailKey, future));
             }
 
-            // SMS 업로드(병렬) -> 업로드만 진행, 작은 파일 압축 시 시간이 더 오래 걸림
+            // SMS 업로드(병렬) -> 압축 안함
             if (hasText(msg.smsText())) {
                 final String smsText = msg.smsText();
                 byte[] raw = smsText.getBytes(StandardCharsets.UTF_8);
-//                byte[] gz  = gzip(raw); // 메인 배치 스레드에서 압축
-                CompletableFuture<UploadOutcome> future = CompletableFuture.supplyAsync(() -> {
-                    markStart();
-                    try {
-//                    byte[] raw = smsText.getBytes(StandardCharsets.UTF_8);
-//                    byte[] gz  = gzip(raw);
-                        S3UploadPort.S3PutResult put = s3UploadPort.putGzipBytes(
-                                bucket, smsKey, raw, "text/plain; charset=utf-8"
-                        );
-                        return new UploadOutcome(ctx, "SMS", 1, put);
-                    } finally {
-                        markEnd();
-                    }
-                }, s3UploadExecutor);
+
+                CompletableFuture<UploadOutcome> future =
+                        startUpload(sem, () ->
+                                s3UploadPort.putBytesAsync(bucket, smsKey, raw, "text/plain; charset=utf-8")
+                        ).thenApply(put -> new UploadOutcome(ctx, "SMS", 1, put));
 
                 uploadTasks.add(new UploadTask(ctx, "SMS", 1, smsKey, future));
             }
         }
 
-        // 1) 먼저 한번에 완료 대기 -> 병렬성 유지
+        // 1) 전체 완료 대기
         CompletableFuture<?>[] futures = uploadTasks.stream()
                 .map(UploadTask::future)
                 .toArray(CompletableFuture[]::new);
@@ -139,6 +136,7 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
         } catch (RuntimeException ignore) {
             // 아래에서 에러 제어
         }
+
 
         // 2) 개별 join로 결과 수집, 실패 시 에러 로그
         S3UploadPort.S3PutResult[][] results = new S3UploadPort.S3PutResult[contexts.size()][2];
@@ -172,7 +170,7 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
                     firstKey = task.key();
                 }
             }
-        } // <-- for 루프 닫기 (이게 빠져서 컴파일 에러가 났던 겁니다)
+        }
 
         if (firstFailure != null) {
             // ERROR는 청크당 1번만
@@ -187,7 +185,7 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
             throw new IllegalStateException("S3 upload failed", firstFailure);
         }
 
-        // 결과를 단일 스레드에서 JSON ArrayNode에 반영
+        // 결과를 JSON ArrayNode에 반영
         for (MsgCtx ctx : contexts) {
             S3UploadPort.S3PutResult emailPut = results[ctx.index()][0];
             if (emailPut != null) {
@@ -212,13 +210,57 @@ public class BillingSnapShotWriter implements ItemWriter<RenderedMessageResult> 
             ));
         }
 
-        // 함수 변경
         billingTargetS3UpdatePort.updateStatusBulkSingleQuery(updates);
 
         long elapsedMs = (System.nanoTime() - t0) / 1_000_000;
-        log.error("[Job2_Writer 완료] chunkSize={}, tasks={}, peakInflight={}, elapsedMs={}",
+        log.info("[Job2_Writer 완료] chunkSize={}, tasks={}, peakInflight={}, elapsedMs={}",
                 chunk.size(), uploadTasks.size(), maxInflight.get(), elapsedMs);
     }
+
+    private <T> CompletableFuture<T> startUpload(Semaphore sem, java.util.function.Supplier<CompletableFuture<T>> supplier) {
+        sem.acquireUninterruptibly();
+        markStart();
+        try {
+            return supplier.get().whenComplete((ok, ex) -> {
+                markEnd();
+                sem.release();
+            });
+        } catch (Throwable t) {
+            markEnd();
+            sem.release();
+            return CompletableFuture.failedFuture(t);
+        }
+    }
+
+
+
+    private CompletableFuture<UploadOutcome> startAsync(Semaphore sem, AsyncFutureSupplier supplier) {
+        // 동시 업로드 제한을 두는 백프레셔
+        sem.acquireUninterruptibly();
+
+        // 측정 시작
+        markStart();
+        try {
+            return supplier.get()
+                    .whenComplete((ok, ex) -> {
+                        // 3) 측정 종료 + permit 반환 (성공/실패 무조건)
+                        markEnd();
+                        sem.release();
+                    });
+        } catch (Throwable t) {
+            // supplier.get() 자체가 즉시 예외면 여기로 옴
+            markEnd();
+            sem.release();
+            return CompletableFuture.failedFuture(t);
+        }
+    }
+
+    @FunctionalInterface
+    private interface AsyncFutureSupplier {
+        CompletableFuture<UploadOutcome> get();
+    }
+
+
 
     private ObjectNode s3UrlItem(String channelKey, String bucket, String s3Key) {
         ObjectNode n = om.createObjectNode();

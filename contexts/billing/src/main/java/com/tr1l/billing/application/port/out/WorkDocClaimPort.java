@@ -6,7 +6,7 @@ import java.time.YearMonth;
 import java.util.List;
 
 /**
- * MongDB billing_work에서 선점
+ * billing_work에서 선점
  * TARGET(또는 lease 만료 PROCESSING) 작업을 선점
  * return
  * - status: TARGET -> PROCESSING
@@ -14,14 +14,14 @@ import java.util.List;
  * - attemptCount: +1
  */
 public interface WorkDocClaimPort {
-    List<ClaimedWorkDoc> claim(
+     List<ClaimedWorkDoc> claim(
             YearMonth billingMonth,
             int limit,
             Duration leaseDuration,
             String workerId,
             Instant now,
-            int partitionIndex,
-            int partitionCount
+            Long userIdStart,
+            Long userIdEnd
     );
 
     record ClaimedWorkDoc(

@@ -116,4 +116,4 @@ CREATE TABLE IF NOT EXISTS billing_work
 );
 
 CREATE INDEX IF NOT EXISTS ix_billing_work_month_status
-    ON billing_work (billing_month_day, status);
+    ON billing_work (billing_month_day, status, user_id);

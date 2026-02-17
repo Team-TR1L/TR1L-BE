@@ -39,29 +39,30 @@ public class JdbcWorkDocClaimAdapter implements WorkDocClaimPort {
             Duration leaseDuration,
             String workerId,
             Instant now,
-            int partitionIndex,
-            int partitionCount
+            Long userIdStart,
+            Long userIdEnd
     ) {
         if (limit <= 0) return List.of();
 
         LocalDate billingMonthDay = billingMonth.atDay(1);
         Instant leaseUntil = now.plus(leaseDuration);
 
-        String sql = (partitionCount > 1)
-                ? claimSqlWithPartition()
-                : claimSqlNoPartition();
+        boolean hasRange = userIdStart != null && userIdEnd != null;
+        String targetSql = claimTargetSql(hasRange);
+        String expiredSql = claimExpiredSql(hasRange);
 
-        Map<String, Object> params = Map.of(
-                "billingMonthDay", Date.valueOf(billingMonthDay),
-                "limit", limit,
-                "workerId", workerId,
-                "leaseUntil", Timestamp.from(leaseUntil),
-                "now", Timestamp.from(now),
-                "partitionIndex", partitionIndex,
-                "partitionCount", partitionCount
-        );
+        Map<String, Object> params = new java.util.HashMap<>();
+        params.put("billingMonthDay", Date.valueOf(billingMonthDay));
+        params.put("limit", limit);
+        params.put("workerId", workerId);
+        params.put("leaseUntil", Timestamp.from(leaseUntil));
+        params.put("now", Timestamp.from(now));
+        if (hasRange) {
+            params.put("userIdStart", userIdStart);
+            params.put("userIdEnd", userIdEnd);
+        }
 
-        List<ClaimedWorkDoc> claimed = jdbc.query(sql, params, (rs, rowNum) -> {
+        List<ClaimedWorkDoc> claimed = jdbc.query(targetSql, params, (rs, rowNum) -> {
             LocalDate bmDay = rs.getDate("billing_month_day").toLocalDate();
             long userId = rs.getLong("user_id");
             int attemptCount = rs.getInt("attempt_count");
@@ -70,22 +71,36 @@ public class JdbcWorkDocClaimAdapter implements WorkDocClaimPort {
             return new ClaimedWorkDoc(workId, bmDay.toString(), userId, attemptCount, lease);
         });
 
+        if (claimed.size() < limit) {
+            int remaining = limit - claimed.size();
+            params.put("limit", remaining);
+            List<ClaimedWorkDoc> expired = jdbc.query(expiredSql, params, (rs, rowNum) -> {
+                LocalDate bmDay = rs.getDate("billing_month_day").toLocalDate();
+                long userId = rs.getLong("user_id");
+                int attemptCount = rs.getInt("attempt_count");
+                Instant lease = rs.getTimestamp("lease_until").toInstant();
+                String workId = bmDay + ":" + userId;
+                return new ClaimedWorkDoc(workId, bmDay.toString(), userId, attemptCount, lease);
+            });
+            claimed.addAll(expired);
+        }
+
         log.info("step3.claim billingMonth={} limit={} claimed={}", billingMonth, limit, claimed.size());
         return claimed;
     }
 
-    private static String claimSqlNoPartition() {
+    private static String claimTargetSql(boolean hasRange) {
+        String rangeClause = hasRange ? "  AND user_id BETWEEN :userIdStart AND :userIdEnd\n" : "";
         return """
             WITH candidates AS (
                 SELECT billing_month_day, user_id
                 FROM billing_work
                 WHERE billing_month_day = :billingMonthDay
-                  AND (
-                        status = 'TARGET'
-                        OR (status = 'PROCESSING' AND lease_until < :now)
-                  )
+                  AND status = 'TARGET'
+            %s
                 ORDER BY user_id
                 LIMIT :limit
+                FOR UPDATE SKIP LOCKED
             )
             UPDATE billing_work bw
             SET status = 'PROCESSING',
@@ -97,22 +112,22 @@ public class JdbcWorkDocClaimAdapter implements WorkDocClaimPort {
             WHERE bw.billing_month_day = c.billing_month_day
               AND bw.user_id = c.user_id
             RETURNING bw.billing_month_day, bw.user_id, bw.attempt_count, bw.lease_until
-            """;
+            """.formatted(rangeClause);
     }
 
-    private static String claimSqlWithPartition() {
+    private static String claimExpiredSql(boolean hasRange) {
+        String rangeClause = hasRange ? "  AND user_id BETWEEN :userIdStart AND :userIdEnd\n" : "";
         return """
             WITH candidates AS (
                 SELECT billing_month_day, user_id
                 FROM billing_work
                 WHERE billing_month_day = :billingMonthDay
-                  AND (
-                        status = 'TARGET'
-                        OR (status = 'PROCESSING' AND lease_until < :now)
-                  )
-                  AND (user_id % :partitionCount) = :partitionIndex
+                  AND status = 'PROCESSING'
+                  AND lease_until < :now
+            %s
                 ORDER BY user_id
                 LIMIT :limit
+                FOR UPDATE SKIP LOCKED
             )
             UPDATE billing_work bw
             SET status = 'PROCESSING',
@@ -124,6 +139,6 @@ public class JdbcWorkDocClaimAdapter implements WorkDocClaimPort {
             WHERE bw.billing_month_day = c.billing_month_day
               AND bw.user_id = c.user_id
             RETURNING bw.billing_month_day, bw.user_id, bw.attempt_count, bw.lease_until
-            """;
+            """.formatted(rangeClause);
     }
 }
