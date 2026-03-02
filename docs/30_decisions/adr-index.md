@@ -23,3 +23,4 @@ nav_order: 1
 - **ADR-0004** [RDB 선정 - PostgreSQL VS MySQL](adr-0004-postgresql.md)
 - **ADR-0005** [S3 선정 - S3 vs PostgresSQL vs IPFS](adr-0005-s3.md)
 - **ADR-0006** [메시지 후보군 조회 쿼리 - Skip Locked 적용](adr-0006-cursor-skip-locked.md)
+- **ADR-0007** [인프라 아키텍처 - EC2 + ECS/Fargate 혼합 전략](adr-0007-infrastructure.md)
