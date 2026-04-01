@@ -9,6 +9,31 @@ nav_order: 20
 > 이 페이지에서는 근거/이유보다는 설계 자체를 서술한다.<br/>
 > 근거/이유는 30_decisions 폴더에 작성한다.
 
+<style>
+  .tr1l-figure{
+    margin: 18px auto;
+    text-align: center;
+  }
+  .tr1l-figure img{
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+    border-radius: 12px;
+    box-shadow: 0 0 0 1px rgba(127,127,127,.18);
+  }
+  .tr1l-figure figcaption{
+    display: inline-block;
+    margin-top: 10px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(127,127,127,.22);
+    background: rgba(127,127,127,.08);
+    font-size: 0.9rem;
+    opacity: 0.9;
+  }
+</style>
+
 # [ Producer ]
 
 ---
@@ -20,69 +45,12 @@ nav_order: 20
 
 ---
 
-## 2) 구조 (그림 1장)
+## 2) 구조
 
-```mermaid
-flowchart TB
-
-%% =========================
-%% Stage 1 : Dispatch Server (Producer Only 강화, DISPATCHING 제거)
-%% =========================
-subgraph Stage1["Orchestration (Dispatch Server)"]
-    A(["2시간 주기 타이머"])
-    B["발송 메시지 후보 RDB 조회<br>
-       send_status IN (READY, FAILED)<br>
-       availableTime <= now<br>
-       FOR UPDATE SKIP LOCKED<br>
-       LIMIT N"]
-    C{"발송 정책 검증"}
-    C1["Pause 처리"]
-    E["Kafka 발행<br>Topic_Request"]
-    F{"Kafka 발행 성공?"}
-    G["FAILED 처리<br>재시도 대기"]
-end
-
-%% =========================
-%% Kafka (변경 없음)
-%% =========================
-subgraph Kafka_Bus["Message Broker: Kafka"]
-    K1[["Topic: 발송 요청 (암호화됨)"]]
-    K2[["Topic: 발송 결과"]]
-end
-
-%% =========================
-%% Database
-%% =========================
-MasterDB[("[Postgres_Targets DB] <br>billing_targets")]
-
-%% =========================
-%% Flow (Producer)
-%% =========================
-A --> B
-B --> C
-
-C -- 정책 불일치 --> C1
-C1 -. UPDATE .-> MasterDB
-
-C -- 정책 일치 --> E
-E --> F
-
-F -- 성공 --> K1
-F -- 실패 --> G
-G -. UPDATE<br>Status = FAILED .-> MasterDB
-
-B -. Status == READY<br>availableTime <= 현재시각 .-> MasterDB
-
-%% =========================
-%% Style
-%% =========================
-style MasterDB fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-style K1 fill:#fff9c4,stroke:#fbc02d
-style K2 fill:#fff9c4,stroke:#fbc02d
-style Stage1 fill:#f9f9f9,stroke:#333
-
-
-```
+<figure class="tr1l-figure">
+  <img src="../images/message-queue-producer-flow.png" alt="Message Queue Producer Flow" loading="lazy" />
+  <figcaption>Message Queue Producer Flow</figcaption>
+</figure>
 
 - **구성 요소**: Trigger(Cron/Scheduler), Orchestration Service, Candidate Repository(JPA/Native Query), Policy Service(스냅샷), Mapper(S3/목적지), Kafka Publisher
 - **흐름 요약**: 트리거 → 정책/시간 산출 → 후보 조회(커서 페이징/락) → 채널/목적지/S3 매핑 → Kafka 이벤트 발행
@@ -139,16 +107,12 @@ style Stage1 fill:#f9f9f9,stroke:#333
 
 ---
 
-## 2) 구조 (그림 1장)
+## 2) 구조
 
-```mermaid
-flowchart LR
-  A[[Kafka: dispatch-events]] --> B[DeliveryService: READY/FAILED -> SENT]
-  B --> C[DeliveryWorker: decrypt -> S3 download -> channel send]
-  C --> D[Kafka: delivery-result-events-v1]
-  D --> E[DeliveryResultListener]
-  E --> F[(billing_targets: SUCCEED/FAILED, attempt_count)]
-```
+<figure class="tr1l-figure">
+  <img src="../images/message-queue-consumer-flow.png" alt="Message Queue Consumer Flow" loading="lazy" />
+  <figcaption>Message Queue Consumer Flow</figcaption>
+</figure>
 
 - **구성 요소**: `DispatchEventListener`, `DeliveryService`, `DeliveryWorker`, `NotificationClientAdapter(Strategy)`, `S3Adapter`, `DeliveryResultEventAdapter`, `DeliveryResultListener`
 - **흐름 요약**: 요청 토픽 소비 → 상태 선점(SENT) → 비동기 외부 발송 → 결과 이벤트 발행 → 결과 토픽 소비 → 최종 상태 반영
