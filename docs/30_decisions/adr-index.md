@@ -24,3 +24,5 @@ nav_order: 1
 - **ADR-0005** [S3 선정 - S3 vs PostgresSQL vs IPFS](adr-0005-s3.md)
 - **ADR-0006** [메시지 후보군 조회 쿼리 - Skip Locked 적용](adr-0006-cursor-skip-locked.md)
 - **ADR-0007** [인프라 아키텍처 - EC2 + ECS/Fargate 혼합 전략](adr-0007-infrastructure.md)
+- **ADR-0008** [Delivery 처리 보장 모델 - At-least-once + 상태전이 멱등](adr-0008-delivery-processing-guarantee.md)
+- **ADR-0009** [Delivery 백프레셔 정책 - 고정 스레드풀(180) + 무버퍼(Queue 0) + Block](adr-0009-delivery-backpressure-threadpool.md)

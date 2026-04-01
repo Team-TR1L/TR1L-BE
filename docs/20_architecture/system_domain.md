@@ -181,7 +181,7 @@ nav_order: 20
 - `apps/api-server (상시 구동)`: 운영/정책/상태 조회, 실행 제어, 관리자 기능 수행
 - `apps/worker (배치 실행 단위)`: Billing BC 중심으로 Step 기반 실행(정산/청구 산출물 생성)
 - `apps/dispatch-server (주기 실행)`: Dispatch BC 중심으로 슬롯 선별 + 이벤트 발행
-- `apps/delivery-server` (0..N 확장): Delivery BC 중심으로 이벤트 소비 + 대량 발송 실행
+- `apps/delivery-server` (0..N 확장): Delivery BC 중심으로 이벤트 소비 + 대량 발송 실행 + 발송 결과 상태 전이 확정
 
 ### Domain Model 적용
 
@@ -209,7 +209,7 @@ nav_order: 20
 | `apps/api-server`      | HTTP API 서버 | Postgres(Main) + JPA                  | `com.tr1l.apiserver/`<br>`config`, `handler`, `message` | `ApiServerApplication`, `WebConfig`, `GlobalExceptionHandler`, `Controller`           |
 | `apps/dispatch-server` | 청구서 선별 서버   | Postgres(Target) + Kafka 설정 파일        | `com.tr1l.dispatchserver/`<br>`config`, `message/kafka` | `DispatchApplication`, `DispatcherConfig`, `Consumer/Listener`, `PollingScheduler`    |
 | `apps/worker`          | 배치 실행 유닛    | Postgres(Main+Target) + Mongo + Batch | `com.tr1l.worker/`<br>`batch/*`, `config`, `event`      | `WorkerApplication`, `Job/Step Config`, `ItemReader/Writer`, `TargetDataSourceConfig` |
-| `apps/dilivery-server` | 청구서 전송 서버   | Postgres(Target) + Kafka 설정 파일        | `com.tr1l.dilivery/`, `config`,`message/kafka`          | `DiliveryApplication`, `DiliveryConfig`, `Producer`                                   |
+| `apps/delivery-server` | 청구서 전송 서버   | Postgres(Target) + Kafka 설정 파일        | `com.tr1l.deliveryserver/`, `com.tr1l.delivery/`        | `DeliveryApplication`, `DispatchEventListener`, `DeliveryService`, `DeliveryWorker`   |
 
 #### 3) contexts/ 하위 폴더 구조 (billing / dispatch-policy BC 공통)
 | 하위 폴더                      | 레이어 의미          | 들어갈 클래스(구체)                                   | 예시 클래스명                                                                   | 금지/주의                          |
