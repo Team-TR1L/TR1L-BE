@@ -69,4 +69,33 @@ class Job1ReliabilityResourceContractTest {
         assertThat(rerun.compareWithBaseline().metrics())
                 .contains("billingTargetsCount", "billingWorkCount", "calculatedCount", "mongoSnapshotCount");
     }
+
+    @Test
+    @DisplayName("S-003 시나리오가 partial success 흐름이랑 맞게 잡혀 있는지 보기")
+    void partialSuccessScenarios_should_match_known_flow() {
+        // S-003 fault 상태 검증 구조
+        // S-003R rerun 수렴 구조
+        Job1ScenarioDefinition partialFailure = catalog.loadScenario("S-003");
+        Job1ScenarioDefinition rerunAfterPartialFailure = catalog.loadScenario("S-003R");
+
+        assertThat(partialFailure.datasetId()).isEqualTo("D1-rerun-mvp");
+        assertThat(partialFailure.fault().enabled()).isTrue();
+        assertThat(partialFailure.validate().phase()).isEqualTo("after_fault");
+        assertThat(partialFailure.validate().invariants()).containsExactly("INV-001");
+
+        assertThat(rerunAfterPartialFailure.datasetId()).isEqualTo("D1-rerun-mvp");
+        assertThat(rerunAfterPartialFailure.rerun().enabled()).isTrue();
+        assertThat(rerunAfterPartialFailure.validate().phase()).isEqualTo("after_rerun_complete");
+        assertThat(rerunAfterPartialFailure.compareWithBaseline()).isNotNull();
+        assertThat(rerunAfterPartialFailure.compareWithBaseline().baselineScenarioId()).isEqualTo("S-001");
+        assertThat(rerunAfterPartialFailure.compareWithBaseline().metrics())
+                .contains(
+                        "billingTargetsCount",
+                        "billingWorkCount",
+                        "calculatedCount",
+                        "mongoSnapshotCount",
+                        "duplicateMongoSnapshotCount",
+                        "targetWithSnapshotCount"
+                );
+    }
 }

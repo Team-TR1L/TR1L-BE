@@ -11,8 +11,10 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 // 상태 카운트 수집기
 // 시나리오 공통 수치 집약
@@ -102,6 +104,43 @@ public final class Job1StateCollector {
                 Aggregates.limit(10)
         )).into(new java.util.ArrayList<>());
 
+        // 스냅샷 선반영 workId 수집
+        Set<String> snapshotWorkIds = new HashSet<>(collection.find(Filters.eq("billingMonth", billingMonthDay.toString()))
+                .projection(new Document("workId", 1).append("_id", 0))
+                .into(new java.util.ArrayList<>())
+                .stream()
+                .map(doc -> doc.getString("workId"))
+                .filter(java.util.Objects::nonNull)
+                .toList());
+
+        List<String> processingWorkIds = jdbcTemplate.query("""
+                        SELECT billing_month_day, user_id
+                        FROM billing_work
+                        WHERE billing_month_day = :billingMonthDay
+                          AND status = 'PROCESSING'
+                        ORDER BY user_id
+                        """,
+                params,
+                (rs, rowNum) -> rs.getDate("billing_month_day").toLocalDate() + ":" + rs.getLong("user_id"));
+
+        List<String> targetWorkIds = jdbcTemplate.query("""
+                        SELECT billing_month_day, user_id
+                        FROM billing_work
+                        WHERE billing_month_day = :billingMonthDay
+                          AND status = 'TARGET'
+                        ORDER BY user_id
+                        """,
+                params,
+                (rs, rowNum) -> rs.getDate("billing_month_day").toLocalDate() + ":" + rs.getLong("user_id"));
+
+        List<String> targetWithSnapshotWorkIds = targetWorkIds.stream()
+                .filter(snapshotWorkIds::contains)
+                .toList();
+
+        List<String> processingWithSnapshotWorkIds = processingWorkIds.stream()
+                .filter(snapshotWorkIds::contains)
+                .toList();
+
         // 샘플 행 제한 수집
         // 발표 디버깅 공용 근거
         return new Job1StateSnapshot(
@@ -110,6 +149,8 @@ public final class Job1StateCollector {
                 billingTargetsCount,
                 billingWorkCount,
                 statusCounts.getOrDefault("TARGET", 0L),
+                targetWithSnapshotWorkIds.size(),
+                targetWorkIds.size() - targetWithSnapshotWorkIds.size(),
                 statusCounts.getOrDefault("PROCESSING", 0L),
                 statusCounts.getOrDefault("CALCULATED", 0L),
                 statusCounts.getOrDefault("FAILED", 0L),
@@ -117,6 +158,10 @@ public final class Job1StateCollector {
                 duplicateBillingWorkCount,
                 mongoSnapshotCount,
                 duplicateDocs.size(),
+                processingWithSnapshotWorkIds.size(),
+                processingWorkIds.size() - processingWithSnapshotWorkIds.size(),
+                targetWithSnapshotWorkIds.stream().limit(10).toList(),
+                processingWithSnapshotWorkIds.stream().limit(10).toList(),
                 duplicateDocs.stream().map(doc -> doc.getString("_id")).toList()
         );
     }

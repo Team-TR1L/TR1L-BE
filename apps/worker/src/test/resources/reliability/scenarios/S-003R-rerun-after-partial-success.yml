@@ -1,0 +1,40 @@
+id: S-003R
+name: rerun-after-partial-success
+description: partial success 이후 같은 cutoff로 다시 실행한 뒤 S-001 run 직후 상태와 비교한다.
+
+datasetId: D1-rerun-mvp
+
+job:
+  name: calculateJob
+  cutoff: "2026-02-01T00:00:00Z"
+  billingMonthDay: "2026-01-01"
+
+fault:
+  enabled: false
+
+rerun:
+  enabled: true
+  sameCutoff: true
+
+validate:
+  phase: after_rerun_complete
+  invariants:
+    - INV-001
+    - INV-002
+    - INV-003
+
+compareWithBaseline:
+  enabled: true
+  baselineScenarioId: S-001
+  metrics:
+    - billingTargetsCount
+    - billingWorkCount
+    - calculatedCount
+    - mongoSnapshotCount
+    - duplicateMongoSnapshotCount
+    - targetWithSnapshotCount
+
+allure:
+  epic: "TR1L Job1 Reliability"
+  feature: "Partial Success"
+  story: "S-003R rerun after partial success"
