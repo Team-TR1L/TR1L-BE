@@ -43,4 +43,7 @@ dependencies {
 
     // SQL query counting (datasource proxy)
     implementation "net.ttddyy:datasource-proxy:1.10"
+
+    testImplementation 'io.qameta.allure:allure-junit5:2.29.1'
+    testImplementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
 }
