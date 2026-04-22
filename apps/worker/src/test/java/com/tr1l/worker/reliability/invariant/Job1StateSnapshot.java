@@ -10,6 +10,8 @@ public record Job1StateSnapshot(
         long billingTargetsCount,
         long billingWorkCount,
         long targetCount,
+        long targetWithSnapshotCount,
+        long targetWithoutSnapshotCount,
         long processingCount,
         long calculatedCount,
         long failedCount,
@@ -17,6 +19,10 @@ public record Job1StateSnapshot(
         long duplicateBillingWorkCount,
         long mongoSnapshotCount,
         long duplicateMongoSnapshotCount,
+        long processingWithSnapshotCount,
+        long processingWithoutSnapshotCount,
+        List<String> sampleTargetWorkIdsWithSnapshot,
+        List<String> sampleProcessingWorkIdsWithSnapshot,
         List<String> sampleDuplicateMongoWorkIds
 ) {
     // 시나리오 지표 이름 매핑
@@ -25,6 +31,8 @@ public record Job1StateSnapshot(
             case "billingTargetsCount" -> billingTargetsCount;
             case "billingWorkCount" -> billingWorkCount;
             case "targetCount" -> targetCount;
+            case "targetWithSnapshotCount" -> targetWithSnapshotCount;
+            case "targetWithoutSnapshotCount" -> targetWithoutSnapshotCount;
             case "processingCount" -> processingCount;
             case "calculatedCount" -> calculatedCount;
             case "failedCount" -> failedCount;
@@ -32,6 +40,8 @@ public record Job1StateSnapshot(
             case "duplicateBillingWorkCount" -> duplicateBillingWorkCount;
             case "mongoSnapshotCount" -> mongoSnapshotCount;
             case "duplicateMongoSnapshotCount" -> duplicateMongoSnapshotCount;
+            case "processingWithSnapshotCount" -> processingWithSnapshotCount;
+            case "processingWithoutSnapshotCount" -> processingWithoutSnapshotCount;
             default -> throw new IllegalArgumentException("Unsupported metric: " + metricName);
         };
     }

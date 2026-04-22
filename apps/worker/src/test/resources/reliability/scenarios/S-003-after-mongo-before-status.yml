@@ -1,0 +1,27 @@
+id: S-003
+name: after-mongo-before-status
+description: Mongo snapshot 저장 뒤 billing_work 상태 업데이트 전에 실패한 상태를 검증한다.
+
+datasetId: D1-rerun-mvp
+
+job:
+  name: calculateJob
+  cutoff: "2026-02-01T00:00:00Z"
+  billingMonthDay: "2026-01-01"
+
+fault:
+  enabled: true
+
+rerun:
+  enabled: false
+  sameCutoff: false
+
+validate:
+  phase: after_fault
+  invariants:
+    - INV-001
+
+allure:
+  epic: "TR1L Job1 Reliability"
+  feature: "Partial Success"
+  story: "S-003 after mongo before status"
