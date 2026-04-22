@@ -24,13 +24,16 @@ public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort 
 
     private final MongoTemplate mongoTemplate;
     private final String collectionName;
+    private final boolean failAfterSnapshotSave;
 
     public MongoBillingSnapshotSaveAdapter(
             MongoTemplate mongoTemplate,
-            @Value("${app.billing.snapshot.collection:billing_snapshot}") String collectionName
+            @Value("${app.billing.snapshot.collection:billing_snapshot}") String collectionName,
+            @Value("${app.billing.reliability.fail-after-snapshot-save:false}") boolean failAfterSnapshotSave
     ) {
         this.mongoTemplate = mongoTemplate;
         this.collectionName = collectionName;
+        this.failAfterSnapshotSave = failAfterSnapshotSave;
     }
 
     @Override
@@ -55,6 +58,7 @@ public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort 
 
         try {
             bulk.execute();
+            maybeFailAfterSnapshotSave();
         } catch (Exception e) {
             throw new IllegalStateException("Failed to bulk upsert billing snapshots to Mongo", e);
         }
@@ -66,9 +70,20 @@ public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort 
 
         try {
             mongoTemplate.upsert(q, u, collectionName);
+            maybeFailAfterSnapshotSave();
         } catch (Exception e) {
             throw new IllegalStateException("Failed to upsert billing snapshot to Mongo", e);
         }
+    }
+
+    private void maybeFailAfterSnapshotSave() {
+        // partial success repro hook
+        // throw after mongo save before status update
+        if (!failAfterSnapshotSave) {
+            return;
+        }
+
+        throw new IllegalStateException("Injected failure after Mongo snapshot save");
     }
 
     private Update buildUpdate(Billing billing, Instant now) {
@@ -112,7 +127,7 @@ public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort 
         List<Document> chargeLines = new ArrayList<>();
         for (var cl : billing.chargeLines()) {
             Document line = new Document();
-            line.put("name", cl.displayName()); // 도메인에 맞는 getter로
+            line.put("name", cl.displayName());
             line.put("pricingSnapshot",
                     new Document("amount",
                             new Document("value", cl.pricingSnapshot().lineAmount().amount())
@@ -127,7 +142,7 @@ public class MongoBillingSnapshotSaveAdapter implements BillingSnapshotSavePort 
         for (var dl : billing.discountLines()) {
             Document line = new Document();
             line.put("name", dl.displayName());
-            line.put("discountType", dl.type().name()); // enum이면 name()
+            line.put("discountType", dl.type().name());
             line.put("discountAmount", new Document("value", dl.discountAmount().amount()));
             discountLines.add(line);
         }
