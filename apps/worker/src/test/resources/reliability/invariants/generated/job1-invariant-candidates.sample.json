@@ -1,0 +1,38 @@
+[
+  {
+    "id": "INV-101",
+    "category": "count_consistency",
+    "description": "특정 billing_month_day 의 CALCULATED billing_work 수는 billing_targets 수를 넘으면 안 된다",
+    "scope": "step_complete",
+    "sql_check": "SELECT bw.billing_month_day FROM billing_work bw LEFT JOIN billing_targets bt ON bt.billing_month = bw.billing_month_day AND bt.user_id = bw.user_id WHERE bw.billing_month_day = :month GROUP BY bw.billing_month_day HAVING COUNT(*) FILTER (WHERE bw.status = 'CALCULATED') > COUNT(bt.user_id)",
+    "violated_by": "중복 work 생성 뒤 둘 다 CALCULATED 로 끝난 경우",
+    "severity": "critical"
+  },
+  {
+    "id": "INV-102",
+    "category": "state_consistency",
+    "description": "같은 billing_month_day 와 user_id 조합의 billing_work 는 최대 1개여야 한다",
+    "scope": "always",
+    "sql_check": "SELECT billing_month_day, user_id FROM billing_work WHERE billing_month_day = :month GROUP BY billing_month_day, user_id HAVING COUNT(*) > 1",
+    "violated_by": "work insert 경로가 멱등하지 않게 바뀐 경우",
+    "severity": "critical"
+  },
+  {
+    "id": "INV-103",
+    "category": "temporal",
+    "description": "재실행이 끝난 뒤에는 lease_until 이 지난 PROCESSING work 가 남아 있으면 안 된다",
+    "scope": "rerun_after_crash",
+    "sql_check": "SELECT user_id FROM billing_work WHERE billing_month_day = :month AND status = 'PROCESSING' AND lease_until < NOW()",
+    "violated_by": "재실행이 끝났는데 reclaim 되지 않은 PROCESSING 이 남은 경우",
+    "severity": "major"
+  },
+  {
+    "id": "INV-104",
+    "category": "referential",
+    "description": "CALCULATED 상태의 billing_work 는 MongoDB billing_snapshot 에 대응 workId 가 있어야 한다",
+    "scope": "rerun_after_crash",
+    "sql_check": "cross-db: SELECT work_id FROM billing_work WHERE billing_month_day = :month AND status = 'CALCULATED' THEN compare with MongoDB billing_snapshot.workId",
+    "violated_by": "Mongo 저장 전에 끊기거나 rerun 수렴이 누락된 경우",
+    "severity": "critical"
+  }
+]

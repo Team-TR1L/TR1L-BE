@@ -1,0 +1,39 @@
+{
+  "collection": "billing_snapshot",
+  "documentKey": {
+    "_id": "billingId"
+  },
+  "requiredFields": [
+    {
+      "name": "workId",
+      "type": "string",
+      "description": "billing_work 와 연결되는 멱등 키"
+    },
+    {
+      "name": "billingMonth",
+      "type": "string",
+      "format": "YYYY-MM-DD"
+    },
+    {
+      "name": "userId",
+      "type": "long"
+    },
+    {
+      "name": "status",
+      "type": "string"
+    },
+    {
+      "name": "issuedAt",
+      "type": "instant"
+    },
+    {
+      "name": "payload",
+      "type": "document"
+    }
+  ],
+  "writeBehavior": {
+    "operation": "bulk upsert",
+    "collectionName": "billing_snapshot",
+    "afterSaveFailureHook": "fail-after-snapshot-save"
+  }
+}

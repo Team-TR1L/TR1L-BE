@@ -1,0 +1,13 @@
+기본 상태 전이
+TARGET -> PROCESSING
+PROCESSING -> CALCULATED
+PROCESSING -> FAILED
+
+재실행 규칙
+- lease_until 안쪽 PROCESSING 은 정상 상태
+- lease_until 지난 PROCESSING 은 재선점 대상
+- 재실행 완료 뒤 stale PROCESSING 잔존 금지
+
+식별 규칙
+- workId 는 billingMonthDay:userId 형태
+- billing_snapshot.workId 는 billing_work 와 연결 키
