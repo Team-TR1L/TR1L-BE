@@ -1,0 +1,10 @@
+id: INV-003
+postgresQuery: |
+  SELECT to_char(billing_month_day, 'YYYY-MM-DD') || ':' || user_id AS work_id
+  FROM billing_work
+  WHERE billing_month_day = :billingMonthDay
+    AND status = 'CALCULATED'
+mongo:
+  collection: billing_snapshot
+  workIdField: workId
+  billingMonthField: billingMonth

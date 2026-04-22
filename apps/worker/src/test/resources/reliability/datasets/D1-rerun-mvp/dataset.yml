@@ -1,0 +1,53 @@
+id: D1-rerun-mvp
+description: Job1 rerun-safe baseline dataset for PR1
+cutoff: "2026-02-01T00:00:00Z"
+billingMonthDay: "2026-01-01"
+billingYearMonth: "2026-01"
+
+scale:
+  usersTotal: 30000
+  targetEligible: 28500
+  excluded: 1500
+
+distribution:
+  users:
+    activeWithPlan: 28500
+    withdrawn: 900
+    banned: 300
+    activeWithoutPlan: 300
+
+  usage:
+    targetMonthRows: 28500
+    previousMonthNoiseRows: 28500
+    nextMonthNoiseRows: 28500
+
+  usagePattern:
+    belowIncludedDataRatio: 0.50
+    exactlyIncludedDataRatio: 0.10
+    overIncludedDataRatio: 0.30
+    unlimitedPlanRatio: 0.10
+
+  contract:
+    activeCount: 8550
+    expiredCount: 1425
+
+  welfare:
+    eligibleCount: 5700
+
+  soldier:
+    activeCount: 1425
+    expiredCount: 285
+
+  options:
+    expectedTotalSubscriptions: 54000
+    noOptionRatio: 0.30
+    oneOptionRatio: 0.30
+    twoOrThreeOptionsRatio: 0.30
+    fourToSevenOptionsRatio: 0.10
+
+expected:
+  billingTargetsApprox: 28500
+  billingWorkApprox: 28500
+  mongoSnapshotsAfterNormalRunApprox: 28500
+  failedAfterNormalRun: 0
+  staleProcessingAfterRerun: 0

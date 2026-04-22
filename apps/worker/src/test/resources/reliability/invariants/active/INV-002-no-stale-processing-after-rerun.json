@@ -1,0 +1,14 @@
+{
+  "id": "INV-002",
+  "title": "No stale PROCESSING after rerun",
+  "category": "temporal",
+  "scope": "after_rerun_complete",
+  "description": "재실행이 완료된 뒤 lease_until이 만료된 PROCESSING work가 남아 있으면 안 된다.",
+  "checkType": "postgres",
+  "checkRef": "reliability/checks/postgres/INV-002.sql",
+  "expectedViolationCount": 0,
+  "severity": "critical",
+  "allowedTransientViolation": true,
+  "allureFeature": "Failure Recovery",
+  "allureStory": "No stale processing after rerun"
+}
