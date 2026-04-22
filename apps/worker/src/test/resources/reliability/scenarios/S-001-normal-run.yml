@@ -1,0 +1,28 @@
+id: S-001
+name: normal-run
+description: Job1 정상 실행 후 최종 정합성을 검증한다.
+
+datasetId: D1-rerun-mvp
+
+job:
+  name: calculateJob
+  cutoff: "2026-02-01T00:00:00Z"
+  billingMonthDay: "2026-01-01"
+
+fault:
+  enabled: false
+
+rerun:
+  enabled: false
+
+validate:
+  phase: after_job_complete
+  invariants:
+    - INV-001
+    - INV-002
+    - INV-003
+
+allure:
+  epic: "TR1L Job1 Reliability"
+  feature: "Baseline Validation"
+  story: "S-001 normal run"

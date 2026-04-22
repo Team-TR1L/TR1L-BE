@@ -1,0 +1,14 @@
+{
+  "id": "INV-003",
+  "title": "Calculated work has Mongo snapshot",
+  "category": "referential",
+  "scope": "after_rerun_complete",
+  "description": "CALCULATED 상태의 billing_work는 MongoDB billing_snapshot에 대응되는 workId를 가져야 한다.",
+  "checkType": "cross_db",
+  "checkRef": "reliability/checks/cross-db/INV-003-calculated-work-has-snapshot.yml",
+  "expectedViolationCount": 0,
+  "severity": "critical",
+  "allowedTransientViolation": true,
+  "allureFeature": "Cross-DB Consistency",
+  "allureStory": "Calculated work has snapshot"
+}

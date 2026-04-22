@@ -1,0 +1,39 @@
+id: S-001R
+name: same-cutoff-rerun
+description: 동일 cutoff로 Job1을 재실행한 뒤 target/work/snapshot count가 증가하지 않는지 검증한다.
+
+datasetId: D1-rerun-mvp
+
+job:
+  name: calculateJob
+  cutoff: "2026-02-01T00:00:00Z"
+  billingMonthDay: "2026-01-01"
+
+fault:
+  enabled: false
+
+rerun:
+  enabled: true
+  sameCutoff: true
+
+validate:
+  phase: after_rerun_complete
+  invariants:
+    - INV-001
+    - INV-002
+    - INV-003
+
+compareWithBaseline:
+  enabled: true
+  baselineScenarioId: S-001
+  metrics:
+    - billingTargetsCount
+    - billingWorkCount
+    - calculatedCount
+    - mongoSnapshotCount
+    - duplicateMongoSnapshotCount
+
+allure:
+  epic: "TR1L Job1 Reliability"
+  feature: "Baseline Validation"
+  story: "S-001R same cutoff rerun"

@@ -1,0 +1,13 @@
+{
+  "id": "INV-001",
+  "title": "No duplicate billing_work",
+  "category": "state_consistency",
+  "scope": "always",
+  "description": "같은 billing_month_day + user_id 조합의 billing_work는 최대 1개여야 한다.",
+  "checkType": "postgres",
+  "checkRef": "reliability/checks/postgres/INV-001.sql",
+  "expectedViolationCount": 0,
+  "severity": "critical",
+  "allureFeature": "Rerun Safety",
+  "allureStory": "No duplicate billing work"
+}

@@ -1,0 +1,25 @@
+{
+  "datasetId": "D1-rerun-mvp",
+  "billingMonthDay": "2026-01-01",
+  "billingYearMonth": "2026-01",
+  "expected": {
+    "usersTotal": 30000,
+    "targetEligible": 28500,
+    "billingTargets": {
+      "min": 28400,
+      "max": 28600
+    },
+    "billingWork": {
+      "min": 28400,
+      "max": 28600
+    },
+    "mongoSnapshotsAfterNormalRun": {
+      "min": 28400,
+      "max": 28600
+    },
+    "failedAfterNormalRun": 0,
+    "staleProcessingAfterRerun": 0,
+    "duplicateBillingWork": 0,
+    "duplicateMongoWorkId": 0
+  }
+}
