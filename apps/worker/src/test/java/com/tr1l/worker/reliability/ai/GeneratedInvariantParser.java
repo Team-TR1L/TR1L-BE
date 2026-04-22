@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 
 // 생성 응답 파싱 전용
 public final class GeneratedInvariantParser {
-    private static final Pattern CODE_FENCE = Pattern.compile("^```(?:json)?\\s*(.*?)\\s*```$", Pattern.DOTALL);
+    private static final Pattern CODE_FENCE = Pattern.compile("```(?:json)?\\s*(.*?)\\s*```", Pattern.DOTALL);
 
     private final ReliabilityResourceLoader loader = new ReliabilityResourceLoader();
 
@@ -39,7 +39,7 @@ public final class GeneratedInvariantParser {
         }
 
         Matcher matcher = CODE_FENCE.matcher(trimmed);
-        if (matcher.matches()) {
+        if (matcher.find()) {
             return matcher.group(1).trim();
         }
         return trimmed;

@@ -89,6 +89,27 @@ class Job1AiInvariantGeneratorContractTest {
     }
 
     @Test
+    @DisplayName("코드펜스 앞뒤 설명이 붙어도 JSON 본문만 뽑는지 보기")
+    void parserShouldExtractCodeFenceEvenWithSurroundingText() {
+        // 응답 앞뒤 설명 텍스트 허용
+        String fencedResponseWithProse = """
+                아래는 요청한 invariant 후보입니다
+
+                ```json
+                %s
+                ```
+
+                필요하면 다음 단계에서 mutant 도 만들 수 있습니다
+                """.formatted(loader.loadText(SAMPLE_RESPONSE_PATH).trim());
+
+        List<GeneratedInvariantCandidate> candidates = parser.parse(fencedResponseWithProse);
+
+        assertThat(candidates).hasSize(4);
+        assertThat(candidates).extracting(GeneratedInvariantCandidate::id)
+                .containsExactly("INV-101", "INV-102", "INV-103", "INV-104");
+    }
+
+    @Test
     @DisplayName("허용되지 않은 scope 값이면 파싱 단계에서 바로 막는지 보기")
     void parserShouldRejectInvalidScopeValue() {
         // 후처리 검증 경계 확인
