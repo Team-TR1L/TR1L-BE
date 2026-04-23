@@ -15,7 +15,9 @@ public final class Job1InvariantPromptComposer {
 
                 %s
 
-                응답은 JSON 배열만 반환
+                응답은 JSON 객체 하나만 반환
+                최상위 필드는 invariants 하나만 사용
+                invariants 안에 invariant 항목 배열을 담기
                 """.formatted(contextPack.renderForUserPrompt()).trim();
 
         return new Job1InvariantPrompt(systemPrompt, userPrompt);

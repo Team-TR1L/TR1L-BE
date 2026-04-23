@@ -22,6 +22,7 @@ validate:
     - INV-001
     - INV-002
     - INV-003
+    - INV-004
 
 compareWithBaseline:
   enabled: true
