@@ -1,0 +1,13 @@
+{
+  "id": "MUT-INV-004",
+  "title": "Loose target work gap",
+  "category": "count_consistency",
+  "scope": "always",
+  "description": "같은 billing_month_day 기준으로 target 과 work 차이가 5개 이하면 허용한다",
+  "checkType": "postgres",
+  "checkRef": "reliability/checks/postgres/MUT-INV-004.sql",
+  "expectedViolationCount": 0,
+  "severity": "major",
+  "allureFeature": "Invariant Mutation",
+  "allureStory": "Loose target work gap mutant"
+}
