@@ -1,0 +1,28 @@
+File apps/worker/src/main/resources/sql/job1/step3/target/01_claim_upsert.sql
+- billing_work 에서 TARGET 또는 lease 만료 PROCESSING 선점
+- FOR UPDATE SKIP LOCKED 사용
+- status 를 PROCESSING 으로 변경
+- attempt_count 증가
+
+핵심 SQL 조각
+WITH cte AS (
+  SELECT billing_month_day, user_id
+  FROM billing_work
+  WHERE billing_month_day = :billingMonthDay
+    AND (
+      status = 'TARGET'
+      OR (status = 'PROCESSING' AND lease_until IS NOT NULL AND lease_until < :now)
+    )
+  ORDER BY user_id
+  LIMIT :limit FOR UPDATE SKIP LOCKED
+)
+
+File apps/worker/src/main/java/com/tr1l/worker/batch/calculatejob/step/step3/CalculateAndSnapshotWriter.java
+- snapshotSavePort.saveAll(billings)
+- statusPort.markCalculatedAll(calculatedUpdates now)
+- statusPort.markFailedAll(failedUpdates now)
+
+File contexts/billing/src/main/java/com/tr1l/billing/adapter/out/persistence/mongo/MongoBillingSnapshotSaveAdapter.java
+- bulk.execute()
+- maybeFailAfterSnapshotSave()
+- Mongo 저장 직후 예외 주입 가능

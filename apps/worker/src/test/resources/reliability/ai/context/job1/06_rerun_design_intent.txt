@@ -1,0 +1,6 @@
+Job1 rerun safe 설계 의도
+- 같은 cutoff 로 다시 돌려도 billing_targets 수는 흔들리면 안 됨
+- 같은 billing_month_day user_id 조합의 billing_work 는 중복되면 안 됨
+- Mongo snapshot 저장만 끝나고 PG 상태 반영이 끊길 수 있음
+- 이런 partial success 도 재실행 뒤에는 CALCULATED 와 snapshot 상태가 다시 맞아야 함
+- 최종 완료 뒤에는 stuck PROCESSING 이 남아 있으면 안 됨
