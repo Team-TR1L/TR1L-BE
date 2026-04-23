@@ -1,0 +1,13 @@
+{
+  "id": "INV-004",
+  "title": "Target and work membership match",
+  "category": "count_consistency",
+  "scope": "always",
+  "description": "같은 billing_month_day 기준으로 billing_targets 와 billing_work 의 사용자 집합은 같아야 한다",
+  "checkType": "postgres",
+  "checkRef": "reliability/checks/postgres/INV-004.sql",
+  "expectedViolationCount": 0,
+  "severity": "critical",
+  "allureFeature": "Rerun Safety",
+  "allureStory": "Target work membership parity"
+}

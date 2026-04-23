@@ -21,6 +21,7 @@ validate:
     - INV-001
     - INV-002
     - INV-003
+    - INV-004
 
 allure:
   epic: "TR1L Job1 Reliability"

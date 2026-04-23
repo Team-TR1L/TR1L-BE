@@ -1,0 +1,31 @@
+{
+  "generatedInvariantId": "J1S3-I7",
+  "sourceRunName": "live-job1-invariant-generator",
+  "sourceResponseId": "resp_0935f9ac0da1a53e0069e918dbe4f0819a9d28b987a349085f",
+  "reviewStatus": "approved",
+  "reviewedBy": "kimdoyeon",
+  "reviewedAt": "2026-04-23T03:30:00Z",
+  "scoreSummary": {
+    "totalScore": 85,
+    "formatScore": 20,
+    "sqlExecutableScore": 25,
+    "semanticAlignmentScore": 25,
+    "scenarioLinkageScore": 0,
+    "noveltyScore": 15,
+    "sqlExecutable": true,
+    "semanticallyAligned": true,
+    "scenarioLinked": false,
+    "novelAgainstActive": true
+  },
+  "decisionReason": "billing_targets 와 billing_work 의 사용자 집합 일치 여부는 재실행 안전성에서 별도 경계로 볼 가치가 있음",
+  "reviewNotes": [
+    "LLM 생성 결과는 count_consistency 로 분류됐지만 단순 count 보다 사용자 집합 차이를 보는 쪽이 더 안전함",
+    "scenarioLinked 점수는 낮았지만 S-001 S-001R S-003R 검증 목록에 직접 연결해서 보완함",
+    "cross-db 가 아닌 Postgres 내부 membership 검증으로 먼저 승격함"
+  ],
+  "promotionTarget": {
+    "activeInvariantId": "INV-004",
+    "activeInvariantFile": "reliability/invariants/active/INV-004-target-work-membership-match.json",
+    "checkRef": "reliability/checks/postgres/INV-004.sql"
+  }
+}
