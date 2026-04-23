@@ -49,13 +49,15 @@ class Job1AiInvariantGeneratorContractTest {
         Job1InvariantPrompt prompt = promptComposer.compose(contextPackBuilder.build());
 
         assertThat(prompt.systemPrompt())
-                .contains("JSON 배열만 출력")
+                .contains("JSON 객체 하나만 출력")
+                .contains("\"invariants\"")
                 .contains("\"sql_check\"")
                 .contains("PROCESSING 상태");
         assertThat(prompt.userPrompt())
                 .contains("=== billing_targets 테이블 DDL ===")
                 .contains("=== Step3 핵심 코드 ===")
-                .contains("응답은 JSON 배열만 반환");
+                .contains("응답은 JSON 객체 하나만 반환")
+                .contains("최상위 필드는 invariants");
     }
 
     @Test
@@ -107,6 +109,30 @@ class Job1AiInvariantGeneratorContractTest {
         assertThat(candidates).hasSize(4);
         assertThat(candidates).extracting(GeneratedInvariantCandidate::id)
                 .containsExactly("INV-101", "INV-102", "INV-103", "INV-104");
+    }
+
+    @Test
+    @DisplayName("배열 형태 legacy 응답도 같은 후보 목록으로 읽는지 보기")
+    void parserShouldAcceptLegacyArrayResponse() {
+        // legacy 배열 응답 호환
+        String legacyArrayResponse = """
+                [
+                  {
+                    "id": "INV-101",
+                    "category": "count_consistency",
+                    "description": "legacy 배열 응답",
+                    "scope": "step_complete",
+                    "sql_check": "SELECT 1",
+                    "violated_by": "legacy path",
+                    "severity": "critical"
+                  }
+                ]
+                """;
+
+        List<GeneratedInvariantCandidate> candidates = parser.parse(legacyArrayResponse);
+
+        assertThat(candidates).hasSize(1);
+        assertThat(candidates.get(0).id()).isEqualTo("INV-101");
     }
 
     @Test

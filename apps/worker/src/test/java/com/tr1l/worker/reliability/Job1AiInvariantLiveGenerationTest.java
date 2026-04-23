@@ -10,6 +10,7 @@ import com.tr1l.worker.reliability.ai.Job1InvariantContextPackBuilder;
 import com.tr1l.worker.reliability.ai.Job1InvariantPrompt;
 import com.tr1l.worker.reliability.ai.Job1InvariantPromptComposer;
 import com.tr1l.worker.reliability.ai.OpenAiInvariantGenerationResult;
+import com.tr1l.worker.reliability.ai.OpenAiApiRequestException;
 import com.tr1l.worker.reliability.ai.OpenAiInvariantRuntimeConfig;
 import com.tr1l.worker.reliability.ai.OpenAiResponsesInvariantGenerator;
 import com.tr1l.worker.reliability.support.AllureEvidenceWriter;
@@ -52,8 +53,29 @@ class Job1AiInvariantLiveGenerationTest {
         Job1InvariantPrompt prompt = promptComposer.compose(contextPackBuilder.build());
         OpenAiResponsesInvariantGenerator generator = new OpenAiResponsesInvariantGenerator(config);
 
-        long inputTokenCount = generator.countInputTokens(prompt);
-        OpenAiInvariantGenerationResult generationResult = generator.generate(prompt);
+        long inputTokenCount;
+        OpenAiInvariantGenerationResult generationResult;
+
+        try {
+            inputTokenCount = generator.countInputTokens(prompt);
+            generationResult = generator.generate(prompt);
+        } catch (OpenAiApiRequestException e) {
+            // 실패 요청 캡처 저장
+            artifactWriter.writeText(config.runName(), "failed-request-body.json", e.requestBody());
+            artifactWriter.writeText(config.runName(), "failed-response-body.json", e.responseBody());
+            artifactWriter.writeJson(
+                    config.runName(),
+                    "failed-response-meta.json",
+                    Map.of(
+                            "path", e.path(),
+                            "statusCode", e.statusCode()
+                    )
+            );
+            evidenceWriter.attachText("failed-request-body.json", e.requestBody());
+            evidenceWriter.attachText("failed-response-body.json", e.responseBody());
+            throw e;
+        }
+
         List<GeneratedInvariantCandidate> candidates = parser.parse(generationResult.outputText());
         GeneratedInvariantBatchEvaluation evaluation = scorer.evaluate(candidates, catalog.loadActiveInvariants());
 
@@ -66,7 +88,8 @@ class Job1AiInvariantLiveGenerationTest {
                 config.runName(),
                 "generation-metrics.json",
                 Map.of(
-                        "model", config.model(),
+                        "requestedModel", config.model(),
+                        "responseModel", generationResult.model(),
                         "responseId", generationResult.responseId(),
                         "inputTokenCount", inputTokenCount,
                         "usage", generationResult.usage(),
@@ -84,7 +107,7 @@ class Job1AiInvariantLiveGenerationTest {
         evidenceWriter.attachJson("generated-candidate-evaluation.json", evaluation);
 
         assertThat(generationResult.responseId()).isNotBlank();
-        assertThat(generationResult.model()).isEqualTo(config.model());
+        assertThat(generationResult.model()).startsWith(config.model());
         assertThat(inputTokenCount).isPositive();
         assertThat(candidates).isNotEmpty();
         assertThat(evaluation.totalCandidates()).isEqualTo(candidates.size());

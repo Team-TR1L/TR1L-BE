@@ -22,7 +22,7 @@ public final class OpenAiResponsesInvariantGenerator {
     }
 
     public long countInputTokens(Job1InvariantPrompt prompt) {
-        ObjectNode requestBody = baseRequestBody(prompt);
+        ObjectNode requestBody = buildInputTokenCountRequestBody(prompt);
         String responseBody = send("/responses/input_tokens", requestBody);
 
         try {
@@ -34,9 +34,7 @@ public final class OpenAiResponsesInvariantGenerator {
     }
 
     public OpenAiInvariantGenerationResult generate(Job1InvariantPrompt prompt) {
-        ObjectNode requestBody = baseRequestBody(prompt);
-        requestBody.put("max_output_tokens", 3000);
-        requestBody.set("text", buildStructuredOutputFormat());
+        ObjectNode requestBody = buildGenerationRequestBody(prompt);
 
         String requestBodyText = toPrettyJson(requestBody);
         String responseBody = send("/responses", requestBody);
@@ -60,14 +58,27 @@ public final class OpenAiResponsesInvariantGenerator {
         }
     }
 
-    // 공통 요청 바디
-    private ObjectNode baseRequestBody(Job1InvariantPrompt prompt) {
-        ObjectNode requestBody = ReliabilityObjectMappers.json().createObjectNode();
-        requestBody.put("model", config.model());
-        requestBody.put("store", false);
+    // input token 계산용 요청 바디
+    ObjectNode buildInputTokenCountRequestBody(Job1InvariantPrompt prompt) {
+        return baseConversationRequestBody(prompt);
+    }
+
+    // 응답 생성용 요청 바디
+    ObjectNode buildGenerationRequestBody(Job1InvariantPrompt prompt) {
+        ObjectNode requestBody = baseConversationRequestBody(prompt);
 
         ObjectNode reasoning = requestBody.putObject("reasoning");
         reasoning.put("effort", config.reasoningEffort());
+
+        requestBody.put("max_output_tokens", 3000);
+        requestBody.set("text", buildStructuredOutputFormat());
+        return requestBody;
+    }
+
+    // 공통 대화 바디
+    private ObjectNode baseConversationRequestBody(Job1InvariantPrompt prompt) {
+        ObjectNode requestBody = ReliabilityObjectMappers.json().createObjectNode();
+        requestBody.put("model", config.model());
 
         ArrayNode input = requestBody.putArray("input");
         ObjectNode systemMessage = input.addObject();
@@ -89,9 +100,15 @@ public final class OpenAiResponsesInvariantGenerator {
         format.put("strict", true);
 
         ObjectNode schema = format.putObject("schema");
-        schema.put("type", "array");
+        schema.put("type", "object");
+        ObjectNode schemaProperties = schema.putObject("properties");
+        ObjectNode invariants = schemaProperties.putObject("invariants");
+        invariants.put("type", "array");
+        ArrayNode requiredRoot = schema.putArray("required");
+        requiredRoot.add("invariants");
+        schema.put("additionalProperties", false);
 
-        ObjectNode item = schema.putObject("items");
+        ObjectNode item = invariants.putObject("items");
         item.put("type", "object");
 
         ObjectNode properties = item.putObject("properties");
@@ -136,15 +153,16 @@ public final class OpenAiResponsesInvariantGenerator {
     // 응답 전송
     private String send(String path, JsonNode requestBody) {
         try {
+            String requestBodyText = toPrettyJson(requestBody);
             HttpRequest request = HttpRequest.newBuilder(URI.create(config.baseUrl() + path))
                     .header("Authorization", "Bearer " + config.apiKey())
                     .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(toPrettyJson(requestBody), StandardCharsets.UTF_8))
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBodyText, StandardCharsets.UTF_8))
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() >= 400) {
-                throw new IllegalStateException("OpenAI API request failed: status=" + response.statusCode() + " body=" + response.body());
+                throw new OpenAiApiRequestException(path, response.statusCode(), requestBodyText, response.body());
             }
             return response.body();
         } catch (InterruptedException e) {
