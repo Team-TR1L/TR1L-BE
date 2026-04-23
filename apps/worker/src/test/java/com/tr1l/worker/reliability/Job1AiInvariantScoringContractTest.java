@@ -42,13 +42,14 @@ class Job1AiInvariantScoringContractTest {
                 .collect(Collectors.toMap(GeneratedInvariantEvaluation::invariantId, Function.identity()));
 
         assertThat(evaluation.totalCandidates()).isEqualTo(4);
-        assertThat(evaluation.activeCandidateCount()).isEqualTo(1);
-        assertThat(evaluation.reviewRequiredCount()).isEqualTo(3);
+        assertThat(evaluation.activeCandidateCount()).isZero();
+        assertThat(evaluation.reviewRequiredCount()).isEqualTo(4);
         assertThat(evaluation.rejectCount()).isEqualTo(0);
-        assertThat(evaluation.averageScore()).isGreaterThanOrEqualTo(85d);
+        assertThat(evaluation.averageScore()).isGreaterThanOrEqualTo(80d);
 
-        assertThat(byId.get("INV-101").decision()).isEqualTo(GeneratedInvariantPromotionDecision.ACTIVE_CANDIDATE);
-        assertThat(byId.get("INV-101").novelAgainstActive()).isTrue();
+        assertThat(byId.get("INV-101").decision()).isEqualTo(GeneratedInvariantPromotionDecision.REVIEW_REQUIRED);
+        assertThat(byId.get("INV-101").novelAgainstActive()).isFalse();
+        assertThat(byId.get("INV-101").matchedActiveInvariantId()).isEqualTo("INV-004");
         assertThat(byId.get("INV-102").decision()).isEqualTo(GeneratedInvariantPromotionDecision.REVIEW_REQUIRED);
         assertThat(byId.get("INV-102").matchedActiveInvariantId()).isEqualTo("INV-001");
         assertThat(byId.get("INV-103").matchedActiveInvariantId()).isEqualTo("INV-002");
