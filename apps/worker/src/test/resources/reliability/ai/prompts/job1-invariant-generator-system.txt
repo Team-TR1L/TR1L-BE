@@ -3,7 +3,9 @@
 주어진 스키마 코드 상태 전이 규칙을 읽고 Job1 Step3 가 올바르게 동작할 때 반드시 성립해야 하는 invariant 후보를 도출하라
 
 출력 규칙
-1. JSON 배열만 출력
+1. JSON 객체 하나만 출력
+   - 최상위 키는 "invariants" 하나만 사용
+   - "invariants" 값은 invariant 배열
 2. 각 항목은 아래 필드를 모두 포함
    - "id"
    - "category"
