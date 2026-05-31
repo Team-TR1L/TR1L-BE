@@ -30,25 +30,16 @@ public final class ReliabilityResourceCatalog {
         return readJsonDirectory("classpath*:reliability/invariants/active/*.json", InvariantDefinition.class);
     }
 
+    public List<Job1ScenarioDefinition> loadScenarios() {
+        return readYamlDirectory("classpath*:reliability/scenarios/*.yml", Job1ScenarioDefinition.class);
+    }
+
     public Job1ScenarioDefinition loadScenario(String scenarioId) {
-        try {
-            Resource[] resources = resolver.getResources("classpath*:reliability/scenarios/*.yml");
-            return Arrays.stream(resources)
-                    // 시나리오 id 기준 매칭
-                    // 접두어 혼선 방지
-                    .map(resource -> {
-                        try {
-                            return ReliabilityObjectMappers.yaml().readValue(resource.getInputStream(), Job1ScenarioDefinition.class);
-                        } catch (IOException e) {
-                            throw new IllegalStateException("Failed to read scenario resource: " + resource, e);
-                        }
-                    })
-                    .filter(definition -> scenarioId.equals(definition.id()))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("Scenario resource not found for id: " + scenarioId));
-        } catch (IOException e) {
-            throw new IllegalStateException("Failed to resolve scenario resources", e);
-        }
+        return loadScenarios().stream()
+                // 시나리오 id 기준 단건 조회
+                .filter(definition -> scenarioId.equals(definition.id()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Scenario resource not found for id: " + scenarioId));
     }
 
     public String loadCheckText(String classpathLocation) {
@@ -74,6 +65,31 @@ public final class ReliabilityResourceCatalog {
                     .map(resource -> {
                         try {
                             return ReliabilityObjectMappers.json().readValue(resource.getInputStream(), type);
+                        } catch (IOException e) {
+                            throw new IllegalStateException("Failed to read resource " + resource, e);
+                        }
+                    })
+                    .toList();
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to resolve resources: " + pattern, e);
+        }
+    }
+
+    // 특정 classpath 패턴의 YAML 파일 목록 적재
+    private <T> List<T> readYamlDirectory(String pattern, Class<T> type) {
+        try {
+            Resource[] resources = resolver.getResources(pattern);
+            return Arrays.stream(resources)
+                    .sorted(Comparator.comparing(resource -> {
+                        try {
+                            return resource.getFilename();
+                        } catch (Exception e) {
+                            return "";
+                        }
+                    }))
+                    .map(resource -> {
+                        try {
+                            return ReliabilityObjectMappers.yaml().readValue(resource.getInputStream(), type);
                         } catch (IOException e) {
                             throw new IllegalStateException("Failed to read resource " + resource, e);
                         }
