@@ -1,0 +1,25 @@
+{
+  "datasetId": "D3-pairwise",
+  "billingMonthDay": "2026-01-01",
+  "billingYearMonth": "2026-01",
+  "expected": {
+    "usersTotal": 30000,
+    "targetEligible": 25539,
+    "billingTargets": {
+      "min": 25539,
+      "max": 25539
+    },
+    "billingWork": {
+      "min": 25539,
+      "max": 25539
+    },
+    "mongoSnapshotsAfterNormalRun": {
+      "min": 25539,
+      "max": 25539
+    },
+    "failedAfterNormalRun": 0,
+    "staleProcessingAfterRerun": 0,
+    "duplicateBillingWork": 0,
+    "duplicateMongoWorkId": 0
+  }
+}
