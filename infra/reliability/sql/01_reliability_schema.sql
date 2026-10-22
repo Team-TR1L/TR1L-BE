@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS reliability.run
     allure_url    text         NULL
 );
 
+-- 재실행 안전 장치를 깨뜨린 mutant 로 돌린 실행이면 그 ID (M1 ~ M6). 실패가 기대값이라 실패율 집계에서 뺀다
+ALTER TABLE reliability.run ADD COLUMN IF NOT EXISTS mutant varchar(8) NULL;
+
 -- 장애 주입, worker 시작과 종료 같은 사건. Grafana annotation으로 그린다
 CREATE TABLE IF NOT EXISTS reliability.run_event
 (
