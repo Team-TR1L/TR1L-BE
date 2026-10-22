@@ -192,6 +192,35 @@ uv run infra/reliability/scripts/run_scenario.py S-013 --cutoff 2026-02-15T00:00
 - 앞 실행이 남긴 PROCESSING 이 있으면 재실행 전에 lease 가 끝나기를 기다린다. S-002E 만 기다리지 않는다
 - S-013 은 worker 를 띄우기 전에 `captureFinishedMonth` 로 상태를 남기고, 돌린 뒤 batch 메타 테이블(main DB)에서 마지막 calculateJob 의 step 이 `billingGateStep=NOOP` 하나뿐인지 본다
 
+## 실행 사이 원천 변경
+
+장애와 재실행 사이에 main DB 원천이 바뀌는 경우를 본다. Step1 은 cutoff 시각을 쓰지 않고 정산 월(시작일, 종료일)로만 읽는다.
+사용자 상태와 요금제는 지금 값을 읽고, 재실행하면 `billing_targets` 를 모든 사용자에 대해 다시 덮어쓴다(`ON CONFLICT DO UPDATE`).
+
+| ID | 바꾸는 것 | 고르는 사용자 |
+| --- | --- | --- |
+| I1 | cutoff 뒤 사용량 재집계. 2026-01 사용량 +5,000MB, `usage_aggregated_at` 을 지금으로 | 초과 요금이 붙는 DBT-02 |
+| I2 | 탈퇴. `user_status = WITHDRAWN` | 청구 대상 |
+| I3 | 옵션 해지. 구독 `end_date` 를 지금으로 | 옵션이 있는 사용자 |
+
+```bash
+python3 infra/reliability/scripts/run_input_changes.py                 # P3c·MIDDLE, P1·MIDDLE × I1 ~ I3
+python3 infra/reliability/scripts/run_input_changes.py --changes I2 --points P1
+```
+
+- 칸 하나는 S-010(장애) → S-014R --change(원천을 바꾸고 재실행)이다. 원천은 하네스가 끝날 때 되돌린다(`atexit`)
+- 바뀐 사용자는 장애 직후 상태로 세 무리로 나눠 30명씩 고른다. `CALCULATED`(계산 끝남), `LOADED`(billing_targets 에만 있음), `NOT_LOADED`(Step1 이 아직 넣지 않음)
+- 기준으로 삼은 규칙은 "cutoff 기준 유지", 곧 바뀐 사용자도 S-001 과 같은 청구서를 받는 것이다. 아직 요구사항으로 정해지지 않아서 어긴 칸은 `DECISION` 으로 남긴다. 구조(invariant, 남은 work 없음, 마감)나 바뀌지 않은 사용자가 S-001 과 다르면 `FAIL` 이다
+- 결과는 `check_result` 의 `CUTOFF_HOLD` 와 대시보드 "실행 사이 원천 변경" 표에 남는다
+
+| 칸 | 결과 |
+| --- | --- |
+| I1 · Step1 뒤 장애 | 계산 끝난 30명은 예전 사용량, 아직 계산 안 한 30명은 새 사용량으로 청구. 계산 끝난 30명은 청구서와 billing_targets 가 어긋남 → DECISION |
+| I1 · Step1 도중 장애 | 60명 모두 새 사용량으로 청구 → DECISION |
+| I2 · Step1 뒤 장애 | 모두 S-001 과 같음 (이미 billing_targets 에 들어가 있어서) → PASS |
+| I2 · Step1 도중 장애 | Step1 이 아직 넣지 않은 30명은 cutoff 때 청구 대상이었는데 청구되지 않음 → DECISION |
+| I3 · 두 칸 | 모두 S-001 과 같음 (해지일이 1월 뒤라 1월 구독은 그대로) → PASS |
+
 ## 재실행 안전 장치를 깨뜨려 보기 (mutant)
 
 검증이 전부 통과해도 검증이 약해서 통과했을 수 있다. 그래서 재실행 안전성을 떠받치는 장치를 하나씩 깨뜨린 worker 로
