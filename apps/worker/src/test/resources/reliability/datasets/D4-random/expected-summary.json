@@ -1,0 +1,25 @@
+{
+  "datasetId": "D4-random",
+  "billingMonthDay": "2026-01-01",
+  "billingYearMonth": "2026-01",
+  "expected": {
+    "usersTotal": 30000,
+    "targetEligible": 25500,
+    "billingTargets": {
+      "min": 24000,
+      "max": 27000
+    },
+    "billingWork": {
+      "min": 24000,
+      "max": 27000
+    },
+    "mongoSnapshotsAfterNormalRun": {
+      "min": 24000,
+      "max": 27000
+    },
+    "failedAfterNormalRun": 0,
+    "staleProcessingAfterRerun": 0,
+    "duplicateBillingWork": 0,
+    "duplicateMongoWorkId": 0
+  }
+}
