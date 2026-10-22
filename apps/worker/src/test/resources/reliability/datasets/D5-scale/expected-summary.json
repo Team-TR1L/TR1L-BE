@@ -1,0 +1,25 @@
+{
+  "datasetId": "D5-scale",
+  "billingMonthDay": "2026-01-01",
+  "billingYearMonth": "2026-01",
+  "expected": {
+    "usersTotal": 1080000,
+    "targetEligible": 918473,
+    "billingTargets": {
+      "min": 918473,
+      "max": 918473
+    },
+    "billingWork": {
+      "min": 918473,
+      "max": 918473
+    },
+    "mongoSnapshotsAfterNormalRun": {
+      "min": 918473,
+      "max": 918473
+    },
+    "failedAfterNormalRun": 0,
+    "staleProcessingAfterRerun": 0,
+    "duplicateBillingWork": 0,
+    "duplicateMongoWorkId": 0
+  }
+}
