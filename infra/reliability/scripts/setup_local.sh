@@ -30,3 +30,9 @@ psql "$TARGET" -q -v ON_ERROR_STOP=1 -f "$ROOT/infra/reliability/sql/01_reliabil
 psql "$MAIN" -At -c "SELECT 'users=' || count(*) FROM users"
 psql "$MAIN" -At -c "SELECT 'option_subscriptions=' || count(*) FROM user_option_subscription"
 psql "$TARGET" -At -c "SELECT 'fault_cells=' || count(*) FROM reliability.fault_cell"
+
+# 적재한 분포가 dataset.yml 과 같은지 바로 확인한다. 다르면 여기서 실패한다
+echo "[check] D1 distribution vs dataset.yml"
+(cd "$ROOT" && JOB1_RELIABILITY_ENABLED=true PG_MAIN_HOST="jdbc:postgresql://localhost:25432/billing" \
+  ./gradlew :apps:worker:test --rerun --tests 'com.tr1l.worker.reliability.Job1DatasetDistributionValidationTest' --console=plain -q)
+echo "  결과: apps/worker/build/job1-reliability-results/dataset/D1-rerun-mvp-distribution.json"
