@@ -4,19 +4,27 @@
 #   chunkKey  시점(FIRST, MIDDLE, LAST)을 몇 번째 호출로 바꿀 때 쓰는 단위
 #             none 은 tasklet 이라 한 번뿐, 나머지는 청구 대상 수를 그 크기로 나눈 횟수
 #   expect    장애 직후 Job1StateSnapshot 지표에 대한 조건. total 은 청구 대상 수
+#   expectByKind 장애 종류에 따라 예상 상태가 다르면 종류별로 덮어쓴다
+#             K4(MongoDB 연결 끊김)는 Step0~2 가 MongoDB 를 쓰지 않아 Step3 첫 저장에서야 실패한다
 points:
   P0:
     step: Step0 billing_cycle 확인 직후
     chunkKey: none
     expect: { billingTargetsCount: "== 0", billingWorkCount: "== 0", mongoSnapshotCount: "== 0" }
+    expectByKind:
+      K4: { billingTargetsCount: "== total", billingWorkCount: "== total", calculatedCount: "< total" }
   P1:
     step: Step1 billing_targets chunk 적재 직후
     chunkKey: step1
     expect: { billingTargetsCount: "< total", billingWorkCount: "== 0", mongoSnapshotCount: "== 0" }
+    expectByKind:
+      K4: { billingTargetsCount: "== total", billingWorkCount: "== total", calculatedCount: "< total" }
   P2:
     step: Step2 billing_work chunk 적재 직후
     chunkKey: step2
     expect: { billingTargetsCount: "== total", billingWorkCount: "< total", mongoSnapshotCount: "== 0" }
+    expectByKind:
+      K4: { billingTargetsCount: "== total", billingWorkCount: "== total", calculatedCount: "< total" }
   P3a:
     step: Step3 claim 직후, 계산 전
     chunkKey: step3-claim
