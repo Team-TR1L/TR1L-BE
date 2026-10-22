@@ -187,11 +187,15 @@ def main():
             conn.execute(
                 """INSERT INTO reliability.run (run_id, scenario_id, dataset_id, seed, fault_point, fault_timing,
                                                fault_kind, git_commit, chain_id, finished_at, verdict)
-                   VALUES (%s, 'RANDOM', 'D4-random', %s, %s, %s, %s, %s, %s, now(), %s)""",
+                   VALUES (%s, 'RANDOM', 'D4-random', %s, %s, %s, %s, %s, %s, now(), %s)
+                   ON CONFLICT (run_id) DO UPDATE SET started_at = now(), finished_at = now(), verdict = EXCLUDED.verdict,
+                                                      git_commit = EXCLUDED.git_commit""",
                 (chain_id, iteration["dataset_seed"], point, timing, kind, commit, chain_id, verdict))
             conn.execute(
                 """INSERT INTO reliability.check_result (run_id, check_id, passed, violation_count, detail)
-                   VALUES (%s, 'RANDOM', %s, %s, %s)""",
+                   VALUES (%s, 'RANDOM', %s, %s, %s)
+                   ON CONFLICT (run_id, check_id) DO UPDATE SET passed = EXCLUDED.passed,
+                       violation_count = EXCLUDED.violation_count, detail = EXCLUDED.detail""",
                 (chain_id, verdict != "FAIL", int(verdict == "FAIL"),
                  " → ".join("·".join(f) for f in iteration["faults"]) + f" · {detail}"))
         results.append(dict(iteration, verdict=verdict, detail=detail, run_ids=run_ids,
