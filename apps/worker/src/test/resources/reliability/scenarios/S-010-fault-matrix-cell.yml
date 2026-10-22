@@ -1,0 +1,27 @@
+id: S-010
+name: fault-matrix-cell
+description: 장애 행렬 한 칸. 지점과 시점은 실행할 때 정한다 (app.reliability.fault.point, nth). 장애 직후 상태를 검증한다
+
+datasetId: D1-rerun-mvp
+
+job:
+  name: calculateJob
+  cutoff: "2026-02-01T00:00:00Z"
+  billingMonthDay: "2026-01-01"
+
+fault:
+  enabled: true
+
+rerun:
+  enabled: false
+  sameCutoff: false
+
+validate:
+  phase: after_fault
+  invariants:
+    - INV-001
+
+allure:
+  epic: "TR1L Job1 Reliability"
+  feature: "Fault Matrix"
+  story: "S-010 fault matrix cell"

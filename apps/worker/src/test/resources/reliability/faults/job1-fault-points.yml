@@ -1,0 +1,39 @@
+# Job1 장애 주입 지점과 장애 직후 예상 상태
+# 운영 코드 Job1FaultPoint 와 같은 이름이다
+#   step      주입되는 Step
+#   chunkKey  시점(FIRST, MIDDLE, LAST)을 몇 번째 호출로 바꿀 때 쓰는 단위
+#             none 은 tasklet 이라 한 번뿐, 나머지는 청구 대상 수를 그 크기로 나눈 횟수
+#   expect    장애 직후 Job1StateSnapshot 지표에 대한 조건. total 은 청구 대상 수
+points:
+  P0:
+    step: Step0 billing_cycle 확인 직후
+    chunkKey: none
+    expect: { billingTargetsCount: "== 0", billingWorkCount: "== 0", mongoSnapshotCount: "== 0" }
+  P1:
+    step: Step1 billing_targets chunk 적재 직후
+    chunkKey: step1
+    expect: { billingTargetsCount: "< total", billingWorkCount: "== 0", mongoSnapshotCount: "== 0" }
+  P2:
+    step: Step2 billing_work chunk 적재 직후
+    chunkKey: step2
+    expect: { billingTargetsCount: "== total", billingWorkCount: "< total", mongoSnapshotCount: "== 0" }
+  P3a:
+    step: Step3 claim 직후, 계산 전
+    chunkKey: step3-claim
+    expect: { billingTargetsCount: "== total", billingWorkCount: "== total", calculatedCount: "< total" }
+  P3b:
+    step: Step3 Mongo 저장 전
+    chunkKey: step3-write
+    expect: { billingTargetsCount: "== total", billingWorkCount: "== total", calculatedCount: "< total" }
+  P3c:
+    step: Step3 Mongo 저장 직후, 상태 갱신 전
+    chunkKey: step3-write
+    expect: { billingTargetsCount: "== total", billingWorkCount: "== total", calculatedCount: "< total" }
+  P3d:
+    step: Step3 상태 갱신 직후, chunk commit 전
+    chunkKey: step3-write
+    expect: { billingTargetsCount: "== total", billingWorkCount: "== total", calculatedCount: "< total" }
+  P4:
+    step: Step4 billing_cycle 마감 전
+    chunkKey: none
+    expect: { billingTargetsCount: "== total", billingWorkCount: "== total", calculatedCount: "== total", mongoSnapshotCount: "== total" }
