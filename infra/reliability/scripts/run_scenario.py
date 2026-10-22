@@ -180,30 +180,42 @@ def run_junit(test):
         PG_SUB_PASSWORD="postgres",
         MONGODB_URI=f"{MONGO_URL}/{MONGO_DB}",
     )
-    cmd = ["./gradlew", ":apps:worker:test", "--tests", test, "--console=plain", "-q"]
+    # 검증 JUnit은 DB 상태만 읽어서 Gradle 입력이 같으면 UP-TO-DATE로 건너뛴다. --rerun으로 항상 실행한다
+    cmd = ["./gradlew", ":apps:worker:test", "--rerun", "--tests", test, "--console=plain", "-q"]
     return subprocess.run(cmd, env=env, cwd=ROOT).returncode
 
 
-def record_checks(conn, run_id, scenario_id, spec):
+def insert_check(conn, run_id, check_id, passed, violation_count, detail):
+    conn.execute(
+        """INSERT INTO reliability.check_result (run_id, check_id, passed, violation_count, detail)
+           VALUES (%s, %s, %s, %s, %s) ON CONFLICT (run_id, check_id) DO UPDATE
+           SET passed = EXCLUDED.passed, violation_count = EXCLUDED.violation_count, detail = EXCLUDED.detail""",
+        (run_id, check_id, passed, violation_count, detail),
+    )
+
+
+def record_checks(conn, run_id, scenario_id, spec, since):
     directory = RESULT_DIR / f"{scenario_id}-{spec['name']}"
-    validation = directory / "invariant-validation.json"
-    if validation.exists():
-        for result in json.loads(validation.read_text())["results"]:
-            conn.execute(
-                """INSERT INTO reliability.check_result (run_id, check_id, passed, violation_count, detail)
-                   VALUES (%s, %s, %s, %s, %s) ON CONFLICT (run_id, check_id) DO UPDATE
-                   SET passed = EXCLUDED.passed, violation_count = EXCLUDED.violation_count""",
-                (run_id, result["invariantId"], result["passed"], result["violationCount"], result["title"]),
-            )
-    for name in ("s001-run-state-comparison.json", "baseline-comparison.json"):
-        comparison = directory / name
-        if comparison.exists():
-            data = json.loads(comparison.read_text())
-            conn.execute(
-                """INSERT INTO reliability.check_result (run_id, check_id, passed, violation_count, detail)
-                   VALUES (%s, 'S001_COMPARE', %s, %s, %s) ON CONFLICT (run_id, check_id) DO NOTHING""",
-                (run_id, data["matched"], len(data["differences"]), json.dumps(data["currentMetrics"])),
-            )
+
+    def fresh(name):
+        # 이번 실행에서 JUnit이 쓴 파일만 읽는다. 이전 실행 결과가 섞이지 않게 한다
+        path = directory / name
+        return json.loads(path.read_text()) if path.exists() and path.stat().st_mtime >= since else None
+
+    if validation := fresh("invariant-validation.json"):
+        for result in validation["results"]:
+            insert_check(conn, run_id, result["invariantId"], result["passed"], result["violationCount"], result["title"])
+    if comparison := fresh("s001-run-state-comparison.json"):
+        insert_check(conn, run_id, "S001_COMPARE", comparison["matched"], len(comparison["differences"]),
+                     json.dumps(comparison["currentMetrics"]))
+    if hashes := fresh("snapshot-hash-comparison.json"):
+        violations = hashes["hashMismatch"] + hashes["missingInCurrent"] + hashes["extraInCurrent"] + hashes["duplicateUsers"]
+        insert_check(conn, run_id, "C5", violations == 0, violations,
+                     f"snapshot 해시 일치 {hashes['hashMatch']} / 기준 {hashes['referenceCount']}")
+    if amounts := fresh("reference-amount-comparison.json"):
+        violations = amounts["mismatchedUsers"] + amounts["missingSnapshots"] + amounts["unexpectedSnapshots"]
+        insert_check(conn, run_id, "C6", violations == 0, violations,
+                     f"참조 금액 일치 {amounts['matchedUsers']} / 대상 {amounts['expectedUsers']}")
 
 
 def main():
@@ -239,8 +251,9 @@ def main():
         sampler.join()
 
         event(conn, run_id, "VALIDATION", spec["test"].rsplit(".", 1)[1])
+        junit_started = time.time()
         junit_code = run_junit(spec["test"])
-        record_checks(conn, run_id, scenario_id, spec)
+        record_checks(conn, run_id, scenario_id, spec, junit_started)
         verdict = "PASS" if junit_code == 0 else "FAIL"
         conn.execute(
             "UPDATE reliability.run SET finished_at = now(), job_exit_code = %s, verdict = %s WHERE run_id = %s",
