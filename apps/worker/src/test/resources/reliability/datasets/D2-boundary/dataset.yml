@@ -1,0 +1,68 @@
+id: D2-boundary
+description: 경계값 데이터셋. 경계값 33가지에 사용자 10명씩
+cutoff: "2026-02-01T00:00:00Z"
+billingMonthDay: "2026-01-01"
+billingYearMonth: "2026-01"
+
+scale:
+  usersTotal: 330
+  targetEligible: 290
+  excluded: 40
+
+expected:
+  failedAfterNormalRun: 0
+  staleProcessingAfterRerun: 0
+
+# 경우별 기대 결과. Job1BoundaryCaseValidationTest 가 S-001 직후 billing_targets 와 snapshot 으로 확인한다
+#   target          billing_targets 에 행이 생기는지
+#   usedDataMb      billing_targets.used_data_mb
+#   hasContract     billing_targets.has_contract
+#   soldierEligible billing_targets.soldier_eligible
+#   optionCount     billing_targets.options_jsonb 원소 수
+#   overageAmount   snapshot 초과 데이터 사용량 청구 금액 (없으면 0)
+#   welfareDiscount snapshot 복지 할인 금액
+#   decision        current 는 지금 동작을 그대로 기대값으로 둔 것, needs-decision 은 요구사항 확인이 필요한 것
+boundaryCases:
+  - { code: USAGE_EQUAL_INCLUDED, target: true, usedDataMb: 500, overageAmount: 0, decision: current }
+  - { code: USAGE_INCLUDED_PLUS_1MB, target: true, usedDataMb: 501, overageAmount: 0, decision: current,
+      note: "1MB 초과는 0.275원이라 내림하면 0원" }
+  - { code: USAGE_INCLUDED_MINUS_1MB, target: true, usedDataMb: 499, overageAmount: 0, decision: current }
+  - { code: USAGE_ZERO, target: true, usedDataMb: 0, overageAmount: 0, decision: current }
+  - { code: USAGE_OVER_3GB, target: true, usedDataMb: 100500, overageAmount: 27500, decision: needs-decision,
+      note: "요금제 설명은 3GB 이상 무제한인데 초과분 전체에 요금을 매긴다" }
+  - { code: DATA_BLOCKED_PLAN_OVER, target: true, usedDataMb: 1000, overageAmount: 0, decision: current }
+  - { code: NO_INCLUDED_DATA_PLAN, target: true, usedDataMb: 1000, overageAmount: 275, decision: current }
+  - { code: USAGE_ROW_MISSING, target: true, usedDataMb: 0, overageAmount: 0, decision: current }
+  - { code: USAGE_AGGREGATED_AFTER_CUTOFF, target: true, usedDataMb: 800, overageAmount: 82, decision: needs-decision,
+      note: "cutoff 뒤에 집계된 사용량도 그대로 들어간다" }
+  - { code: CONTRACT_ENDS_MONTH_START, target: true, hasContract: true, decision: current }
+  - { code: CONTRACT_ENDS_MONTH_END, target: true, hasContract: true, decision: current }
+  - { code: CONTRACT_STARTS_MONTH_END, target: true, hasContract: true, decision: needs-decision,
+      note: "기준 월 마지막 날 시작한 약정도 한 달 할인을 받는다" }
+  - { code: CONTRACT_STARTS_NEXT_MONTH, target: true, hasContract: false, decision: current }
+  - { code: CONTRACT_18_MONTHS, target: true, hasContract: false, decision: current,
+      note: "할인표에 없는 기간은 약정 할인 없음" }
+  - { code: CONTRACT_ENDED_PREV_MONTH, target: true, hasContract: false, decision: current }
+  - { code: SOLDIER_ENDS_MONTH_START, target: true, soldierEligible: true, decision: current }
+  - { code: SOLDIER_ENDED_PREV_MONTH, target: true, soldierEligible: false, decision: current }
+  - { code: SOLDIER_STARTS_MONTH_END, target: true, soldierEligible: true, decision: current }
+  - { code: SOLDIER_STARTS_NEXT_MONTH, target: true, soldierEligible: false, decision: current }
+  - { code: SOLDIER_ON_NON_MILITARY_PLAN, target: true, soldierEligible: false, decision: current }
+  - { code: OPTION_ENDS_MONTH_START, target: true, optionCount: 0, decision: current,
+      note: "1월 1일 0시에 끝난 구독은 제외" }
+  - { code: OPTION_STARTS_MONTH_LAST_SEC, target: true, optionCount: 1, decision: needs-decision,
+      note: "1월 31일 23:59:59에 시작해도 한 달 요금 전액" }
+  - { code: OPTION_STARTS_NEXT_MONTH, target: true, optionCount: 0, decision: current }
+  - { code: OPTION_ENDS_MID_MONTH, target: true, optionCount: 1, decision: needs-decision,
+      note: "월 중간 해지도 일할 계산 없이 전액" }
+  - { code: WELFARE_CAP_HIT, target: true, welfareDiscount: 12100, decision: current }
+  - { code: WELFARE_UNDER_CAP, target: true, welfareDiscount: 8250, decision: current }
+  - { code: WELFARE_BASE_WITH_OVERAGE, target: true, overageAmount: 1100, welfareDiscount: 9047, decision: current,
+      note: "복지 할인 기준에 초과 요금이 들어가고 옵션 요금은 빠진다" }
+  - { code: ALL_DISCOUNTS, target: true, hasContract: true, soldierEligible: true, welfareDiscount: 6930, decision: current,
+      note: "약정 8,250 → 군인 4,950 → 복지 6,930 순서로 앞 할인 뒤 금액에 적용" }
+  - { code: USER_ID_VERY_LARGE, target: true, decision: current }
+  - { code: ACTIVE_WITHOUT_PLAN, target: false, decision: current }
+  - { code: WITHDRAWN_USER, target: false, decision: current }
+  - { code: BANNED_USER, target: false, decision: current }
+  - { code: ADMIN_ROLE, target: false, decision: current }
