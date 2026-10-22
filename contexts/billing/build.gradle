@@ -1,3 +1,7 @@
+plugins {
+    id 'info.solidsoft.pitest' version '1.15.0'
+}
+
 dependencies {
     implementation project(":shared")
 
@@ -17,4 +21,21 @@ dependencies {
     //thymeleaf
     implementation "org.springframework.boot:spring-boot-starter-thymeleaf:3.5.9"
 
+}
+
+// 청구 금액 계산 코드 mutation 검증 (TR1L-170)
+// BillingAmountReferenceTest 가 참조 계산과 다른 금액을 잡는지 본다. 계산 패키지만 대상으로 한다
+pitest {
+    pitestVersion = '1.17.0'
+    junit5PluginVersion = '1.2.1'
+    targetClasses = [
+            'com.tr1l.billing.domain.service.*',
+            'com.tr1l.billing.domain.policy.*',
+            'com.tr1l.billing.domain.model.*',
+            'com.tr1l.billing.application.assembler.*'
+    ]
+    targetTests = ['com.tr1l.billing.application.assembler.BillingAmountReferenceTest']
+    threads = 4
+    outputFormats = ['HTML', 'XML']
+    timestampedReports = false
 }
