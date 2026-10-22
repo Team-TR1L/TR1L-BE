@@ -7,8 +7,14 @@ public record ReliabilityRuntimeConfig(
         String targetJdbcPassword,
         String mongoUri,
         String mongoDatabase,
-        String snapshotCollection
+        String snapshotCollection,
+        String mainJdbcUrl,
+        String mainJdbcUsername,
+        String mainJdbcPassword,
+        String datasetId
 ) {
+    public static final String DEFAULT_DATASET = "D1-rerun-mvp";
+
     public static ReliabilityRuntimeConfig fromEnvironment() {
         return new ReliabilityRuntimeConfig(
                 env("PG_SUB_HOST", "jdbc:postgresql://localhost:5433/billing_target"),
@@ -16,7 +22,13 @@ public record ReliabilityRuntimeConfig(
                 env("PG_SUB_PASSWORD", "postgres"),
                 env("MONGODB_URI", "mongodb://localhost:27017/tr1l"),
                 env("JOB1_RELIABILITY_MONGO_DB", "tr1l"),
-                env("JOB1_RELIABILITY_SNAPSHOT_COLLECTION", "billing_snapshot")
+                env("JOB1_RELIABILITY_SNAPSHOT_COLLECTION", "billing_snapshot"),
+                // 데이터셋 분포 검증에서만 main DB를 읽는다
+                env("PG_MAIN_HOST", "jdbc:postgresql://localhost:5432/billing"),
+                env("PG_MAIN_USER", "postgres"),
+                env("PG_MAIN_PASSWORD", "postgres"),
+                // 지금 적재된 데이터셋. 시나리오 파일의 datasetId 보다 우선한다
+                env("JOB1_RELIABILITY_DATASET", DEFAULT_DATASET)
         );
     }
 

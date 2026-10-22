@@ -15,4 +15,14 @@ public final class ReliabilityDataSourceFactory {
         dataSource.setPassword(config.targetJdbcPassword());
         return dataSource;
     }
+
+    // 데이터셋 분포 검증 전용 main 디비 datasource
+    public DataSource createMainDataSource(ReliabilityRuntimeConfig config) {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.postgresql.Driver");
+        dataSource.setUrl(config.mainJdbcUrl());
+        dataSource.setUsername(config.mainJdbcUsername());
+        dataSource.setPassword(config.mainJdbcPassword());
+        return dataSource;
+    }
 }

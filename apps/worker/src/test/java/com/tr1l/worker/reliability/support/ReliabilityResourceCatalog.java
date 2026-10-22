@@ -1,7 +1,9 @@
 package com.tr1l.worker.reliability.support;
 
 import com.tr1l.worker.reliability.dataset.ExpectedSummary;
+import com.tr1l.worker.reliability.dataset.InputDimensions;
 import com.tr1l.worker.reliability.dataset.Job1DatasetDefinition;
+import com.tr1l.worker.reliability.fault.FaultPoints;
 import com.tr1l.worker.reliability.invariant.InvariantDefinition;
 import com.tr1l.worker.reliability.scenario.Job1ScenarioDefinition;
 import org.springframework.core.io.Resource;
@@ -20,6 +22,14 @@ public final class ReliabilityResourceCatalog {
 
     public Job1DatasetDefinition loadDataset(String datasetId) {
         return loader.loadYaml("reliability/datasets/" + datasetId + "/dataset.yml", Job1DatasetDefinition.class);
+    }
+
+    public FaultPoints loadFaultPoints() {
+        return loader.loadYaml("reliability/faults/job1-fault-points.yml", FaultPoints.class);
+    }
+
+    public InputDimensions loadInputDimensions() {
+        return loader.loadYaml("reliability/datasets/_dimensions/job1-input-dimensions.yml", InputDimensions.class);
     }
 
     public ExpectedSummary loadExpectedSummary(String datasetId) {

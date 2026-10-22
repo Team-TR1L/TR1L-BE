@@ -44,4 +44,19 @@ public class BillingCycleFinalizeJdbcAdapter implements BillingCycleFinalizedJdb
 
         return jdbcTemplate.update(sql, params);
     }
+
+    @Override
+    public long countUnfinishedWork(LocalDate billingMonthDay) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("billingMonthDay", java.sql.Date.valueOf(billingMonthDay));
+        String sql = """
+        SELECT COUNT(*)
+        FROM billing_work
+        WHERE billing_month_day = :billingMonthDay
+          AND status IN ('TARGET', 'PROCESSING')
+        """;
+
+        Long count = jdbcTemplate.queryForObject(sql, params, Long.class);
+        return count == null ? 0 : count;
+    }
 }

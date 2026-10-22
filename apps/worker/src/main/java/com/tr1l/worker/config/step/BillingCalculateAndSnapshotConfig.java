@@ -1,5 +1,8 @@
 package com.tr1l.worker.config.step;
 
+import com.tr1l.billing.application.port.out.WorkDocReleasePort;
+import com.tr1l.worker.batch.calculatejob.step.step3.ReleaseClaimedWorkOnFailureListener;
+import com.tr1l.worker.batch.fault.Job1FaultInjector;
 import com.tr1l.billing.application.model.WorkAndTargetRow;
 import com.tr1l.billing.application.port.out.BillingSnapshotSavePort;
 import com.tr1l.billing.application.port.out.BillingTargetLoadPort;
@@ -60,6 +63,7 @@ public class BillingCalculateAndSnapshotConfig {
             CalculateAndSnapshotWriter writer,
             StepLoggingListener listener,
             MeterRegistry meterRegistry,
+            WorkDocReleasePort releasePort,
             @Value("${app.billing.step3.chunk-size}") int chunkSize
     ) {
         var perf = new PerfTimingListener<WorkAndTargetRow, CalculateBillingProcessor.Result>(
@@ -79,6 +83,8 @@ public class BillingCalculateAndSnapshotConfig {
                 .processor(processor)
                 .listener(listener)
                 .writer(writer)
+                // partition 실패 시 그 partition 이 claim 한 PROCESSING 반환
+                .listener((StepExecutionListener) new ReleaseClaimedWorkOnFailureListener(releasePort))
                 .listener((StepExecutionListener) perf)
                 .listener((ChunkListener) perf)
                 .listener((ItemReadListener<WorkAndTargetRow>) perf)
@@ -103,7 +109,8 @@ public class BillingCalculateAndSnapshotConfig {
             @Qualifier("billingWorkerId") String workerId,
             @Value("#{stepExecutionContext['workerId']}") String partitionWorkerId,
             @Value("#{stepExecutionContext['userIdStart']}") Long userIdStart,
-            @Value("#{stepExecutionContext['userIdEnd']}") Long userIdEnd
+            @Value("#{stepExecutionContext['userIdEnd']}") Long userIdEnd,
+            Job1FaultInjector faultInjector
     ) {
         YearMonth billingMonth = YearMonth.parse(billingYearMonth); // YYYY-MM
         String effectiveWorkerId = (partitionWorkerId == null || partitionWorkerId.isBlank())
@@ -118,7 +125,8 @@ public class BillingCalculateAndSnapshotConfig {
                 Duration.ofSeconds(leaseSeconds),
                 effectiveWorkerId,
                 userIdStart,
-                userIdEnd
+                userIdEnd,
+                faultInjector
         );
     }
 
@@ -142,9 +150,10 @@ public class BillingCalculateAndSnapshotConfig {
     @StepScope
     public CalculateAndSnapshotWriter calculateAndSnapshotWriter(
             BillingSnapshotSavePort snapshotSavePort,
-            WorkDocStatusPort statusPort
+            WorkDocStatusPort statusPort,
+            Job1FaultInjector faultInjector
     ) {
-        return new CalculateAndSnapshotWriter(snapshotSavePort, statusPort);
+        return new CalculateAndSnapshotWriter(snapshotSavePort, statusPort, faultInjector);
     }
 
     @Bean(name = "step3TaskExecutor")

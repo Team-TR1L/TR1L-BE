@@ -1,0 +1,20 @@
+# Job1 입력 차원
+# 청구 대상 사용자 한 명은 차원마다 값 하나를 가진다
+# 분류 SQL: checks/dataset/target-dimensions.sql
+# pairwise 커버리지는 차원 두 개씩 묶었을 때 나올 수 있는 값 쌍 중 실제로 있는 쌍의 비율이다
+dimensions:
+  usage:
+    description: 기준 월 사용량과 요금제 기본 제공량 비교. 무제한·데이터 차단 요금제는 unlimited
+    values: [below, exactly, over, unlimited]
+  contract:
+    description: 가장 최근 약정의 종료일 기준
+    values: [none, active, ends_in_month, expired]
+  soldier:
+    description: 가장 최근 군인 기간의 종료일 기준
+    values: [none, active, ends_in_month, expired]
+  welfare:
+    description: 복지 코드가 WLF-01(일반)이 아니면 eligible
+    values: [none, eligible]
+  options:
+    description: 옵션 구독 수. 기준 월 안에서 끝나는 구독이 하나라도 있으면 mid_month
+    values: ["0", "1", "2-3", "4-7", mid_month]

@@ -1,5 +1,7 @@
 package com.tr1l.worker.reliability;
 
+import com.tr1l.worker.reliability.dataset.DatasetDistributionCheck;
+import com.tr1l.worker.reliability.dataset.DatasetDistributionResult;
 import com.tr1l.worker.reliability.dataset.ExpectedSummary;
 import com.tr1l.worker.reliability.dataset.Job1DatasetDefinition;
 import com.tr1l.worker.reliability.invariant.InvariantDefinition;
@@ -8,7 +10,9 @@ import com.tr1l.worker.reliability.support.ReliabilityResourceCatalog;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -33,6 +37,31 @@ class Job1ReliabilityResourceContractTest {
         assertThat(expectedSummary.expected().billingTargets().contains(28_500)).isTrue();
         assertThat(expectedSummary.expected().billingWork().contains(28_500)).isTrue();
         assertThat(expectedSummary.expected().mongoSnapshotsAfterNormalRun().contains(28_500)).isTrue();
+    }
+
+    @Test
+    @DisplayName("D1 분포 비율을 건수로 바꿔 실측과 비교하는지 보기")
+    void d1DistributionCheck_should_convert_ratios_to_counts() {
+        // 분포 비교 규칙 검증
+        Job1DatasetDefinition dataset = catalog.loadDataset("D1-rerun-mvp");
+        DatasetDistributionCheck check = new DatasetDistributionCheck();
+
+        Map<String, Long> actual = new HashMap<>();
+        check.compare(dataset, Map.of()).rows()
+                .forEach(row -> actual.put(row.metric(), row.expected()));
+
+        assertThat(check.compare(dataset, actual).matched()).isTrue();
+        assertThat(actual)
+                .containsEntry("usagePattern.belowIncludedDataRatio", 14_250L)
+                .containsEntry("usagePattern.unlimitedPlanRatio", 2_850L)
+                .containsEntry("options.noOptionRatio", 8_550L)
+                .containsEntry("options.fourToSevenOptionsRatio", 2_850L)
+                .containsEntry("options.expectedTotalSubscriptions", 45_585L);
+
+        actual.put("options.noOptionRatio", 0L);
+        assertThat(check.compare(dataset, actual).mismatchedRows())
+                .extracting(DatasetDistributionResult.Row::metric)
+                .containsExactly("options.noOptionRatio");
     }
 
     @Test

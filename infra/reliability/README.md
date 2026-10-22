@@ -26,8 +26,35 @@ docker compose -f infra/reliability/docker-compose.reliability.yml up -d --wait
 infra/reliability/scripts/setup_local.sh
 ```
 
-`setup_local.sh`는 main DB에 스키마, 마스터 데이터, D1 시드를 넣고 target DB에 `billing_work`와 `reliability` 스키마를 만든다.
+`setup_local.sh`는 main DB에 스키마, 마스터 데이터, 데이터셋 시드를 넣고 target DB에 `billing_work`와 `reliability` 스키마를 만든다.
 main DB 테이블은 지우고 다시 만들기 때문에 다시 실행해도 된다.
+
+마지막에 `Job1DatasetDistributionValidationTest`로 적재한 분포가 `dataset.yml`과 같은지 확인한다.
+결과는 `apps/worker/build/job1-reliability-results/dataset/<데이터셋>-distribution.json`에 남는다.
+
+## 데이터셋
+
+```bash
+infra/reliability/scripts/setup_local.sh                     # D1
+infra/reliability/scripts/setup_local.sh D2-boundary
+infra/reliability/scripts/setup_local.sh D3-pairwise
+infra/reliability/scripts/setup_local.sh D4-random 20261022  # seed 를 바꿔 가며
+```
+
+| ID | 사용자 | 만드는 방법 | 적재 뒤 검증 |
+| --- | --- | --- | --- |
+| D1-rerun-mvp | 30,000 | 고정 시드 | `distribution` 21개 항목 건수가 정확히 같아야 함 |
+| D2-boundary | 330 | 경계값 33가지 × 10명 | S-001 뒤 `boundaryCases` 경우별 결과 (`Job1BoundaryCaseValidationTest`) |
+| D3-pairwise | 30,000 | 조합 생성기, seed 3 | `dimensionRatios` ±2%, pairwise 100% |
+| D4-random | 30,000 | 조합 생성기, seed 지정 | `dimensionRatios` ±2%, pairwise 100% |
+
+조합 생성기(`datasets/_generator/combination_seed.sql`)는 차원마다 `hashtextextended(seq, seed)`로 값을 따로 뽑는다.
+그래서 같은 seed면 같은 데이터가 나오고, 할인 조건끼리 겹치지 않는다. user_id의 30%는 5,000,000 뒤로 띄워 빈 구간을 만든다.
+
+입력 차원은 `datasets/_dimensions/job1-input-dimensions.yml`에 있다. 사용량, 약정, 군인, 복지, 옵션 다섯 차원이고,
+pairwise 커버리지는 차원 두 개씩 묶었을 때 나올 수 있는 값 쌍 142개 중 실제로 있는 쌍의 비율이다. 모든 데이터셋에서 계산해 결과 파일에 남긴다.
+
+`run_scenario.py`는 `setup_local.sh`가 남긴 `build/reliability-dataset`을 읽어 지금 적재된 데이터셋을 JUnit에 넘기고 실행 기록에 남긴다.
 
 ## 시나리오 실행
 
@@ -46,6 +73,41 @@ S-001R과 S-003R은 S-001이 남긴 `state-snapshot.json`과 비교하므로 S-0
 2. `reliability.run`에 실행을 남기고 0.25초마다 상태를 `reliability.state_sample`에 센다
 3. worker로 `calculateJob`을 실행한다. S-003은 `APP_BILLING_RELIABILITY_FAIL_AFTER_SNAPSHOT_SAVE=true`
 4. 시나리오에 맞는 JUnit 메서드 하나를 돌리고, 결과 JSON을 읽어 `reliability.check_result`와 `reliability.fault_cell`에 남긴다
+
+## 장애 행렬
+
+worker에는 지점 8개에 장애를 넣을 수 있다(`Job1FaultPoint`, `Job1FaultInjector`). 설정이 없으면 예외를 던지지 않는다.
+
+| 지점 | 위치 |
+| --- | --- |
+| P0 | Step0 billing_cycle 확인 직후 |
+| P1 | Step1 billing_targets chunk 적재 직후 |
+| P2 | Step2 billing_work chunk 적재 직후 |
+| P3a | Step3 claim 직후, 계산 전 |
+| P3b | Step3 Mongo 저장 전 |
+| P3c | Step3 Mongo 저장 직후, 상태 갱신 전 |
+| P3d | Step3 상태 갱신 직후, chunk commit 전 |
+| P4 | Step4 billing_cycle 마감 전 |
+
+| 설정 | 의미 |
+| --- | --- |
+| `app.reliability.fault.point` | 주입 지점. 비어 있으면 주입하지 않는다 |
+| `app.reliability.fault.nth` | 그 지점을 몇 번째로 지날 때 주입할지 |
+| `app.reliability.fault.repeat` | `ONCE`(기본) 또는 `FROM_NTH` |
+| `app.reliability.fault.hits-file` | 종료할 때 지점별 통과 횟수를 남길 파일 |
+
+```bash
+python3 infra/reliability/scripts/run_fault_matrix.py                       # K1 20칸 전부
+python3 infra/reliability/scripts/run_fault_matrix.py --points P2 --timings MIDDLE
+uv run infra/reliability/scripts/run_scenario.py S-010 --point P3a --timing LAST   # 한 칸만
+uv run infra/reliability/scripts/run_scenario.py S-010R
+```
+
+- S-001이 지점별 통과 횟수를 `build/reliability-fault-hits-<데이터셋>.json`에 남긴다. S-010은 이 값으로 FIRST는 1번째, MIDDLE은 절반, LAST는 90% 지점 호출로 바꾼다. 여러 스레드로 도는 Step은 실행마다 호출 수가 조금씩 달라 마지막 호출을 정확히 맞출 수 없어서다
+- S-010은 worker 로그에서 `Injected Job1 fault at <지점>`을 찾는다. 없으면 장애가 들어가지 않은 것이라 실패로 본다
+- 장애 직후 예상 상태는 `faults/job1-fault-points.yml`에 있다
+- 칸은 S-010과 S-010R이 모두 통과해야 PASS다. S-010R은 S-003R과 같은 수렴 검증(INV-001~004, S-001 비교, C5, C6)을 한다
+- 기존 `APP_BILLING_RELIABILITY_FAIL_AFTER_SNAPSHOT_SAVE`(S-003)는 그대로 둔다. 모든 partition의 첫 저장 뒤에 던지는 방식이라 P3c·FIRST의 ONCE와는 다르다
 
 ## 결과 수집 스키마
 

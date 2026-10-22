@@ -52,6 +52,10 @@ SAMPLE_INTERVAL = 0.25  # Step3가 몇 초 만에 끝나서 1초로는 변화가
 
 BASELINE_TEST = "com.tr1l.worker.reliability.Job1BaselineValidationTest"
 PARTIAL_TEST = "com.tr1l.worker.reliability.Job1PartialSuccessValidationTest"
+BOUNDARY_TEST = "com.tr1l.worker.reliability.Job1BoundaryCaseValidationTest"
+FAULT_TEST = "com.tr1l.worker.reliability.Job1FaultMatrixValidationTest"
+# chunk 가 없는 tasklet 지점은 시점을 FIRST 하나로만 본다
+TASKLET_POINTS = {"P0", "P4"}
 
 SCENARIOS = {
     "S-001": dict(name="normal-run", clean=True, fault=False,
@@ -63,6 +67,11 @@ SCENARIOS = {
     "S-003R": dict(name="rerun-after-partial-success", clean=False, fault=False,
                    test=f"{PARTIAL_TEST}.rerunAfterPartialSuccessShouldConvergeToS001RunState",
                    cell=("P3c", "FIRST", "K1")),
+    # 장애 행렬 한 칸. --point, --timing 으로 고른다
+    "S-010": dict(name="fault-matrix-cell", clean=True, fault=False, matrix=True,
+                  test=f"{FAULT_TEST}.afterFaultShouldMatchExpectedStateOfPoint"),
+    "S-010R": dict(name="rerun-after-fault-matrix-cell", clean=False, fault=False,
+                   test=f"{FAULT_TEST}.rerunAfterFaultShouldConvergeToS001RunState"),
 }
 
 STATE_SQL = """
@@ -130,7 +139,7 @@ def clean_month(conn):
     MongoClient(MONGO_URL)[MONGO_DB]["billing_snapshot"].delete_many({"billingMonth": BILLING_MONTH_DAY})
 
 
-def worker_env(fault):
+def worker_env(fault, extra=None):
     env = dict(os.environ)
     env.update(
         JAVA_HOME=JAVA_HOME,
@@ -153,36 +162,68 @@ def worker_env(fault):
         TRANSFORMATION="AES/ECB/PKCS5Padding",
         APP_BILLING_RELIABILITY_FAIL_AFTER_SNAPSHOT_SAVE=str(fault).lower(),
     )
+    env.update(extra or {})
     return env
 
 
-def run_worker(conn, run_id, fault, log_path):
+def run_worker(conn, run_id, fault, log_path, extra_env=None, label=None):
     cmd = [
         f"{JAVA_HOME}/bin/java", "-Xmx2g", "-jar", str(WORKER_JAR),
         "--spring.batch.job.name=calculateJob",
         f"--batch.job1StartTime={CUTOFF}",
         "--server.port=18090",
     ]
-    event(conn, run_id, "WORKER_START", "fault=on" if fault else "fault=off")
+    event(conn, run_id, "WORKER_START", label or ("fault=on" if fault else "fault=off"))
     with open(log_path, "w") as log:
-        proc = subprocess.run(cmd, env=worker_env(fault), stdout=log, stderr=subprocess.STDOUT, cwd=ROOT)
+        proc = subprocess.run(cmd, env=worker_env(fault, extra_env), stdout=log, stderr=subprocess.STDOUT, cwd=ROOT)
     event(conn, run_id, "WORKER_EXIT", f"exit={proc.returncode}")
     return proc.returncode
 
 
-def run_junit(test):
+def loaded_dataset():
+    """setup_local.sh 가 남긴 지금 적재된 데이터셋과 seed"""
+    marker = ROOT / "build/reliability-dataset"
+    if not marker.exists():
+        return "D1-rerun-mvp", None
+    lines = marker.read_text().splitlines() + ["", ""]
+    return lines[0] or "D1-rerun-mvp", (int(lines[1]) if lines[1].strip() else None)
+
+
+def run_junit(tests, dataset_id, extra_env=None):
     env = dict(os.environ)
     env.update(
         JAVA_HOME=JAVA_HOME,
         JOB1_RELIABILITY_ENABLED="true",
+        JOB1_RELIABILITY_DATASET=dataset_id,
         PG_SUB_HOST="jdbc:postgresql://localhost:25433/billing_target",
         PG_SUB_USER="postgres",
         PG_SUB_PASSWORD="postgres",
+        PG_MAIN_HOST="jdbc:postgresql://localhost:25432/billing",
         MONGODB_URI=f"{MONGO_URL}/{MONGO_DB}",
     )
+    env.update(extra_env or {})
     # 검증 JUnit은 DB 상태만 읽어서 Gradle 입력이 같으면 UP-TO-DATE로 건너뛴다. --rerun으로 항상 실행한다
-    cmd = ["./gradlew", ":apps:worker:test", "--rerun", "--tests", test, "--console=plain", "-q"]
+    cmd = ["./gradlew", ":apps:worker:test", "--rerun", "--console=plain", "-q"]
+    for test in tests:
+        cmd += ["--tests", test]
     return subprocess.run(cmd, env=env, cwd=ROOT).returncode
+
+
+def hits_path(dataset_id):
+    """S-001 이 남긴 지점별 통과 횟수. 시점을 몇 번째 호출로 바꿀 때 쓴다"""
+    return ROOT / f"build/reliability-fault-hits-{dataset_id}.json"
+
+
+def nth_for(point, timing, dataset_id):
+    if point in TASKLET_POINTS:
+        return 1
+    path = hits_path(dataset_id)
+    if not path.exists():
+        sys.exit(f"{path} 가 없다. 같은 데이터셋으로 S-001 을 먼저 돌린다")
+    total = json.loads(path.read_text())[point]
+    # 여러 스레드로 도는 Step 은 실행마다 호출 수가 조금씩 달라 마지막 호출을 정확히 맞출 수 없다
+    # LAST 는 마지막 10% 구간이 시작되는 호출로 잡는다
+    return {"FIRST": 1, "MIDDLE": max(1, (total + 1) // 2), "LAST": max(1, -(-total * 9 // 10))}[timing]
 
 
 def insert_check(conn, run_id, check_id, passed, violation_count, detail):
@@ -212,6 +253,12 @@ def record_checks(conn, run_id, scenario_id, spec, since):
         violations = hashes["hashMismatch"] + hashes["missingInCurrent"] + hashes["extraInCurrent"] + hashes["duplicateUsers"]
         insert_check(conn, run_id, "C5", violations == 0, violations,
                      f"snapshot 해시 일치 {hashes['hashMatch']} / 기준 {hashes['referenceCount']}")
+    boundary_path = RESULT_DIR / "dataset" / "D2-boundary-boundary-cases.json"
+    if boundary_path.exists() and boundary_path.stat().st_mtime >= since:
+        cases = json.loads(boundary_path.read_text())["cases"]
+        failed = [case["code"] for case in cases if not case["passed"]]
+        insert_check(conn, run_id, "BOUNDARY", not failed, len(failed),
+                     f"경계값 {len(cases) - len(failed)} / {len(cases)} 일치" + (f", 다름 {failed[:5]}" if failed else ""))
     if amounts := fresh("reference-amount-comparison.json"):
         violations = amounts["mismatchedUsers"] + amounts["missingSnapshots"] + amounts["unexpectedSnapshots"]
         insert_check(conn, run_id, "C6", violations == 0, violations,
@@ -221,6 +268,8 @@ def record_checks(conn, run_id, scenario_id, spec, since):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("scenario", choices=SCENARIOS)
+    parser.add_argument("--point", help="S-010 장애 지점 (P0 ~ P4)")
+    parser.add_argument("--timing", default="FIRST", choices=["FIRST", "MIDDLE", "LAST"])
     args = parser.parse_args()
     scenario_id = args.scenario
     spec = SCENARIOS[scenario_id]
@@ -229,12 +278,38 @@ def main():
     run_id = f"{scenario_id}-{datetime.now():%Y%m%d-%H%M%S}"
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
     cell = spec.get("cell") or (("P3c", "FIRST", "K1") if spec["fault"] else (None, None, None))
+    dataset_id, seed = loaded_dataset()
+    worker_extra, junit_extra, label, matrix_cell = {}, {}, None, None
+    hits_file = LOG_DIR / f"{run_id}-hits.json"
+    worker_extra["APP_RELIABILITY_FAULT_HITS_FILE"] = str(hits_file)
+
+    if spec.get("matrix"):
+        if not args.point:
+            sys.exit("S-010 은 --point 가 필요하다")
+        timing = "FIRST" if args.point in TASKLET_POINTS else args.timing
+        nth = nth_for(args.point, timing, dataset_id)
+        cell = (args.point, timing, "K1")
+        worker_extra.update(APP_RELIABILITY_FAULT_POINT=args.point, APP_RELIABILITY_FAULT_NTH=str(nth),
+                            APP_RELIABILITY_FAULT_REPEAT="ONCE")
+        junit_extra.update(JOB1_FAULT_POINT=args.point, JOB1_FAULT_TIMING=timing)
+        label = f"fault={args.point} {timing} #{nth}"
+    elif scenario_id == "S-010R":
+        # 바로 앞 S-010 칸을 이어받는다
+        with psycopg.connect(TARGET_PG, autocommit=True) as conn:
+            row = conn.execute(
+                """SELECT run_id, fault_point, fault_timing, fault_kind, verdict FROM reliability.run
+                   WHERE scenario_id = 'S-010' ORDER BY started_at DESC LIMIT 1""").fetchone()
+        if not row:
+            sys.exit("S-010 을 먼저 돌린다")
+        matrix_cell = row
+        cell = row[1:4]
+        junit_extra.update(JOB1_FAULT_POINT=row[1], JOB1_FAULT_TIMING=row[2])
 
     with psycopg.connect(TARGET_PG, autocommit=True) as conn:
         conn.execute(
-            """INSERT INTO reliability.run (run_id, scenario_id, dataset_id, fault_point, fault_timing, fault_kind, git_commit)
-               VALUES (%s, %s, 'D1-rerun-mvp', %s, %s, %s, %s)""",
-            (run_id, scenario_id, *cell, commit),
+            """INSERT INTO reliability.run (run_id, scenario_id, dataset_id, seed, fault_point, fault_timing, fault_kind, git_commit)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+            (run_id, scenario_id, dataset_id, seed, *cell, commit),
         )
         if spec["clean"]:
             clean_month(conn)
@@ -245,21 +320,44 @@ def main():
         sampler = Sampler(run_id, spec["fault"])
         sampler.start()
         time.sleep(2)
-        exit_code = run_worker(conn, run_id, spec["fault"], LOG_DIR / f"{run_id}.log")
+        log_path = LOG_DIR / f"{run_id}.log"
+        exit_code = run_worker(conn, run_id, spec["fault"], log_path, worker_extra, label)
+        injected = None
+        if spec.get("matrix"):
+            marker = f"Injected Job1 fault at {args.point}"
+            injected = marker in log_path.read_text(errors="ignore")
+            event(conn, run_id, "FAULT_INJECTED" if injected else "FAULT_NOT_TRIGGERED", label)
+        if scenario_id == "S-001" and hits_file.exists():
+            # 이 데이터셋의 지점별 통과 횟수를 남겨 둔다
+            hits_path(dataset_id).write_text(hits_file.read_text())
         time.sleep(3)
         sampler.stopped.set()
         sampler.join()
 
         event(conn, run_id, "VALIDATION", spec["test"].rsplit(".", 1)[1])
         junit_started = time.time()
-        junit_code = run_junit(spec["test"])
+        tests = [spec["test"]]
+        if scenario_id == "S-001" and dataset_id == "D2-boundary":
+            tests.append(BOUNDARY_TEST)
+        junit_code = run_junit(tests, dataset_id, junit_extra)
         record_checks(conn, run_id, scenario_id, spec, junit_started)
         verdict = "PASS" if junit_code == 0 else "FAIL"
+        if injected is False:
+            # 장애가 들어가지 않았으면 그 칸은 검증한 것이 아니다
+            verdict = "FAIL"
         conn.execute(
             "UPDATE reliability.run SET finished_at = now(), job_exit_code = %s, verdict = %s WHERE run_id = %s",
             (exit_code, verdict, run_id),
         )
-        if spec.get("cell"):
+        if matrix_cell:
+            previous_run, *previous_cell, previous_verdict = matrix_cell
+            status = "PASS" if previous_verdict == "PASS" and verdict == "PASS" else "FAIL"
+            conn.execute(
+                """UPDATE reliability.fault_cell SET status = %s, last_run_id = %s, note = %s, updated_at = now()
+                   WHERE fault_point = %s AND fault_timing = %s AND fault_kind = %s""",
+                (status, run_id, f"장애 {previous_run} {previous_verdict}, 재실행 {verdict}", *previous_cell),
+            )
+        elif spec.get("cell"):
             conn.execute(
                 """UPDATE reliability.fault_cell SET status = %s, last_run_id = %s, updated_at = now()
                    WHERE fault_point = %s AND fault_timing = %s AND fault_kind = %s""",

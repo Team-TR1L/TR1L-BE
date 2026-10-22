@@ -1,0 +1,25 @@
+{
+  "datasetId": "D2-boundary",
+  "billingMonthDay": "2026-01-01",
+  "billingYearMonth": "2026-01",
+  "expected": {
+    "usersTotal": 330,
+    "targetEligible": 290,
+    "billingTargets": {
+      "min": 290,
+      "max": 290
+    },
+    "billingWork": {
+      "min": 290,
+      "max": 290
+    },
+    "mongoSnapshotsAfterNormalRun": {
+      "min": 290,
+      "max": 290
+    },
+    "failedAfterNormalRun": 0,
+    "staleProcessingAfterRerun": 0,
+    "duplicateBillingWork": 0,
+    "duplicateMongoWorkId": 0
+  }
+}

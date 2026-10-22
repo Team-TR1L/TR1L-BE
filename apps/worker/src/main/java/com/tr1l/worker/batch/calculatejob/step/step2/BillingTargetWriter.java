@@ -4,6 +4,8 @@ package com.tr1l.worker.batch.calculatejob.step.step2;
 import com.tr1l.billing.application.command.BillingWorkEnqueueCommand;
 import com.tr1l.billing.application.port.out.BillingWorkUpsertPort;
 import com.tr1l.worker.batch.calculatejob.model.BillingTargetKey;
+import com.tr1l.worker.batch.fault.Job1FaultInjector;
+import com.tr1l.worker.batch.fault.Job1FaultPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
@@ -17,6 +19,7 @@ import java.util.List;
 public class BillingTargetWriter implements ItemWriter<BillingTargetKey> {
 
     private final BillingWorkUpsertPort billingWorkUpsertPort;
+    private final Job1FaultInjector faultInjector;
 
 
     /**
@@ -38,5 +41,7 @@ public class BillingTargetWriter implements ItemWriter<BillingTargetKey> {
                 .toList();
 
         billingWorkUpsertPort.bulkUpsertOnInsert(commands, now);
+        // 재실행 검증용 장애 지점 P2
+        faultInjector.hit(Job1FaultPoint.P2);
     }
 }
