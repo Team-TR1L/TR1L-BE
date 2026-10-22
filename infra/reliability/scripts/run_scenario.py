@@ -13,11 +13,13 @@ S-002 → S-002E → S-002R 은 claim 직후 강제 종료, lease 만료 전 재
 S-011 은 worker 두 개를 같은 cutoff 로 같이 돌린다 (장애 행렬 K5).
 S-010 → S-012(재실행 중 장애, 여러 번 가능) → S-012R 은 장애를 연속으로 겪은 뒤 수렴하는지 본다. --chain 으로 묶는다.
 S-013 은 마감된 월을 다시 돌린다. --cutoff 로 같은 월의 다른 cutoff 를 줄 수 있다.
+S-010 → S-014R --change I1|I2|I3 은 장애와 재실행 사이에 main DB 원천을 바꾼다. 끝나면 되돌린다.
 
 uv run infra/reliability/scripts/run_scenario.py S-001
 """
 
 import argparse
+import atexit
 import json
 import os
 import secrets
@@ -31,6 +33,8 @@ from pathlib import Path
 
 import psycopg
 from pymongo import MongoClient
+
+import input_changes
 
 # 다른 worktree의 jar와 JUnit으로 돌리고 싶으면 REL_ROOT로 바꾼다
 ROOT = Path(os.getenv("REL_ROOT", Path(__file__).resolve().parents[3]))
@@ -52,6 +56,7 @@ def find_java17():
 
 JAVA_HOME = find_java17()
 TARGET_PG = os.getenv("REL_TARGET_PG", "postgresql://postgres:postgres@localhost:25433/billing_target")
+MAIN_PG = os.getenv("REL_MAIN_PG", "postgresql://postgres:postgres@localhost:25432/billing")
 MONGO_URL = os.getenv("REL_MONGO", "mongodb://localhost:27027")
 MONGO_DB = "tr1l"
 CUTOFF = "2026-02-01T00:00:00Z"
@@ -64,6 +69,7 @@ BOUNDARY_TEST = "com.tr1l.worker.reliability.Job1BoundaryCaseValidationTest"
 FAULT_TEST = "com.tr1l.worker.reliability.Job1FaultMatrixValidationTest"
 LEASE_TEST = "com.tr1l.worker.reliability.Job1LeaseContentionValidationTest"
 REPEAT_TEST = "com.tr1l.worker.reliability.Job1RepeatedFaultValidationTest"
+INPUT_TEST = "com.tr1l.worker.reliability.Job1InputChangeValidationTest"
 # chunk 가 없는 tasklet 지점은 시점을 FIRST 하나로만 본다
 TASKLET_POINTS = {"P0", "P4"}
 
@@ -126,6 +132,9 @@ SCENARIOS = {
     "S-012R": dict(name="rerun-after-repeated-faults", clean=False, fault=False,
                    test=f"{REPEAT_TEST}.rerunAfterRepeatedFaultsShouldConverge"),
     # 마감된 월 재실행. 돌리기 전 상태를 남기고 돌린 뒤와 비교한다
+    # 장애와 재실행 사이에 원천을 바꾼다 (--change)
+    "S-014R": dict(name="rerun-after-input-change", clean=False, fault=False, input_change=True,
+                   test=f"{INPUT_TEST}.rerunAfterInputChangeShouldFollowCutoff"),
     "S-013": dict(name="finished-month-rerun", clean=False, fault=False,
                   before_test=f"{REPEAT_TEST}.captureFinishedMonth",
                   test=f"{REPEAT_TEST}.finishedMonthRerunShouldChangeNothing"),
@@ -461,7 +470,7 @@ def record_checks(conn, run_id, scenario_id, spec, since):
         failed = [case["code"] for case in cases if not case["passed"]]
         insert_check(conn, run_id, "BOUNDARY", not failed, len(failed),
                      f"경계값 {len(cases) - len(failed)} / {len(cases)} 일치" + (f", 다름 {failed[:5]}" if failed else ""))
-    for name in ("lease-check.json", "repeat-check.json"):
+    for name in ("lease-check.json", "repeat-check.json", "input-change-check.json"):
         if extra := fresh(name):
             insert_check(conn, run_id, extra["checkId"], extra["passed"], extra["violationCount"], extra["detail"])
     if amounts := fresh("reference-amount-comparison.json"):
@@ -480,6 +489,7 @@ def main():
     parser.add_argument("--kind", default="K1", choices=list(FAULT_KINDS))
     parser.add_argument("--chain", help="연속 장애를 한 묶음으로 남길 ID (reliability.run.chain_id)")
     parser.add_argument("--cutoff", help=f"S-013 에서 쓸 cutoff. 기본 {CUTOFF}")
+    parser.add_argument("--change", choices=list(input_changes.CHANGES), help="S-014R 에서 재실행 전에 바꿀 원천")
     parser.add_argument("--mutant", choices=["M1", "M2", "M3", "M4", "M5", "M6"],
                         help="재실행 안전 장치를 깨뜨린 mutant 로 worker 를 띄운다. 장애 행렬 칸은 갱신하지 않는다")
     args = parser.parse_args()
@@ -494,6 +504,8 @@ def main():
         sys.exit(f"{MUTANT_DIR}/mutant-{MUTANT}.jar 가 없다. ./gradlew :apps:worker:reliabilityMutantJars 를 먼저 돌린다")
     scenario_id = args.scenario
     spec = SCENARIOS[scenario_id]
+    if bool(spec.get("input_change")) != bool(args.change):
+        sys.exit("--change 는 S-014R 에서만, S-014R 은 --change 와 함께 쓴다")
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     run_id = f"{scenario_id}-{datetime.now():%Y%m%d-%H%M%S}"
@@ -587,6 +599,21 @@ def main():
                 junit_extra["JOB1_CALCULATED_BEFORE"] = str(conn.execute(
                     """SELECT count(*) FROM billing_work WHERE billing_month_day = %s AND status = 'CALCULATED'""",
                     (BILLING_MONTH_DAY,)).fetchone()[0])
+            if spec.get("input_change"):
+                junit_extra["JOB1_INPUT_CHANGE"] = args.change
+                with psycopg.connect(MAIN_PG, autocommit=True) as main:
+                    groups = input_changes.pick_users(args.change, main, conn, BILLING_MONTH_DAY)
+                    changed = sorted(user for users in groups.values() for user in users)
+                    backup = input_changes.apply(args.change, main, changed)
+                # 어떻게 끝나든 원천을 되돌린다
+                atexit.register(input_changes.restore, args.change, MAIN_PG, backup)
+                change_dir = RESULT_DIR / f"{scenario_id}-{spec['name']}"
+                change_dir.mkdir(parents=True, exist_ok=True)
+                (change_dir / "input-change.json").write_text(json.dumps(
+                    {"change": args.change, "title": input_changes.CHANGES[args.change]["title"], "groups": groups},
+                    ensure_ascii=False, indent=2))
+                event(conn, run_id, "INPUT_CHANGE", f"{args.change} {input_changes.CHANGES[args.change]['title']} "
+                      + ", ".join(f"{group} {len(users)}명" for group, users in groups.items()))
             if spec.get("before_test"):
                 junit_extra["JOB1_CUTOFF"] = CUTOFF
                 if run_junit([spec["before_test"]], dataset_id, junit_extra) != 0:
@@ -668,6 +695,12 @@ def main():
                 precondition = f"한 worker 가 혼자 계산함 {workers}"
                 event(conn, run_id, "PRECONDITION_FAILED", precondition)
         verdict = "PASS" if junit_code == 0 else "FAIL"
+        if spec.get("input_change") and verdict == "PASS":
+            # 구조와 바뀌지 않은 사용자는 맞지만, 바뀐 사용자가 cutoff 기준을 지키지 않았다. 기대 동작을 정해야 한다
+            check = conn.execute("""SELECT passed FROM reliability.check_result
+                                    WHERE run_id = %s AND check_id = 'CUTOFF_HOLD'""", (run_id,)).fetchone()
+            if check and not check[0]:
+                verdict = "DECISION"
         if injected is False or precondition:
             # 장애가 들어가지 않았으면 그 칸은 검증한 것이 아니다
             verdict = "FAIL"
