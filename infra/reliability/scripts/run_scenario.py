@@ -52,6 +52,7 @@ SAMPLE_INTERVAL = 0.25  # Step3가 몇 초 만에 끝나서 1초로는 변화가
 
 BASELINE_TEST = "com.tr1l.worker.reliability.Job1BaselineValidationTest"
 PARTIAL_TEST = "com.tr1l.worker.reliability.Job1PartialSuccessValidationTest"
+BOUNDARY_TEST = "com.tr1l.worker.reliability.Job1BoundaryCaseValidationTest"
 
 SCENARIOS = {
     "S-001": dict(name="normal-run", clean=True, fault=False,
@@ -170,18 +171,31 @@ def run_worker(conn, run_id, fault, log_path):
     return proc.returncode
 
 
-def run_junit(test):
+def loaded_dataset():
+    """setup_local.sh 가 남긴 지금 적재된 데이터셋과 seed"""
+    marker = ROOT / "build/reliability-dataset"
+    if not marker.exists():
+        return "D1-rerun-mvp", None
+    lines = marker.read_text().splitlines() + ["", ""]
+    return lines[0] or "D1-rerun-mvp", (int(lines[1]) if lines[1].strip() else None)
+
+
+def run_junit(tests, dataset_id):
     env = dict(os.environ)
     env.update(
         JAVA_HOME=JAVA_HOME,
         JOB1_RELIABILITY_ENABLED="true",
+        JOB1_RELIABILITY_DATASET=dataset_id,
         PG_SUB_HOST="jdbc:postgresql://localhost:25433/billing_target",
         PG_SUB_USER="postgres",
         PG_SUB_PASSWORD="postgres",
+        PG_MAIN_HOST="jdbc:postgresql://localhost:25432/billing",
         MONGODB_URI=f"{MONGO_URL}/{MONGO_DB}",
     )
     # 검증 JUnit은 DB 상태만 읽어서 Gradle 입력이 같으면 UP-TO-DATE로 건너뛴다. --rerun으로 항상 실행한다
-    cmd = ["./gradlew", ":apps:worker:test", "--rerun", "--tests", test, "--console=plain", "-q"]
+    cmd = ["./gradlew", ":apps:worker:test", "--rerun", "--console=plain", "-q"]
+    for test in tests:
+        cmd += ["--tests", test]
     return subprocess.run(cmd, env=env, cwd=ROOT).returncode
 
 
@@ -212,6 +226,12 @@ def record_checks(conn, run_id, scenario_id, spec, since):
         violations = hashes["hashMismatch"] + hashes["missingInCurrent"] + hashes["extraInCurrent"] + hashes["duplicateUsers"]
         insert_check(conn, run_id, "C5", violations == 0, violations,
                      f"snapshot 해시 일치 {hashes['hashMatch']} / 기준 {hashes['referenceCount']}")
+    boundary_path = RESULT_DIR / "dataset" / "D2-boundary-boundary-cases.json"
+    if boundary_path.exists() and boundary_path.stat().st_mtime >= since:
+        cases = json.loads(boundary_path.read_text())["cases"]
+        failed = [case["code"] for case in cases if not case["passed"]]
+        insert_check(conn, run_id, "BOUNDARY", not failed, len(failed),
+                     f"경계값 {len(cases) - len(failed)} / {len(cases)} 일치" + (f", 다름 {failed[:5]}" if failed else ""))
     if amounts := fresh("reference-amount-comparison.json"):
         violations = amounts["mismatchedUsers"] + amounts["missingSnapshots"] + amounts["unexpectedSnapshots"]
         insert_check(conn, run_id, "C6", violations == 0, violations,
@@ -229,12 +249,13 @@ def main():
     run_id = f"{scenario_id}-{datetime.now():%Y%m%d-%H%M%S}"
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
     cell = spec.get("cell") or (("P3c", "FIRST", "K1") if spec["fault"] else (None, None, None))
+    dataset_id, seed = loaded_dataset()
 
     with psycopg.connect(TARGET_PG, autocommit=True) as conn:
         conn.execute(
-            """INSERT INTO reliability.run (run_id, scenario_id, dataset_id, fault_point, fault_timing, fault_kind, git_commit)
-               VALUES (%s, %s, 'D1-rerun-mvp', %s, %s, %s, %s)""",
-            (run_id, scenario_id, *cell, commit),
+            """INSERT INTO reliability.run (run_id, scenario_id, dataset_id, seed, fault_point, fault_timing, fault_kind, git_commit)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+            (run_id, scenario_id, dataset_id, seed, *cell, commit),
         )
         if spec["clean"]:
             clean_month(conn)
@@ -252,7 +273,10 @@ def main():
 
         event(conn, run_id, "VALIDATION", spec["test"].rsplit(".", 1)[1])
         junit_started = time.time()
-        junit_code = run_junit(spec["test"])
+        tests = [spec["test"]]
+        if scenario_id == "S-001" and dataset_id == "D2-boundary":
+            tests.append(BOUNDARY_TEST)
+        junit_code = run_junit(tests, dataset_id)
         record_checks(conn, run_id, scenario_id, spec, junit_started)
         verdict = "PASS" if junit_code == 0 else "FAIL"
         conn.execute(

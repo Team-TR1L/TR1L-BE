@@ -26,12 +26,35 @@ docker compose -f infra/reliability/docker-compose.reliability.yml up -d --wait
 infra/reliability/scripts/setup_local.sh
 ```
 
-`setup_local.sh`는 main DB에 스키마, 마스터 데이터, D1 시드를 넣고 target DB에 `billing_work`와 `reliability` 스키마를 만든다.
+`setup_local.sh`는 main DB에 스키마, 마스터 데이터, 데이터셋 시드를 넣고 target DB에 `billing_work`와 `reliability` 스키마를 만든다.
 main DB 테이블은 지우고 다시 만들기 때문에 다시 실행해도 된다.
 
-마지막에 `Job1DatasetDistributionValidationTest`로 적재한 분포가 `dataset.yml`의 `distribution`과 같은지 확인한다.
-비율 항목(`...Ratio`)은 `targetEligible`을 곱한 건수로 바꿔 비교하고, 하나라도 다르면 실패한다.
-결과는 `apps/worker/build/job1-reliability-results/dataset/D1-rerun-mvp-distribution.json`에 남는다.
+마지막에 `Job1DatasetDistributionValidationTest`로 적재한 분포가 `dataset.yml`과 같은지 확인한다.
+결과는 `apps/worker/build/job1-reliability-results/dataset/<데이터셋>-distribution.json`에 남는다.
+
+## 데이터셋
+
+```bash
+infra/reliability/scripts/setup_local.sh                     # D1
+infra/reliability/scripts/setup_local.sh D2-boundary
+infra/reliability/scripts/setup_local.sh D3-pairwise
+infra/reliability/scripts/setup_local.sh D4-random 20261022  # seed 를 바꿔 가며
+```
+
+| ID | 사용자 | 만드는 방법 | 적재 뒤 검증 |
+| --- | --- | --- | --- |
+| D1-rerun-mvp | 30,000 | 고정 시드 | `distribution` 21개 항목 건수가 정확히 같아야 함 |
+| D2-boundary | 330 | 경계값 33가지 × 10명 | S-001 뒤 `boundaryCases` 경우별 결과 (`Job1BoundaryCaseValidationTest`) |
+| D3-pairwise | 30,000 | 조합 생성기, seed 3 | `dimensionRatios` ±2%, pairwise 100% |
+| D4-random | 30,000 | 조합 생성기, seed 지정 | `dimensionRatios` ±2%, pairwise 100% |
+
+조합 생성기(`datasets/_generator/combination_seed.sql`)는 차원마다 `hashtextextended(seq, seed)`로 값을 따로 뽑는다.
+그래서 같은 seed면 같은 데이터가 나오고, 할인 조건끼리 겹치지 않는다. user_id의 30%는 5,000,000 뒤로 띄워 빈 구간을 만든다.
+
+입력 차원은 `datasets/_dimensions/job1-input-dimensions.yml`에 있다. 사용량, 약정, 군인, 복지, 옵션 다섯 차원이고,
+pairwise 커버리지는 차원 두 개씩 묶었을 때 나올 수 있는 값 쌍 142개 중 실제로 있는 쌍의 비율이다. 모든 데이터셋에서 계산해 결과 파일에 남긴다.
+
+`run_scenario.py`는 `setup_local.sh`가 남긴 `build/reliability-dataset`을 읽어 지금 적재된 데이터셋을 JUnit에 넘기고 실행 기록에 남긴다.
 
 ## 시나리오 실행
 
