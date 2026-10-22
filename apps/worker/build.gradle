@@ -47,3 +47,28 @@ dependencies {
     testImplementation 'io.qameta.allure:allure-junit5:2.29.1'
     testImplementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
 }
+
+// 재실행 안전 장치를 하나씩 깨뜨린 mutant (TR1L-170)
+// 원본 클래스를 복사해 한 곳만 바꾼 것이다. mutant 마다 jar 하나를 만들고, 하네스가 PropertiesLauncher 의
+// loader.path 로 붙이면 같은 이름의 원본 클래스를 가린다. worker.jar 에는 들어가지 않는다
+def reliabilityMutants = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
+reliabilityMutants.each { id ->
+    def sourceSet = sourceSets.create("mutant${id}") {
+        java.srcDir "src/reliabilityMutant/${id}/java"
+        resources.srcDir "src/reliabilityMutant/${id}/resources"
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+    }
+    // 원본 클래스가 Lombok 을 써서 mutant 사본도 같은 annotation processor 가 필요하다
+    configurations.named(sourceSet.compileOnlyConfigurationName) { extendsFrom configurations.compileOnly }
+    configurations.named(sourceSet.annotationProcessorConfigurationName) { extendsFrom configurations.annotationProcessor }
+    tasks.register("mutant${id}Jar", Jar) {
+        archiveFileName = "mutant-${id}.jar"
+        destinationDirectory = layout.buildDirectory.dir('reliability-mutants')
+        from sourceSet.output
+    }
+}
+tasks.register('reliabilityMutantJars') {
+    group = 'verification'
+    description = 'Job1 재실행 안전 장치 mutant jar 를 만든다'
+    dependsOn reliabilityMutants.collect { "mutant${it}Jar" }
+}
