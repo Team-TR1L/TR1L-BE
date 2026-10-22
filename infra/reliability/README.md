@@ -221,6 +221,26 @@ python3 infra/reliability/scripts/run_input_changes.py --changes I2 --points P1
 | I2 · Step1 도중 장애 | Step1 이 아직 넣지 않은 30명은 cutoff 때 청구 대상이었는데 청구되지 않음 → DECISION |
 | I3 · 두 칸 | 모두 S-001 과 같음 (해지일이 1월 뒤라 1월 구독은 그대로) → PASS |
 
+## 무작위 반복 실행
+
+정해 둔 칸만 돌리면 생각하지 못한 조합은 빠진다. `run_random.py` 는 D4 seed 와 장애를 무작위로 골라 N 번 돈다.
+
+- 한 번은 장애(S-010) → 30% 확률로 재실행 중 장애 한 번 더(S-012) → 마지막 재실행(S-010R 또는 S-012R)이다
+- 지점 8개, 시점 3개, 종류 K1~K4 에서 고른다. P0·P4 는 시점이 FIRST 뿐이고, P4 × K4 는 뺀다. 두 번째 장애는 FIRST 로 둔다
+- D4 seed 하나마다 데이터셋을 다시 적재하고 S-001 기준을 만든다. 끝나면 D1 으로 되돌리고 S-001 을 다시 돈다(`--keep-dataset` 으로 끌 수 있다)
+- 모든 선택은 `--seed` 하나에서 나온다. 같은 `--seed` 면 같은 순서로 돌고, `--only <번호>` 로 한 번만 다시 돌 수 있다
+- 장애가 들어가지 않았거나 전제가 깨진 번은 `INVALID` 로 두고 N 에서 뺀다. 시스템이 틀린 것이 아니라 그 번을 검증하지 못한 것이라서다
+
+```bash
+uv run infra/reliability/scripts/run_random.py --seed 20261022 --datasets 3 --per-dataset 10    # N=30
+uv run infra/reliability/scripts/run_random.py --seed 20261022 --datasets 3 --per-dataset 10 --only 17
+```
+
+- 한 번에 평균 100초쯤, D4 적재와 S-001 에 70초쯤 걸린다. N=30 은 1시간, N=100 은 3시간쯤이다
+- 결과는 `build/reliability-random/random-<seed>.json`, `.md` 에 남는다. 실패한 번에는 그대로 다시 돌리는 명령(`setup_local.sh D4-random <seed>` 부터)을 적는다
+- 한 번마다 `scenario_id = RANDOM` 인 요약 행이 남고, 대시보드 "재실행 실패율 95% 상한" 과 "무작위 반복 실행" 표가 이 행을 읽는다
+- 실패가 없으면 상한은 rule of three 로 3/N 이다. N=30 이면 10%, N=100 이면 3%, N=300 이면 1%
+
 ## 재실행 안전 장치를 깨뜨려 보기 (mutant)
 
 검증이 전부 통과해도 검증이 약해서 통과했을 수 있다. 그래서 재실행 안전성을 떠받치는 장치를 하나씩 깨뜨린 worker 로
