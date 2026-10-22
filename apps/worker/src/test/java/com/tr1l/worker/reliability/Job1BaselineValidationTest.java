@@ -58,8 +58,9 @@ class Job1BaselineValidationTest {
 
         // S-001 run 직후 상태 검증
         Job1ScenarioDefinition scenario = catalog.loadScenario("S-001");
-        ExpectedSummary expectedSummary = catalog.loadExpectedSummary(scenario.datasetId());
         ReliabilityRuntimeConfig config = ReliabilityRuntimeConfig.fromEnvironment();
+        // 시나리오 기본 데이터셋은 D1, 다른 데이터셋을 적재했으면 그 기대 범위로 본다
+        ExpectedSummary expectedSummary = catalog.loadExpectedSummary(config.datasetId());
 
         attachScenarioLabels(scenario);
         evidenceWriter.attachJson("scenario.json", scenario);

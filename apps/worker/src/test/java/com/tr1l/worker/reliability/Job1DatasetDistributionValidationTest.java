@@ -2,6 +2,8 @@ package com.tr1l.worker.reliability;
 
 import com.tr1l.worker.reliability.dataset.DatasetDistributionCheck;
 import com.tr1l.worker.reliability.dataset.DatasetDistributionResult;
+import com.tr1l.worker.reliability.dataset.DimensionProfile;
+import com.tr1l.worker.reliability.dataset.InputDimensions;
 import com.tr1l.worker.reliability.dataset.Job1DatasetDefinition;
 import com.tr1l.worker.reliability.support.AllureEvidenceWriter;
 import com.tr1l.worker.reliability.support.ReliabilityDataSourceFactory;
@@ -20,7 +22,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 // 시드 적재 직후 main 디비 분포가 dataset.yml 과 같은지 대조
 class Job1DatasetDistributionValidationTest {
     private static final String DISTRIBUTION_SQL = "reliability/checks/dataset/main-distribution.sql";
+    private static final String DIMENSION_SQL = "reliability/checks/dataset/target-dimensions.sql";
 
     private final ReliabilityResourceCatalog catalog = new ReliabilityResourceCatalog();
     private final ReliabilityDataSourceFactory dataSourceFactory = new ReliabilityDataSourceFactory();
@@ -37,15 +42,16 @@ class Job1DatasetDistributionValidationTest {
     private final AllureEvidenceWriter evidenceWriter = new AllureEvidenceWriter();
 
     @Test
-    @DisplayName("D1 시드를 넣은 뒤 main 디비 분포가 dataset.yml 과 같은지 보기")
-    void d1SeedShouldMatchDatasetDistribution() throws Exception {
+    @DisplayName("시드를 넣은 뒤 main 디비 분포가 dataset.yml 과 같은지 보기")
+    void seedShouldMatchDatasetDistribution() throws Exception {
         Assumptions.assumeTrue(
                 "true".equalsIgnoreCase(System.getenv("JOB1_RELIABILITY_ENABLED")),
                 "Set JOB1_RELIABILITY_ENABLED=true to run local dataset distribution validation"
         );
 
-        Job1DatasetDefinition dataset = catalog.loadDataset("D1-rerun-mvp");
+        // 지금 적재된 데이터셋. 없으면 D1
         ReliabilityRuntimeConfig config = ReliabilityRuntimeConfig.fromEnvironment();
+        Job1DatasetDefinition dataset = catalog.loadDataset(config.datasetId());
         NamedParameterJdbcTemplate jdbcTemplate =
                 new NamedParameterJdbcTemplate(dataSourceFactory.createMainDataSource(config));
 
@@ -56,13 +62,29 @@ class Job1DatasetDistributionValidationTest {
                 .addValue("monthEnd", monthStart.plusMonths(1).minusDays(1))
                 .addValue("yearMonth", dataset.billingYearMonth());
 
+        // 정확한 건수 항목
         Map<String, Long> actual = new HashMap<>();
-        jdbcTemplate.query(catalog.loadCheckText(DISTRIBUTION_SQL), params,
+        if (dataset.distribution() != null) {
+            jdbcTemplate.query(catalog.loadCheckText(DISTRIBUTION_SQL), params,
+                    rs -> {
+                        actual.put(rs.getString("metric"), rs.getLong("actual"));
+                    });
+        }
+
+        // 청구 대상 사용자 차원 분류
+        InputDimensions dimensions = catalog.loadInputDimensions();
+        List<Map<String, String>> users = new ArrayList<>();
+        jdbcTemplate.query(catalog.loadCheckText(DIMENSION_SQL), params,
                 rs -> {
-                    actual.put(rs.getString("metric"), rs.getLong("actual"));
+                    Map<String, String> user = new HashMap<>();
+                    for (String name : dimensions.dimensions().keySet()) {
+                        user.put(name, rs.getString(name));
+                    }
+                    users.add(user);
                 });
 
-        DatasetDistributionResult result = distributionCheck.compare(dataset, actual);
+        DatasetDistributionResult result =
+                distributionCheck.compare(dataset, actual, DimensionProfile.of(dimensions, users));
 
         // 결과 파일 저장
         Path output = Paths.get("build", "job1-reliability-results", "dataset", dataset.id() + "-distribution.json");
@@ -70,7 +92,7 @@ class Job1DatasetDistributionValidationTest {
         Files.writeString(output, ReliabilityObjectMappers.json().writeValueAsString(result), StandardCharsets.UTF_8);
         evidenceWriter.attachJson("dataset-distribution.json", result);
 
-        assertThat(result.mismatchedRows())
+        assertThat(result.problems())
                 .as("dataset.yml 과 다른 분포 항목")
                 .isEmpty();
     }
