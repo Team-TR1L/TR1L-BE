@@ -1,5 +1,6 @@
 package com.tr1l.worker.batch.calculatejob.step.step0;
 
+import com.tr1l.worker.batch.fault.Job1FaultInjector;
 import com.tr1l.billing.api.usecase.GateBillingCycleUseCase;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -26,7 +27,7 @@ class BillingGateTaskletTest {
     @Test
     void execute_setsNoopAndSkipsGateWhenParamsMissing() throws Exception {
         GateBillingCycleUseCase gateUseCase = mock(GateBillingCycleUseCase.class);
-        BillingGateTasklet tasklet = new BillingGateTasklet(gateUseCase);
+        BillingGateTasklet tasklet = new BillingGateTasklet(gateUseCase, new Job1FaultInjector("", 1, "ONCE"));
 
         StepExecution stepExecution = MetaDataInstanceFactory.createStepExecution();
         StepContribution contribution = new StepContribution(stepExecution);
@@ -45,7 +46,7 @@ class BillingGateTaskletTest {
     @Test
     void execute_setsNoopWhenGateDecisionNoop() throws Exception {
         GateBillingCycleUseCase gateUseCase = mock(GateBillingCycleUseCase.class);
-        BillingGateTasklet tasklet = new BillingGateTasklet(gateUseCase);
+        BillingGateTasklet tasklet = new BillingGateTasklet(gateUseCase, new Job1FaultInjector("", 1, "ONCE"));
 
         StepExecution stepExecution = MetaDataInstanceFactory.createStepExecution();
         StepContribution contribution = new StepContribution(stepExecution);

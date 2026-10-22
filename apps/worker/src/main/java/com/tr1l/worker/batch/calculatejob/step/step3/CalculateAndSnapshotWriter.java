@@ -3,6 +3,8 @@ package com.tr1l.worker.batch.calculatejob.step.step3;
 import com.tr1l.billing.application.port.out.BillingSnapshotSavePort;
 import com.tr1l.billing.application.port.out.WorkDocStatusPort;
 import com.tr1l.billing.domain.model.aggregate.Billing;
+import com.tr1l.worker.batch.fault.Job1FaultInjector;
+import com.tr1l.worker.batch.fault.Job1FaultPoint;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
@@ -18,13 +20,16 @@ public class CalculateAndSnapshotWriter implements ItemWriter<CalculateBillingPr
 
     private final BillingSnapshotSavePort snapshotSavePort; // 최종 결과 저장 -> ISSUED
     private final WorkDocStatusPort statusPort; // 중간 결과 저장 -> Calculated
+    private final Job1FaultInjector faultInjector;
 
     public CalculateAndSnapshotWriter(
             BillingSnapshotSavePort snapshotSavePort,
-            WorkDocStatusPort statusPort
+            WorkDocStatusPort statusPort,
+            Job1FaultInjector faultInjector
     ) {
         this.snapshotSavePort = snapshotSavePort;
         this.statusPort = statusPort;
+        this.faultInjector = faultInjector;
     }
 
     @Override
@@ -64,9 +69,13 @@ public class CalculateAndSnapshotWriter implements ItemWriter<CalculateBillingPr
         }
 
         try {
+            // 재실행 검증용 장애 지점 P3b, P3c, P3d
+            faultInjector.hit(Job1FaultPoint.P3b);
             snapshotSavePort.saveAll(billings);
+            faultInjector.hit(Job1FaultPoint.P3c);
             statusPort.markCalculatedAll(calculatedUpdates, now);
             statusPort.markFailedAll(failedUpdates, now);
+            faultInjector.hit(Job1FaultPoint.P3d);
         } catch (DataAccessException dae) {
             throw dae;
         }

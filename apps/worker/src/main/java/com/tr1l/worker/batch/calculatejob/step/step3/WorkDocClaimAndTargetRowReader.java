@@ -1,5 +1,7 @@
 package com.tr1l.worker.batch.calculatejob.step.step3;
 
+import com.tr1l.worker.batch.fault.Job1FaultInjector;
+import com.tr1l.worker.batch.fault.Job1FaultPoint;
 import com.tr1l.billing.application.dto.BillingTargetRow;
 import com.tr1l.billing.application.model.WorkAndTargetRow;
 import com.tr1l.billing.application.port.out.BillingTargetLoadPort;
@@ -28,6 +30,7 @@ public class WorkDocClaimAndTargetRowReader
     private final String workerId;
     private final Long userIdStart;
     private final Long userIdEnd;
+    private final Job1FaultInjector faultInjector;
 
     // 멀티스레드 환경 보호
     private final Deque<WorkAndTargetRow> buffer = new ArrayDeque<>();
@@ -49,8 +52,10 @@ public class WorkDocClaimAndTargetRowReader
             Duration leaseDuration,
             String workerId,
             Long userIdStart,
-            Long userIdEnd
+            Long userIdEnd,
+            Job1FaultInjector faultInjector
     ) {
+        this.faultInjector = faultInjector;
         this.claimPort = claimPort;
         this.targetLoadPort = targetLoadPort;
         this.billingMonth = billingMonth;
@@ -88,6 +93,9 @@ public class WorkDocClaimAndTargetRowReader
                     exhausted = true;
                     return null;
                 }
+
+                // 재실행 검증용 장애 지점 P3a
+                faultInjector.hit(Job1FaultPoint.P3a);
 
                 List<Long> userIds = claimed.stream()
                         .map(WorkDocClaimPort.ClaimedWorkDoc::userId)
