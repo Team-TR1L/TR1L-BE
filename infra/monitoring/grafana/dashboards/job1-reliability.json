@@ -895,6 +895,102 @@
           "rawSql": "SELECT DISTINCT ON (c.check_id) c.check_id AS \"mutant\", split_part(c.detail, ' → ', 1) AS \"깨뜨린 장치\", CASE WHEN c.passed THEN '잡음' ELSE '살아남음' END AS \"결과\", split_part(split_part(c.detail, ' → ', 2), ' (기대', 1) AS \"검증\", substring(c.detail from '기대 ([^,]*(, C[0-9])*)') AS \"잡아야 할 조건\" FROM reliability.check_result c JOIN reliability.run r USING (run_id) WHERE r.scenario_id = 'MUTANT' ORDER BY c.check_id, r.started_at DESC"
         }
       ]
+    },
+    {
+      "type": "table",
+      "title": "연속 장애와 마감된 월 재실행",
+      "description": "장애 → 재실행 중 장애 → 마지막 재실행 묶음(chain_id)과 마감된 월 재실행(S-013). 묶음은 모든 실행이 PASS 여야 통과",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 24,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "결과"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "PASS": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "FAIL": {
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "묶음"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 230
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "통과"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 15,
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "refId": "A",
+          "rawSql": "SELECT 묶음, 실행, 통과, 결과 FROM (\n  SELECT min(started_at) AS started, chain_id AS 묶음,\n         string_agg(scenario_id || coalesce(' ' || fault_point || '·' || fault_timing || '·' || fault_kind, ''), ' → ' ORDER BY started_at) AS 실행,\n         count(*) FILTER (WHERE verdict = 'PASS') || ' / ' || count(*) AS 통과,\n         CASE WHEN bool_and(verdict = 'PASS') THEN 'PASS' ELSE 'FAIL' END AS 결과\n  FROM reliability.run WHERE chain_id IS NOT NULL AND mutant IS NULL GROUP BY chain_id\n  UNION ALL\n  SELECT r.started_at, r.run_id, 'S-013 마감된 월 재실행 · ' || coalesce(c.detail, ''), CASE WHEN r.verdict = 'PASS' THEN '1 / 1' ELSE '0 / 1' END, r.verdict\n  FROM reliability.run r LEFT JOIN reliability.check_result c ON c.run_id = r.run_id AND c.check_id = 'MONTH_UNCHANGED'\n  WHERE r.scenario_id = 'S-013' AND r.mutant IS NULL\n) t ORDER BY started DESC LIMIT 20"
+        }
+      ]
     }
   ]
 }

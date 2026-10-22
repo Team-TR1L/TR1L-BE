@@ -161,6 +161,37 @@ FIRST 칸은 두 worker 가 모두 계산하지 않으면 전제가 깨진 것�
 - `claimed_by` 는 `<pid>@<host>-<partition>` 이라 프로세스별로 몇 건을 계산했는지 `lease-check.json` 에 남는다
 - 결과는 `check_result` 의 `PROCESSING_LEFT`, `LEASE_HOLD`, `LEASE_RECLAIM`, `CLAIM_ONCE` 로 남는다
 
+## 연속 장애와 마감된 월 재실행
+
+한 번 끊고 한 번 재실행하는 것만으로는 재실행 도중에 또 끊기는 경우를 보지 못한다. 그래서 장애를 이어서 넣는 묶음을 둔다.
+
+| 시나리오 | 하는 일 | 통과 조건 |
+| --- | --- | --- |
+| S-012 | 앞 장애 뒤 재실행 도중 다시 장애. `--point`, `--timing`, `--kind` 로 고른다 | 앞 실행이 끝낸 CALCULATED 를 잃지 않음, 있는 snapshot 이 모두 S-001 과 같음, 끝나지 않은 월을 마감하지 않음 (`PROGRESS_KEPT`) |
+| S-012R | 장애를 여러 번 겪은 뒤 마지막 재실행 | S-010R 과 같은 수렴 검증 (INV-001~004, S-001 비교, C5, C6), `FINISHED` |
+| S-013 | 마감된 월을 다시 실행. `--cutoff` 로 같은 월의 다른 cutoff 를 줄 수 있다 | Step0 만 돌고 NOOP, billing_work·billing_targets·billing_cycle 행 전체와 snapshot 문서 전체(수정 시각 포함)가 그대로 (`MONTH_UNCHANGED`) |
+
+```bash
+python3 infra/reliability/scripts/run_fault_chains.py              # C1 ~ C7, 이어서 S-013 두 번
+python3 infra/reliability/scripts/run_fault_chains.py --chains C5 --skip-finished-month
+uv run infra/reliability/scripts/run_scenario.py S-013 --cutoff 2026-02-15T00:00:00Z
+```
+
+| 묶음 | 장애 순서 |
+| --- | --- |
+| C1 | P3c·MIDDLE·K1 → P3c·FIRST·K1 |
+| C2 | P3c·MIDDLE·K1 → P3b·FIRST·K1 |
+| C3 | P2·MIDDLE·K1 → P3c·FIRST·K1 |
+| C4 | P3d·MIDDLE·K1 → P4·FIRST·K1 |
+| C5 | P3c·MIDDLE·K2 → P3a·FIRST·K2 |
+| C6 | P3b·MIDDLE·K4 → P3d·FIRST·K3 |
+| C7 | P1·MIDDLE·K1 → P2·FIRST·K1 → P3c·FIRST·K2 |
+
+- 실행마다 `reliability.run.chain_id` 에 묶음 ID 가 남고, 대시보드 "연속 장애와 마감된 월 재실행" 표가 묶음 단위로 보여 준다
+- 재실행은 지점을 지나는 횟수가 처음보다 적어서 두 번째 장애부터는 FIRST 를 쓴다
+- 앞 실행이 남긴 PROCESSING 이 있으면 재실행 전에 lease 가 끝나기를 기다린다. S-002E 만 기다리지 않는다
+- S-013 은 worker 를 띄우기 전에 `captureFinishedMonth` 로 상태를 남기고, 돌린 뒤 batch 메타 테이블(main DB)에서 마지막 calculateJob 의 step 이 `billingGateStep=NOOP` 하나뿐인지 본다
+
 ## 재실행 안전 장치를 깨뜨려 보기 (mutant)
 
 검증이 전부 통과해도 검증이 약해서 통과했을 수 있다. 그래서 재실행 안전성을 떠받치는 장치를 하나씩 깨뜨린 worker 로

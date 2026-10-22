@@ -11,6 +11,8 @@
 
 S-002 → S-002E → S-002R 은 claim 직후 강제 종료, lease 만료 전 재실행, 만료 뒤 재실행 순서로 이어서 돈다.
 S-011 은 worker 두 개를 같은 cutoff 로 같이 돌린다 (장애 행렬 K5).
+S-010 → S-012(재실행 중 장애, 여러 번 가능) → S-012R 은 장애를 연속으로 겪은 뒤 수렴하는지 본다. --chain 으로 묶는다.
+S-013 은 마감된 월을 다시 돌린다. --cutoff 로 같은 월의 다른 cutoff 를 줄 수 있다.
 
 uv run infra/reliability/scripts/run_scenario.py S-001
 """
@@ -61,6 +63,7 @@ PARTIAL_TEST = "com.tr1l.worker.reliability.Job1PartialSuccessValidationTest"
 BOUNDARY_TEST = "com.tr1l.worker.reliability.Job1BoundaryCaseValidationTest"
 FAULT_TEST = "com.tr1l.worker.reliability.Job1FaultMatrixValidationTest"
 LEASE_TEST = "com.tr1l.worker.reliability.Job1LeaseContentionValidationTest"
+REPEAT_TEST = "com.tr1l.worker.reliability.Job1RepeatedFaultValidationTest"
 # chunk 가 없는 tasklet 지점은 시점을 FIRST 하나로만 본다
 TASKLET_POINTS = {"P0", "P4"}
 
@@ -117,6 +120,15 @@ SCENARIOS = {
     # 장애 행렬 K5 한 칸. worker 두 개를 같은 cutoff 로 같이 돌린다
     "S-011": dict(name="concurrent-workers", clean=True, fault=False, concurrent=True,
                   test=f"{LEASE_TEST}.concurrentWorkersShouldCalculateEachWorkOnce"),
+    # 재실행 도중 다시 장애. --point, --timing, --kind 로 고른다. 재실행이라 지점 통과 횟수가 적어서 FIRST 를 주로 쓴다
+    "S-012": dict(name="fault-during-rerun", clean=False, fault=False, matrix=True,
+                  test=f"{REPEAT_TEST}.faultDuringRerunShouldKeepProgress"),
+    "S-012R": dict(name="rerun-after-repeated-faults", clean=False, fault=False,
+                   test=f"{REPEAT_TEST}.rerunAfterRepeatedFaultsShouldConverge"),
+    # 마감된 월 재실행. 돌리기 전 상태를 남기고 돌린 뒤와 비교한다
+    "S-013": dict(name="finished-month-rerun", clean=False, fault=False,
+                  before_test=f"{REPEAT_TEST}.captureFinishedMonth",
+                  test=f"{REPEAT_TEST}.finishedMonthRerunShouldChangeNothing"),
 }
 
 STATE_SQL = """
@@ -449,8 +461,9 @@ def record_checks(conn, run_id, scenario_id, spec, since):
         failed = [case["code"] for case in cases if not case["passed"]]
         insert_check(conn, run_id, "BOUNDARY", not failed, len(failed),
                      f"경계값 {len(cases) - len(failed)} / {len(cases)} 일치" + (f", 다름 {failed[:5]}" if failed else ""))
-    if lease := fresh("lease-check.json"):
-        insert_check(conn, run_id, lease["checkId"], lease["passed"], lease["violationCount"], lease["detail"])
+    for name in ("lease-check.json", "repeat-check.json"):
+        if extra := fresh(name):
+            insert_check(conn, run_id, extra["checkId"], extra["passed"], extra["violationCount"], extra["detail"])
     if amounts := fresh("reference-amount-comparison.json"):
         violations = amounts["mismatchedUsers"] + amounts["missingSnapshots"] + amounts["unexpectedSnapshots"]
         insert_check(conn, run_id, "C6", violations == 0, violations,
@@ -458,17 +471,23 @@ def record_checks(conn, run_id, scenario_id, spec, since):
 
 
 def main():
+    global MUTANT, CUTOFF
     parser = argparse.ArgumentParser()
     parser.add_argument("scenario", choices=SCENARIOS)
     parser.add_argument("--point", help="S-010 장애 지점 (P0 ~ P4)")
     parser.add_argument("--timing", choices=["FIRST", "MIDDLE", "LAST"],
                         help="기본은 FIRST, S-002 는 LAST")
     parser.add_argument("--kind", default="K1", choices=list(FAULT_KINDS))
+    parser.add_argument("--chain", help="연속 장애를 한 묶음으로 남길 ID (reliability.run.chain_id)")
+    parser.add_argument("--cutoff", help=f"S-013 에서 쓸 cutoff. 기본 {CUTOFF}")
     parser.add_argument("--mutant", choices=["M1", "M2", "M3", "M4", "M5", "M6"],
                         help="재실행 안전 장치를 깨뜨린 mutant 로 worker 를 띄운다. 장애 행렬 칸은 갱신하지 않는다")
     args = parser.parse_args()
-    global MUTANT
     MUTANT = args.mutant
+    if args.cutoff:
+        if args.scenario != "S-013":
+            sys.exit("--cutoff 는 마감된 월을 다시 돌리는 S-013 에서만 쓴다")
+        CUTOFF = args.cutoff
     if MUTANT and args.scenario == "S-001":
         sys.exit("S-001 은 다른 시나리오의 비교 기준이라 mutant 로 돌리지 않는다")
     if MUTANT and not (MUTANT_DIR / f"mutant-{MUTANT}.jar").exists():
@@ -489,7 +508,7 @@ def main():
 
     if spec.get("matrix"):
         if not args.point:
-            sys.exit("S-010 은 --point 가 필요하다")
+            sys.exit(f"{args.scenario} 은 --point 가 필요하다")
         timing = "FIRST" if args.point in TASKLET_POINTS else (args.timing or "FIRST")
         nth = nth_for(args.point, timing, dataset_id)
         fault_kind = FAULT_KINDS[args.kind]
@@ -550,17 +569,28 @@ def main():
 
     with psycopg.connect(TARGET_PG, autocommit=True) as conn:
         conn.execute(
-            """INSERT INTO reliability.run (run_id, scenario_id, dataset_id, seed, fault_point, fault_timing, fault_kind, git_commit, mutant)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-            (run_id, scenario_id, dataset_id, seed, *cell, commit, MUTANT),
+            """INSERT INTO reliability.run (run_id, scenario_id, dataset_id, seed, fault_point, fault_timing, fault_kind,
+                                           git_commit, mutant, chain_id)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            (run_id, scenario_id, dataset_id, seed, *cell, commit, MUTANT, args.chain),
         )
         if spec["clean"]:
             clean_month(conn)
             event(conn, run_id, "CLEAN", "2026-01 정산 결과 비움")
-        elif scenario_id.endswith(("R", "E")):
-            if (matrix_cell and matrix_cell[3] != "K1") or spec.get("wait_lease"):
+        else:
+            # 앞 실행이 남긴 PROCESSING 이 있으면 lease 가 끝난 뒤 다시 돌린다. 운영에서 재실행하는 순서와 같다
+            # S-002E 는 lease 가 끝나기 전 재실행을 보는 시나리오라 기다리지 않는다
+            if scenario_id != "S-002E":
                 wait_lease_expiry(conn, run_id)
             event(conn, run_id, "RERUN_START", f"cutoff={CUTOFF}")
+            if scenario_id == "S-012":
+                junit_extra["JOB1_CALCULATED_BEFORE"] = str(conn.execute(
+                    """SELECT count(*) FROM billing_work WHERE billing_month_day = %s AND status = 'CALCULATED'""",
+                    (BILLING_MONTH_DAY,)).fetchone()[0])
+            if spec.get("before_test"):
+                junit_extra["JOB1_CUTOFF"] = CUTOFF
+                if run_junit([spec["before_test"]], dataset_id, junit_extra) != 0:
+                    precondition = f"{spec['before_test'].rsplit('.', 1)[1]} 실패"
 
         if second and not prepare_step3(conn, run_id):
             precondition = "Step0 ~ Step2 준비 실행 뒤 TARGET 만 남지 않음"

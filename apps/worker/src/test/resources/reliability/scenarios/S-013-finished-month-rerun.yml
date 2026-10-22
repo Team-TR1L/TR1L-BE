@@ -1,0 +1,30 @@
+id: S-013
+name: finished-month-rerun
+description: 마감된 월을 다시 실행한다. cutoff 는 같은 값이거나 같은 월의 다른 값이다. Step0 NOOP 으로 끝나고 billing_work, billing_targets, billing_cycle, snapshot 이 한 글자도 바뀌지 않아야 한다
+
+datasetId: D1-rerun-mvp
+
+job:
+  name: calculateJob
+  cutoff: "2026-02-01T00:00:00Z"
+  billingMonthDay: "2026-01-01"
+
+fault:
+  enabled: false
+
+rerun:
+  enabled: true
+  sameCutoff: true
+
+validate:
+  phase: after_rerun_complete
+  invariants:
+    - INV-001
+    - INV-002
+    - INV-003
+    - INV-004
+
+allure:
+  epic: "TR1L Job1 Reliability"
+  feature: "Repeated Faults"
+  story: "S-013 finished month rerun"
