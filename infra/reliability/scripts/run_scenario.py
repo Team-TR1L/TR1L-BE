@@ -9,6 +9,9 @@
 3. worker를 띄워 calculateJob을 실행한다 (S-003은 장애 주입을 켠다)
 4. 시나리오에 맞는 JUnit 검증을 돌리고 결과를 check_result, fault_cell에 남긴다
 
+S-002 → S-002E → S-002R 은 claim 직후 강제 종료, lease 만료 전 재실행, 만료 뒤 재실행 순서로 이어서 돈다.
+S-011 은 worker 두 개를 같은 cutoff 로 같이 돌린다 (장애 행렬 K5).
+
 uv run infra/reliability/scripts/run_scenario.py S-001
 """
 
@@ -55,6 +58,7 @@ BASELINE_TEST = "com.tr1l.worker.reliability.Job1BaselineValidationTest"
 PARTIAL_TEST = "com.tr1l.worker.reliability.Job1PartialSuccessValidationTest"
 BOUNDARY_TEST = "com.tr1l.worker.reliability.Job1BoundaryCaseValidationTest"
 FAULT_TEST = "com.tr1l.worker.reliability.Job1FaultMatrixValidationTest"
+LEASE_TEST = "com.tr1l.worker.reliability.Job1LeaseContentionValidationTest"
 # chunk 가 없는 tasklet 지점은 시점을 FIRST 하나로만 본다
 TASKLET_POINTS = {"P0", "P4"}
 
@@ -67,10 +71,18 @@ FAULT_KINDS = {
     "K2": dict(kind="HALT", proxy=None),
     "K3": dict(kind="PAUSE", proxy="target-pg"),
     "K4": dict(kind="PAUSE", proxy="mongo"),
+    # K5 는 worker A 를 P3a 에서 멈춘 사이 worker B 를 띄운다 (S-011)
+    "K5": dict(kind="PAUSE", proxy=None),
 }
 # K2 ~ K4 는 반환 listener 가 돌지 못해 PROCESSING 이 lease 끝날 때까지 남는다
 # 장애 실행에는 lease 를 짧게 주고, 재실행은 lease 가 끝난 뒤에 한다
 SHORT_LEASE_SECONDS = 20
+# S-002 는 lease 가 끝나기 전에 S-002E 를 한 번 더 돌려야 해서 넉넉히 준다
+S002_LEASE_SECONDS = 180
+# K5 는 worker A 가 B 를 기다리며 claim 을 쥐고 있는 시간(최대 K5_RESUME_TIMEOUT)보다 길게 준다
+K5_LEASE_SECONDS = 60
+K5_RESUME_TIMEOUT = 40
+WORKER_PORT, SECOND_WORKER_PORT = 18090, 18091
 
 SCENARIOS = {
     "S-001": dict(name="normal-run", clean=True, fault=False,
@@ -87,6 +99,18 @@ SCENARIOS = {
                   test=f"{FAULT_TEST}.afterFaultShouldMatchExpectedStateOfPoint"),
     "S-010R": dict(name="rerun-after-fault-matrix-cell", clean=False, fault=False,
                    test=f"{FAULT_TEST}.rerunAfterFaultShouldConvergeToS001RunState"),
+    # P3a 에서 강제 종료해 PROCESSING 을 lease 안쪽으로 남긴다. 기본 시점은 LAST (FIRST, MIDDLE 은 commit 전이라 안 남는다)
+    "S-002": dict(name="claim-halt-processing-left", clean=True, fault=False, lease_fault=True,
+                  test=f"{LEASE_TEST}.claimHaltShouldLeaveProcessingWithinLease"),
+    # lease 가 끝나기 전에 다시 돌린다
+    "S-002E": dict(name="rerun-before-lease-expiry", clean=False, fault=False, lease_followup=True,
+                   test=f"{LEASE_TEST}.rerunBeforeLeaseExpiryShouldNotTakeLeasedWork"),
+    # lease 가 끝난 뒤 다시 돌린다
+    "S-002R": dict(name="rerun-after-lease-expiry", clean=False, fault=False, lease_followup=True, wait_lease=True,
+                   test=f"{LEASE_TEST}.rerunAfterLeaseExpiryShouldReclaimOnceAndConverge"),
+    # 장애 행렬 K5 한 칸. worker 두 개를 같은 cutoff 로 같이 돌린다
+    "S-011": dict(name="concurrent-workers", clean=True, fault=False, concurrent=True,
+                  test=f"{LEASE_TEST}.concurrentWorkersShouldCalculateEachWorkOnce"),
 }
 
 STATE_SQL = """
@@ -182,16 +206,19 @@ def worker_env(fault, extra=None):
     return env
 
 
-def run_worker(conn, run_id, fault, log_path, extra_env=None, label=None):
-    cmd = [
+def worker_cmd(port=WORKER_PORT):
+    return [
         f"{JAVA_HOME}/bin/java", "-Xmx2g", "-jar", str(WORKER_JAR),
         "--spring.batch.job.name=calculateJob",
         f"--batch.job1StartTime={CUTOFF}",
-        "--server.port=18090",
+        f"--server.port={port}",
     ]
+
+
+def run_worker(conn, run_id, fault, log_path, extra_env=None, label=None):
     event(conn, run_id, "WORKER_START", label or ("fault=on" if fault else "fault=off"))
     with open(log_path, "w") as log:
-        proc = subprocess.run(cmd, env=worker_env(fault, extra_env), stdout=log, stderr=subprocess.STDOUT, cwd=ROOT)
+        proc = subprocess.run(worker_cmd(), env=worker_env(fault, extra_env), stdout=log, stderr=subprocess.STDOUT, cwd=ROOT)
     event(conn, run_id, "WORKER_EXIT", f"exit={proc.returncode}")
     return proc.returncode
 
@@ -259,6 +286,50 @@ class PauseWatcher(threading.Thread):
             self.stopped.wait(0.05)
 
 
+class SecondWorker(threading.Thread):
+    """worker A 가 P3a 에서 멈추면 같은 cutoff 로 worker B 를 띄우고,
+    B 가 Step3 claim 까지 오면 A 를 다시 진행시킨다. 그 뒤로는 두 worker 가 Step3 를 같이 돈다."""
+
+    def __init__(self, pause_dir, run_id, label, log_path, extra_env):
+        super().__init__(daemon=True)
+        self.pause_dir, self.run_id, self.label = pause_dir, run_id, label
+        self.log_path, self.extra_env = log_path, extra_env
+        self.proc = None
+        self.claimed_while_paused = threading.Event()
+        self.stopped = threading.Event()
+
+    def run(self):
+        paused = self.pause_dir / "paused"
+        while not paused.exists():
+            if self.stopped.wait(0.05):
+                return
+        with psycopg.connect(TARGET_PG, autocommit=True) as conn:
+            event(conn, self.run_id, "WORKER_START", f"worker B ({self.label} 에서 A 멈춤)")
+            log = open(self.log_path, "w")
+            self.proc = subprocess.Popen(worker_cmd(SECOND_WORKER_PORT), env=worker_env(False, self.extra_env),
+                                         stdout=log, stderr=subprocess.STDOUT, cwd=ROOT)
+            deadline = time.monotonic() + K5_RESUME_TIMEOUT
+            while time.monotonic() < deadline and self.proc.poll() is None:
+                if "step3.claim" in self.log_path.read_text(errors="ignore"):
+                    self.claimed_while_paused.set()
+                    break
+                time.sleep(0.05)
+            (self.pause_dir / "resume").write_text("")
+            event(conn, self.run_id, "FAULT_INJECTED",
+                  "worker B 가 Step3 claim 시작, A 재개" if self.claimed_while_paused.is_set()
+                  else "worker B 가 Step3 claim 까지 오지 못함, A 재개")
+            self.proc.wait()
+            log.close()
+            event(conn, self.run_id, "WORKER_EXIT", f"worker B exit={self.proc.returncode}")
+
+
+def lease_remaining(conn):
+    """남은 PROCESSING 중 가장 먼저 끝나는 lease 까지 남은 초. PROCESSING 이 없으면 None"""
+    return conn.execute(
+        """SELECT extract(epoch FROM min(lease_until) - now()) FROM billing_work
+           WHERE billing_month_day = %s AND status = 'PROCESSING'""", (BILLING_MONTH_DAY,)).fetchone()[0]
+
+
 def wait_lease_expiry(conn, run_id):
     """남은 PROCESSING 의 lease 가 끝날 때까지 기다린다."""
     lease_until = conn.execute(
@@ -322,6 +393,8 @@ def record_checks(conn, run_id, scenario_id, spec, since):
         failed = [case["code"] for case in cases if not case["passed"]]
         insert_check(conn, run_id, "BOUNDARY", not failed, len(failed),
                      f"경계값 {len(cases) - len(failed)} / {len(cases)} 일치" + (f", 다름 {failed[:5]}" if failed else ""))
+    if lease := fresh("lease-check.json"):
+        insert_check(conn, run_id, lease["checkId"], lease["passed"], lease["violationCount"], lease["detail"])
     if amounts := fresh("reference-amount-comparison.json"):
         violations = amounts["mismatchedUsers"] + amounts["missingSnapshots"] + amounts["unexpectedSnapshots"]
         insert_check(conn, run_id, "C6", violations == 0, violations,
@@ -332,7 +405,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("scenario", choices=SCENARIOS)
     parser.add_argument("--point", help="S-010 장애 지점 (P0 ~ P4)")
-    parser.add_argument("--timing", default="FIRST", choices=["FIRST", "MIDDLE", "LAST"])
+    parser.add_argument("--timing", choices=["FIRST", "MIDDLE", "LAST"],
+                        help="기본은 FIRST, S-002 는 LAST")
     parser.add_argument("--kind", default="K1", choices=list(FAULT_KINDS))
     args = parser.parse_args()
     scenario_id = args.scenario
@@ -343,7 +417,8 @@ def main():
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
     cell = spec.get("cell") or (("P3c", "FIRST", "K1") if spec["fault"] else (None, None, None))
     dataset_id, seed = loaded_dataset()
-    worker_extra, junit_extra, label, matrix_cell, watcher = {}, {}, None, None, None
+    worker_extra, junit_extra, label, matrix_cell, watcher, second = {}, {}, None, None, None, None
+    precondition = None  # 시나리오 전제가 깨졌으면 그 이유. 그 실행은 검증한 것이 아니다
     pause_dir = LOG_DIR / f"{run_id}-pause"
     hits_file = LOG_DIR / f"{run_id}-hits.json"
     worker_extra["APP_RELIABILITY_FAULT_HITS_FILE"] = str(hits_file)
@@ -351,7 +426,7 @@ def main():
     if spec.get("matrix"):
         if not args.point:
             sys.exit("S-010 은 --point 가 필요하다")
-        timing = "FIRST" if args.point in TASKLET_POINTS else args.timing
+        timing = "FIRST" if args.point in TASKLET_POINTS else (args.timing or "FIRST")
         nth = nth_for(args.point, timing, dataset_id)
         fault_kind = FAULT_KINDS[args.kind]
         cell = (args.point, timing, args.kind)
@@ -362,6 +437,35 @@ def main():
             worker_extra["BATCH_JOB1_STEP3_LEASE_SECONDS"] = str(SHORT_LEASE_SECONDS)
         junit_extra.update(JOB1_FAULT_POINT=args.point, JOB1_FAULT_TIMING=timing, JOB1_FAULT_KIND=args.kind)
         label = f"fault={args.point} {timing} {args.kind} #{nth}"
+    elif spec.get("lease_fault"):
+        timing = args.timing or "LAST"
+        nth = nth_for("P3a", timing, dataset_id)
+        cell = ("P3a", timing, "K2")
+        worker_extra.update(APP_RELIABILITY_FAULT_POINT="P3a", APP_RELIABILITY_FAULT_NTH=str(nth),
+                            APP_RELIABILITY_FAULT_REPEAT="ONCE", APP_RELIABILITY_FAULT_KIND="HALT",
+                            BATCH_JOB1_STEP3_LEASE_SECONDS=str(S002_LEASE_SECONDS))
+        label = f"fault=P3a {timing} K2 #{nth} lease={S002_LEASE_SECONDS}s"
+    elif spec.get("lease_followup"):
+        # 바로 앞 S-002 를 이어받는다
+        with psycopg.connect(TARGET_PG, autocommit=True) as conn:
+            row = conn.execute(
+                """SELECT fault_point, fault_timing, fault_kind FROM reliability.run
+                   WHERE scenario_id = 'S-002' ORDER BY started_at DESC LIMIT 1""").fetchone()
+        if not row:
+            sys.exit("S-002 를 먼저 돌린다")
+        cell = row
+    elif spec.get("concurrent"):
+        timing = args.timing or "FIRST"
+        nth = nth_for("P3a", timing, dataset_id)
+        cell = ("P3a", timing, "K5")
+        lease = {"BATCH_JOB1_STEP3_LEASE_SECONDS": str(K5_LEASE_SECONDS)}
+        # A 는 nth 번째 claim 부터 claim 할 때마다 멈춘다. B 가 Step3 에 올 때까지 A 가 앞서 나가지 않게 한다
+        worker_extra.update(lease, APP_RELIABILITY_FAULT_POINT="P3a", APP_RELIABILITY_FAULT_NTH=str(nth),
+                            APP_RELIABILITY_FAULT_REPEAT="FROM_NTH", APP_RELIABILITY_FAULT_KIND="PAUSE",
+                            APP_RELIABILITY_FAULT_PAUSE_DIR=str(pause_dir))
+        junit_extra.update(JOB1_FAULT_POINT="P3a", JOB1_FAULT_TIMING=timing, JOB1_FAULT_KIND="K5")
+        label = f"worker A P3a {timing} #{nth} 부터 멈춤, lease={K5_LEASE_SECONDS}s"
+        second = SecondWorker(pause_dir, run_id, f"P3a {timing}", LOG_DIR / f"{run_id}-worker-b.log", lease)
     elif scenario_id == "S-010R":
         # 바로 앞 S-010 칸을 이어받는다
         with psycopg.connect(TARGET_PG, autocommit=True) as conn:
@@ -383,8 +487,8 @@ def main():
         if spec["clean"]:
             clean_month(conn)
             event(conn, run_id, "CLEAN", "2026-01 정산 결과 비움")
-        elif scenario_id.endswith("R"):
-            if matrix_cell and matrix_cell[3] != "K1":
+        elif scenario_id.endswith(("R", "E")):
+            if (matrix_cell and matrix_cell[3] != "K1") or spec.get("wait_lease"):
                 wait_lease_expiry(conn, run_id)
             event(conn, run_id, "RERUN_START", f"cutoff={CUTOFF}")
 
@@ -395,11 +499,16 @@ def main():
         if spec.get("matrix") and fault_kind["proxy"]:
             watcher = PauseWatcher(pause_dir, fault_kind["proxy"], run_id, label)
             watcher.start()
+        if second:
+            second.start()
         try:
             exit_code = run_worker(conn, run_id, spec["fault"], log_path, worker_extra, label)
         finally:
             if watcher:
                 watcher.stopped.set()
+            if second:
+                second.stopped.set()
+                second.join()
             enable_all_proxies()
         injected = None
         if spec.get("matrix"):
@@ -417,6 +526,23 @@ def main():
                 event(conn, run_id, "FAULT_NOT_TRIGGERED", label)
             elif args.kind == "K1":
                 event(conn, run_id, "FAULT_INJECTED", label)
+        if spec.get("lease_fault"):
+            if exit_code == 137:
+                event(conn, run_id, "FAULT_INJECTED", f"{label} halt")
+            else:
+                precondition = f"P3a 강제 종료가 일어나지 않음 (exit={exit_code})"
+        if scenario_id == "S-002E":
+            # lease 안쪽에서 끝났는지 본다. 끝나기 전에 lease 가 지났으면 만료 전 재실행을 본 것이 아니다
+            remaining = lease_remaining(conn)
+            event(conn, run_id, "LEASE_REMAINING", "PROCESSING 없음" if remaining is None else f"{remaining:.0f}초")
+            if remaining is None or remaining <= 0:
+                precondition = "재실행이 끝났을 때 lease 안쪽 PROCESSING 이 없음"
+        if second:
+            second_exit = second.proc.returncode if second.proc else None
+            if not second.claimed_while_paused.is_set():
+                precondition = f"worker B 가 A 가 멈춘 사이 Step3 claim 까지 오지 못함 (B exit={second_exit})"
+        if precondition:
+            event(conn, run_id, "PRECONDITION_FAILED", precondition)
         if scenario_id == "S-001" and hits_file.exists():
             # 이 데이터셋의 지점별 통과 횟수를 남겨 둔다
             hits_path(dataset_id).write_text(hits_file.read_text())
@@ -432,7 +558,7 @@ def main():
         junit_code = run_junit(tests, dataset_id, junit_extra)
         record_checks(conn, run_id, scenario_id, spec, junit_started)
         verdict = "PASS" if junit_code == 0 else "FAIL"
-        if injected is False:
+        if injected is False or precondition:
             # 장애가 들어가지 않았으면 그 칸은 검증한 것이 아니다
             verdict = "FAIL"
         conn.execute(
@@ -446,6 +572,12 @@ def main():
                 """UPDATE reliability.fault_cell SET status = %s, last_run_id = %s, note = %s, updated_at = now()
                    WHERE fault_point = %s AND fault_timing = %s AND fault_kind = %s""",
                 (status, run_id, f"장애 {previous_run} {previous_verdict}, 재실행 {verdict}", *previous_cell),
+            )
+        elif spec.get("concurrent"):
+            conn.execute(
+                """UPDATE reliability.fault_cell SET status = %s, last_run_id = %s, note = %s, updated_at = now()
+                   WHERE fault_point = %s AND fault_timing = %s AND fault_kind = %s""",
+                (verdict, run_id, f"worker A exit={exit_code}, worker B exit={second_exit}" + (f", {precondition}" if precondition else ""), *cell),
             )
         elif spec.get("cell"):
             conn.execute(
