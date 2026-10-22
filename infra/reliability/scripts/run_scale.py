@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["psycopg[binary]>=3.2"]
+# dependencies = ["psycopg[binary]>=3.2", "pymongo>=4.8"]
 # ///
 """규모가 결과를 바꾸는지 보는 핵심 칸을 지금 적재된 데이터셋에서 돈다 (TR1L-174).
 
@@ -23,6 +23,7 @@ import sys
 from pathlib import Path
 
 import psycopg
+from pymongo import MongoClient
 
 sys.path.insert(0, str(Path(__file__).parent))
 import resource_report  # noqa: E402
@@ -62,9 +63,22 @@ def checks(conn, run_id):
         "SELECT check_id, passed FROM reliability.check_result WHERE run_id = %s ORDER BY check_id", (run_id,))}
 
 
-def run_cells(dataset):
+def mongo_alive():
+    try:
+        MongoClient("mongodb://localhost:27027", serverSelectionTimeoutMS=3000).admin.command("ping")
+        return True
+    except Exception:
+        return False
+
+
+def run_cells(dataset, only=None):
     results = []
     for point, timing, kind in CELLS:
+        if only and f"{point}·{timing}·{kind}" not in only:
+            continue
+        if not mongo_alive():
+            # MongoDB 가 죽은 채로 다음 칸을 돌리면 모든 칸이 의미 없이 실패한다
+            sys.exit(f"MongoDB 에 붙지 못해 {point}·{timing}·{kind} 부터 멈춘다")
         print(f"{dataset} {point}·{timing}·{kind}", flush=True)
         if kind == "K5":
             run_ids = [scenario("S-011", "--timing", timing)]
@@ -94,8 +108,8 @@ def compare(small, large):
         fx, fy = x["after_fault"] or {}, y["after_fault"] or {}
         sx = sum(r["seconds"] for r in x["resources"])
         sy = sum(r["seconds"] for r in y["resources"])
-        hx = max((r["resources"]["heap_max_mb"] or 0) for r in x["resources"])
-        hy = max((r["resources"]["heap_max_mb"] or 0) for r in y["resources"])
+        hx = max([(r["resources"]["heap_max_mb"] or 0) for r in x["resources"]] or [0])
+        hy = max([(r["resources"]["heap_max_mb"] or 0) for r in y["resources"]] or [0])
         print(f"| {x['cell']} | {x['verdict']} | {y['verdict']} | {fx.get('processing', '-')} / {fy.get('processing', '-')} | "
               f"{fx.get('snapshot_only', '-')} / {fy.get('snapshot_only', '-')} | {sx} / {sy} | {hx} / {hy} |")
 
@@ -104,6 +118,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--compare", nargs=2, metavar=("SMALL", "LARGE"))
     parser.add_argument("--baseline-run", help="이미 돌린 S-001 의 run_id. 주면 S-001 을 다시 돌리지 않는다")
+    parser.add_argument("--cells", nargs="*", help="이 칸만 다시 돌려 기존 결과 파일에서 바꾼다. 예: P3a·FIRST·K5")
     args = parser.parse_args()
     if args.compare:
         compare(*args.compare)
@@ -114,12 +129,20 @@ def main():
     if not baseline:
         print(f"{dataset} 기준 실행", flush=True)
         baseline = scenario("S-001")
-    cells = run_cells(dataset)
+    cells = run_cells(dataset, args.cells)
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / f"{dataset}.json").write_text(json.dumps(dict(
-        dataset=dataset,
-        baseline=resource_report.report(baseline) if baseline else None,
-        cells=cells), ensure_ascii=False, indent=2, default=str))
+    path = OUT / f"{dataset}.json"
+    if args.cells and path.exists():
+        # 다시 돈 칸만 바꾸고 기준 실행과 나머지 칸은 그대로 둔다
+        previous = json.loads(path.read_text())
+        rerun = {c["cell"]: c for c in cells}
+        previous["cells"] = [rerun.get(c["cell"], c) for c in previous["cells"]]
+        path.write_text(json.dumps(previous, ensure_ascii=False, indent=2, default=str))
+    else:
+        path.write_text(json.dumps(dict(
+            dataset=dataset,
+            baseline=resource_report.report(baseline) if baseline else None,
+            cells=cells), ensure_ascii=False, indent=2, default=str))
     failed = [c["cell"] for c in cells if c["verdict"] != "PASS"]
     print("실패한 칸:", ", ".join(failed) if failed else "없음")
     sys.exit(1 if failed else 0)

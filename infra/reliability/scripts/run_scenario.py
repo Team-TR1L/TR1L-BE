@@ -99,6 +99,7 @@ K5_RELEASE_RATIO = {"FIRST": 0.0, "MIDDLE": 0.5, "LAST": 0.9}
 # 두 worker 가 같은 순간에 JobExecution 을 만들면 batch 메타 테이블의 SERIALIZABLE 트랜잭션끼리 부딪혀
 # 한쪽이 시작도 못 하고 끝난다. B 는 조금 늦게 띄운다
 K5_SECOND_DELAY_SECONDS = 3
+K5_GATE_TIMEOUT_SECONDS = 90
 WORKER_PORT, SECOND_WORKER_PORT = 18090, 18091
 
 SCENARIOS = {
@@ -340,6 +341,7 @@ class SecondWorker(threading.Thread):
         self.log_path, self.extra_env = log_path, extra_env
         self.proc = None
         self.released = threading.Event()
+        self.gate_skipped = threading.Event()
 
     def run(self):
         time.sleep(K5_SECOND_DELAY_SECONDS)
@@ -359,9 +361,16 @@ class SecondWorker(threading.Thread):
             event(conn, self.run_id, "WORKER_EXIT", f"worker B exit={self.proc.returncode}")
 
     def coordinate(self, conn):
-        deadline = time.monotonic() + 90
+        # worker 는 멈춘 뒤 2분 안에 재개되지 않으면 실패한다. 그 안에 둘 다 멈추지 않으면 붙잡지 않고 그대로 둔다
+        # D5 처럼 Step1 이 몇 분 걸리는 데이터셋에서는 두 worker 가 비슷한 때 Step3 에 들어가서 붙잡지 않아도 경합한다
+        deadline = time.monotonic() + K5_GATE_TIMEOUT_SECONDS
         while not ((self.pause_a / "paused").exists() and (self.pause_b / "paused").exists()):
-            if self.proc.poll() is not None or time.monotonic() > deadline:
+            if self.proc.poll() is not None:
+                return
+            if time.monotonic() > deadline:
+                self.gate_skipped.set()
+                event(conn, self.run_id, "WORKER_GATE_SKIPPED",
+                      f"{K5_GATE_TIMEOUT_SECONDS}초 안에 A, B 가 Step2 끝에서 함께 멈추지 않아 붙잡지 않고 진행")
                 return
             time.sleep(0.05)
         event(conn, self.run_id, "WORKER_GATE", "A, B 모두 Step2 끝에서 멈춤")
@@ -669,7 +678,10 @@ def main():
                 precondition = "재실행이 끝났을 때 lease 안쪽 PROCESSING 이 없음"
         if second:
             second_exit = second.proc.returncode if second.proc else None
-            if not second.released.is_set() and not precondition:
+            # FIRST 는 붙잡지 못했어도 두 worker 가 모두 계산했는지(아래 WORKER_SHARE)로 경합을 확인한다
+            # MIDDLE, LAST 는 A 의 진행률에 맞춰 B 를 풀어야 해서 붙잡지 못하면 그 칸을 본 것이 아니다
+            gate_ok = second.released.is_set() or (second.gate_skipped.is_set() and cell[1] == "FIRST")
+            if not gate_ok and not precondition:
                 precondition = f"A, B 가 Step2 끝에서 함께 멈추지 않음 (B exit={second_exit})"
         if precondition:
             event(conn, run_id, "PRECONDITION_FAILED", precondition)
