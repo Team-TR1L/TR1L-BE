@@ -13,6 +13,7 @@ Job1 재실행 검증 시나리오를 로컬에서 돌리고, 장애를 넣은 �
 | MongoDB | 27027 | `billing_snapshot` |
 | Prometheus | 19091 | 호스트에서 띄운 worker(18090) 지표 |
 | Grafana | 13000 | `Job1 Reliability` 대시보드. 익명 Viewer로 볼 수 있음 |
+| Toxiproxy | 18474 (API), 25443, 27037 | worker 가 target DB, MongoDB 에 붙는 길. K3, K4 에서 끊는다 |
 
 worker는 컨테이너가 아니라 호스트에서 `java -jar`로 띄운다. 프로세스 강제 종료 같은 장애를 넣기 쉽게 하려는 것이다.
 
@@ -94,10 +95,23 @@ worker에는 지점 8개에 장애를 넣을 수 있다(`Job1FaultPoint`, `Job1F
 | `app.reliability.fault.point` | 주입 지점. 비어 있으면 주입하지 않는다 |
 | `app.reliability.fault.nth` | 그 지점을 몇 번째로 지날 때 주입할지 |
 | `app.reliability.fault.repeat` | `ONCE`(기본) 또는 `FROM_NTH` |
+| `app.reliability.fault.kind` | `EXCEPTION`(기본), `HALT`(즉시 종료), `PAUSE`(멈추고 재개 파일을 기다림) |
+| `app.reliability.fault.pause-dir` | `PAUSE` 표시 파일과 재개 파일 위치 |
 | `app.reliability.fault.hits-file` | 종료할 때 지점별 통과 횟수를 남길 파일 |
+
+| 종류 | 장애 | worker 설정 | 재실행 |
+| --- | --- | --- | --- |
+| K1 | 애플리케이션 예외 | `kind=EXCEPTION` | 바로 |
+| K2 | 프로세스 즉시 종료 (`Runtime.halt(137)`, shutdown hook 도 돌지 않음) | `kind=HALT` | lease 만료 뒤 |
+| K3 | target DB 연결 끊김 | `kind=PAUSE`, 멈춘 사이 하네스가 `target-pg` proxy 를 끊음 | lease 만료 뒤 |
+| K4 | MongoDB 연결 끊김 | `kind=PAUSE`, 멈춘 사이 하네스가 `mongo` proxy 를 끊음 | lease 만료 뒤 |
+
+K2~K4 는 Step3 반환 listener 가 돌지 못할 수 있어 장애 실행에 lease 를 20초로 주고, 재실행은 남은 PROCESSING 의 lease 가 끝난 뒤에 한다.
+P4 × K4 는 Step4 가 MongoDB 를 쓰지 않아 제외 칸이다. K4 × P0~P2 는 Step3 첫 저장에서 실패하므로 장애 직후 예상 상태를 따로 둔다(`expectByKind`).
 
 ```bash
 python3 infra/reliability/scripts/run_fault_matrix.py                       # K1 20칸 전부
+python3 infra/reliability/scripts/run_fault_matrix.py --kinds K2 K3 K4 --skip-baseline   # 59칸
 python3 infra/reliability/scripts/run_fault_matrix.py --points P2 --timings MIDDLE
 uv run infra/reliability/scripts/run_scenario.py S-010 --point P3a --timing LAST   # 한 칸만
 uv run infra/reliability/scripts/run_scenario.py S-010R

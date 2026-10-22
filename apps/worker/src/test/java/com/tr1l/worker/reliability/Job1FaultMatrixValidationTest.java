@@ -64,7 +64,8 @@ class Job1FaultMatrixValidationTest {
 
         Job1ScenarioDefinition scenario = catalog.loadScenario("S-010");
         ReliabilityRuntimeConfig config = ReliabilityRuntimeConfig.fromEnvironment();
-        Allure.label("story", scenario.allure().story() + " " + point + " " + System.getenv("JOB1_FAULT_TIMING"));
+        Allure.label("story", scenario.allure().story() + " " + point + " " + System.getenv("JOB1_FAULT_TIMING")
+                + " " + System.getenv("JOB1_FAULT_KIND"));
         evidenceWriter.attachJson("scenario.json", scenario);
 
         try (MongoClient mongoClient = MongoClients.create(config.mongoUri())) {
@@ -75,8 +76,10 @@ class Job1FaultMatrixValidationTest {
                     .collect(LocalDate.parse(scenario.job().billingMonthDay()));
             InvariantValidationResult validationResult = validator(jdbcTemplate, mongoClient, config)
                     .validate(scenario, catalog.loadActiveInvariants());
+            // 장애 종류(K1 ~ K4)에 따라 장애 직후 상태가 다를 수 있다
+            String kind = System.getenv().getOrDefault("JOB1_FAULT_KIND", "K1");
             FaultPointExpectation.Result expected =
-                    expectation.evaluate(point, definition.expect(), snapshot, targetUsers(config));
+                    expectation.evaluate(point + " " + kind, definition.expectFor(kind), snapshot, targetUsers(config));
 
             resultWriter.write(scenario, "fault-state-snapshot.json", snapshot);
             resultWriter.write(scenario, "invariant-validation.json", validationResult);

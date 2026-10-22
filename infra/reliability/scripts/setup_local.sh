@@ -40,6 +40,13 @@ psql "$TARGET" -q -v ON_ERROR_STOP=1 -f "$ROOT/apps/worker/src/test/resources/re
 echo "[target] reliability schema"
 psql "$TARGET" -q -v ON_ERROR_STOP=1 -f "$ROOT/infra/reliability/sql/01_reliability_schema.sql"
 
+# worker 가 거쳐 갈 연결 proxy. 이미 있으면 설정을 덮어쓰고 켠다
+echo "[toxiproxy] target-pg 25443, mongo 27037"
+curl -sf -X POST http://localhost:18474/populate -H 'Content-Type: application/json' -d '[
+  {"name": "target-pg", "listen": "0.0.0.0:25443", "upstream": "pg-target:5432", "enabled": true},
+  {"name": "mongo", "listen": "0.0.0.0:27037", "upstream": "mongo:27017", "enabled": true}
+]' > /dev/null
+
 psql "$MAIN" -At -c "SELECT 'users=' || count(*) FROM users"
 psql "$MAIN" -At -c "SELECT 'option_subscriptions=' || count(*) FROM user_option_subscription"
 psql "$TARGET" -At -c "SELECT 'fault_cells=' || count(*) FROM reliability.fault_cell"

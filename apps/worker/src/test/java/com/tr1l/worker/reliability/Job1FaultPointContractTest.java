@@ -34,6 +34,14 @@ class Job1FaultPointContractTest {
             assertThat(CHUNK_KEYS).as("%s chunkKey", name).contains(point.chunkKey());
             assertThat(point.expect()).as("%s expect", name).isNotEmpty();
         });
+        points.points().forEach((name, point) -> {
+            if (point.expectByKind() != null) {
+                assertThat(point.expectByKind().keySet()).as("%s expectByKind", name).isSubsetOf("K1", "K2", "K3", "K4", "K5");
+            }
+        });
+        // K4 는 Step0 ~ 2 에서 MongoDB 를 쓰지 않아 Step3 첫 저장에서 실패한다
+        assertThat(points.points().get("P1").expectFor("K4")).containsEntry("billingTargetsCount", "== total");
+        assertThat(points.points().get("P1").expectFor("K2")).isEqualTo(points.points().get("P1").expect());
         assertThat(points.points().get("P0").chunkKey()).isEqualTo("none");
         assertThat(points.points().get("P4").chunkKey()).isEqualTo("none");
     }

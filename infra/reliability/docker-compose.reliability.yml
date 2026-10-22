@@ -1,6 +1,7 @@
 # Job1 reliability 로컬 환경
 # 다른 로컬 스택과 포트가 겹치지 않게 2xxxx, 1xxxx 대역을 쓴다
 #   main DB 25432, target DB 25433, mongo 27027, grafana 13000, prometheus 19091
+#   toxiproxy API 18474, target DB proxy 25443, mongo proxy 27037
 # 실행: docker compose -p tr1l-rel -f infra/reliability/docker-compose.reliability.yml up -d
 name: tr1l-rel
 
@@ -54,6 +55,18 @@ services:
       interval: 3s
       timeout: 5s
       retries: 30
+
+  # worker 는 target DB 와 MongoDB 에 이 proxy 를 거쳐 붙는다
+  # 장애 행렬 K3, K4 에서 proxy 를 끊어 연결 장애를 만든다. proxy 는 setup_local.sh 가 만든다
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.12.0
+    ports:
+      - "18474:8474"
+      - "25443:25443"
+      - "27037:27037"
+    depends_on:
+      - pg-target
+      - mongo
 
   prometheus:
     image: prom/prometheus:v2.55.1

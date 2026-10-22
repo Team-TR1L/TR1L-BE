@@ -10,7 +10,15 @@ public record FaultPoints(
     public record Point(
             String step,
             String chunkKey,
-            Map<String, String> expect
+            Map<String, String> expect,
+            Map<String, Map<String, String>> expectByKind
     ) {
+        // 장애 종류별 예상 상태. 따로 없으면 기본 expect
+        public Map<String, String> expectFor(String kind) {
+            if (kind != null && expectByKind != null && expectByKind.containsKey(kind)) {
+                return expectByKind.get(kind);
+            }
+            return expect;
+        }
     }
 }

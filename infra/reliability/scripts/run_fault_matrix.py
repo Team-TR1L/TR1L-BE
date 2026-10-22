@@ -1,10 +1,11 @@
-"""장애 행렬의 K1(애플리케이션 예외) 칸을 차례로 돌린다.
+"""장애 행렬 칸을 차례로 돌린다. 장애 종류는 K1(예외) ~ K4(MongoDB 연결 끊김).
 
 S-001 을 한 번 돌려 기준과 지점별 통과 횟수를 만든 뒤,
 칸마다 S-010(장애) → S-010R(재실행) 을 돌린다. 결과는 reliability.fault_cell 에 남는다.
 
 python3 infra/reliability/scripts/run_fault_matrix.py
 python3 infra/reliability/scripts/run_fault_matrix.py --points P2 P3c --timings FIRST LAST
+python3 infra/reliability/scripts/run_fault_matrix.py --kinds K2 K3 K4 --skip-baseline
 """
 
 import argparse
@@ -17,6 +18,9 @@ ROOT = Path(__file__).resolve().parents[2].parent
 POINTS = ["P0", "P1", "P2", "P3a", "P3b", "P3c", "P3d", "P4"]
 TIMINGS = ["FIRST", "MIDDLE", "LAST"]
 TASKLET_POINTS = {"P0", "P4"}
+KINDS = ["K1", "K2", "K3", "K4"]
+# Step4 는 MongoDB 를 쓰지 않아 K4 장애가 나지 않는다
+EXCLUDED = {("P4", "K4")}
 
 
 def run(*args):
@@ -30,6 +34,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--points", nargs="+", default=POINTS, choices=POINTS)
     parser.add_argument("--timings", nargs="+", default=TIMINGS, choices=TIMINGS)
+    parser.add_argument("--kinds", nargs="+", default=["K1"], choices=KINDS)
     parser.add_argument("--skip-baseline", action="store_true", help="이미 같은 데이터셋으로 S-001 을 돌렸으면 건너뛴다")
     args = parser.parse_args()
 
@@ -39,14 +44,17 @@ def main():
             sys.exit("S-001 이 실패해서 멈춘다")
 
     failed = []
-    for point in args.points:
-        timings = ["FIRST"] if point in TASKLET_POINTS else args.timings
-        for timing in timings:
-            print(f"{point} {timing}")
-            fault_code = run("S-010", "--point", point, "--timing", timing)
-            rerun_code = run("S-010R")
-            if fault_code != 0 or rerun_code != 0:
-                failed.append(f"{point}·{timing}")
+    for kind in args.kinds:
+        for point in args.points:
+            if (point, kind) in EXCLUDED:
+                continue
+            timings = ["FIRST"] if point in TASKLET_POINTS else args.timings
+            for timing in timings:
+                print(f"{kind} {point} {timing}")
+                fault_code = run("S-010", "--point", point, "--timing", timing, "--kind", kind)
+                rerun_code = run("S-010R")
+                if fault_code != 0 or rerun_code != 0:
+                    failed.append(f"{kind}·{point}·{timing}")
 
     print("실패한 칸:", ", ".join(failed) if failed else "없음")
     sys.exit(1 if failed else 0)
