@@ -1,6 +1,8 @@
 package com.tr1l.worker.batch.calculatejob.step.step0;
 
 import com.tr1l.billing.api.usecase.GateBillingCycleUseCase;
+import com.tr1l.worker.batch.fault.Job1FaultInjector;
+import com.tr1l.worker.batch.fault.Job1FaultPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.StepContribution;
@@ -33,6 +35,7 @@ import java.time.format.DateTimeFormatter;
 @StepScope
 public class BillingGateTasklet implements Tasklet {
     private final GateBillingCycleUseCase gateUseCase;
+    private final Job1FaultInjector faultInjector;
     private final ExitStatus NOOP = new ExitStatus("NOOP");
 
     private static final DateTimeFormatter YM_FORMATTER = DateTimeFormatter.ofPattern("yyyyMM");
@@ -60,6 +63,8 @@ public class BillingGateTasklet implements Tasklet {
         Instant cutoffAt=Instant.parse(cutoff);
 
         var result = gateUseCase.gate(new GateBillingCycleUseCase.GateCommand(billingMonth,cutoffAt));
+        // 재실행 검증용 장애 지점 P0
+        faultInjector.hit(Job1FaultPoint.P0);
 
         //Gate 결과(billing_cycle 조회) NOOP 인 경우
         if (result.decision() == GateBillingCycleUseCase.Decision.NOOP) {

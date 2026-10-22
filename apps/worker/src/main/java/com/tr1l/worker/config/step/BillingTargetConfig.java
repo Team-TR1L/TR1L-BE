@@ -1,6 +1,7 @@
 package com.tr1l.worker.config.step;
 
 
+import com.tr1l.worker.batch.fault.Job1FaultInjector;
 import com.tr1l.billing.application.port.out.BillingWorkUpsertPort;
 import com.tr1l.worker.batch.calculatejob.model.BillingTargetKey;
 import com.tr1l.worker.batch.calculatejob.step.step2.BillingTargetReader;
@@ -100,8 +101,8 @@ public class BillingTargetConfig {
 
     //port등록 해서 DB 주입
     @Bean
-    public BillingTargetWriter step2Writer(BillingWorkUpsertPort billingWorkUpsertPort) {
-        return new BillingTargetWriter(billingWorkUpsertPort);
+    public BillingTargetWriter step2Writer(BillingWorkUpsertPort billingWorkUpsertPort, Job1FaultInjector faultInjector) {
+        return new BillingTargetWriter(billingWorkUpsertPort, faultInjector);
     }
 
     //병렬 처리

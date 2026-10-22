@@ -1,5 +1,7 @@
 package com.tr1l.worker.batch.calculatejob.step.step4;
 
+import com.tr1l.worker.batch.fault.Job1FaultInjector;
+import com.tr1l.worker.batch.fault.Job1FaultPoint;
 import com.tr1l.billing.application.port.out.BillingCycleFinalizedJdbcPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.ExitStatus;
@@ -30,6 +32,7 @@ import static org.springframework.batch.core.ExitStatus.NOOP;
 public class FinalizeBillingCycleTasklet implements Tasklet {
 
     private final BillingCycleFinalizedJdbcPort port;
+    private final Job1FaultInjector faultInjector;
 
     @Value("#{jobExecutionContext['billingYearMonth']}")
     private String billingYearMonth;
@@ -38,6 +41,9 @@ public class FinalizeBillingCycleTasklet implements Tasklet {
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
         // 문자열을 YearMonth로 변환 (필수 파라미터)
         YearMonth billingMonth = YearMonth.parse(billingYearMonth);
+
+        // 재실행 검증용 장애 지점 P4
+        faultInjector.hit(Job1FaultPoint.P4);
 
         // RUNNING 상태일 때만 FINISHED로 전환
         int updated = port.markFinishedIfRunning(billingMonth.atDay(1));

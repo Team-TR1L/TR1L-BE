@@ -74,6 +74,41 @@ S-001R과 S-003R은 S-001이 남긴 `state-snapshot.json`과 비교하므로 S-0
 3. worker로 `calculateJob`을 실행한다. S-003은 `APP_BILLING_RELIABILITY_FAIL_AFTER_SNAPSHOT_SAVE=true`
 4. 시나리오에 맞는 JUnit 메서드 하나를 돌리고, 결과 JSON을 읽어 `reliability.check_result`와 `reliability.fault_cell`에 남긴다
 
+## 장애 행렬
+
+worker에는 지점 8개에 장애를 넣을 수 있다(`Job1FaultPoint`, `Job1FaultInjector`). 설정이 없으면 예외를 던지지 않는다.
+
+| 지점 | 위치 |
+| --- | --- |
+| P0 | Step0 billing_cycle 확인 직후 |
+| P1 | Step1 billing_targets chunk 적재 직후 |
+| P2 | Step2 billing_work chunk 적재 직후 |
+| P3a | Step3 claim 직후, 계산 전 |
+| P3b | Step3 Mongo 저장 전 |
+| P3c | Step3 Mongo 저장 직후, 상태 갱신 전 |
+| P3d | Step3 상태 갱신 직후, chunk commit 전 |
+| P4 | Step4 billing_cycle 마감 전 |
+
+| 설정 | 의미 |
+| --- | --- |
+| `app.reliability.fault.point` | 주입 지점. 비어 있으면 주입하지 않는다 |
+| `app.reliability.fault.nth` | 그 지점을 몇 번째로 지날 때 주입할지 |
+| `app.reliability.fault.repeat` | `ONCE`(기본) 또는 `FROM_NTH` |
+| `app.reliability.fault.hits-file` | 종료할 때 지점별 통과 횟수를 남길 파일 |
+
+```bash
+python3 infra/reliability/scripts/run_fault_matrix.py                       # K1 20칸 전부
+python3 infra/reliability/scripts/run_fault_matrix.py --points P2 --timings MIDDLE
+uv run infra/reliability/scripts/run_scenario.py S-010 --point P3a --timing LAST   # 한 칸만
+uv run infra/reliability/scripts/run_scenario.py S-010R
+```
+
+- S-001이 지점별 통과 횟수를 `build/reliability-fault-hits-<데이터셋>.json`에 남긴다. S-010은 이 값으로 FIRST는 1번째, MIDDLE은 절반, LAST는 90% 지점 호출로 바꾼다. 여러 스레드로 도는 Step은 실행마다 호출 수가 조금씩 달라 마지막 호출을 정확히 맞출 수 없어서다
+- S-010은 worker 로그에서 `Injected Job1 fault at <지점>`을 찾는다. 없으면 장애가 들어가지 않은 것이라 실패로 본다
+- 장애 직후 예상 상태는 `faults/job1-fault-points.yml`에 있다
+- 칸은 S-010과 S-010R이 모두 통과해야 PASS다. S-010R은 S-003R과 같은 수렴 검증(INV-001~004, S-001 비교, C5, C6)을 한다
+- 기존 `APP_BILLING_RELIABILITY_FAIL_AFTER_SNAPSHOT_SAVE`(S-003)는 그대로 둔다. 모든 partition의 첫 저장 뒤에 던지는 방식이라 P3c·FIRST의 ONCE와는 다르다
+
 ## 결과 수집 스키마
 
 target DB의 `reliability` 스키마에만 쓴다. 운영 테이블과 섞이지 않는다.

@@ -1,5 +1,6 @@
 package com.tr1l.worker.config.step;
 
+import com.tr1l.worker.batch.fault.Job1FaultInjector;
 import com.tr1l.billing.application.model.WorkAndTargetRow;
 import com.tr1l.billing.application.port.out.BillingSnapshotSavePort;
 import com.tr1l.billing.application.port.out.BillingTargetLoadPort;
@@ -103,7 +104,8 @@ public class BillingCalculateAndSnapshotConfig {
             @Qualifier("billingWorkerId") String workerId,
             @Value("#{stepExecutionContext['workerId']}") String partitionWorkerId,
             @Value("#{stepExecutionContext['userIdStart']}") Long userIdStart,
-            @Value("#{stepExecutionContext['userIdEnd']}") Long userIdEnd
+            @Value("#{stepExecutionContext['userIdEnd']}") Long userIdEnd,
+            Job1FaultInjector faultInjector
     ) {
         YearMonth billingMonth = YearMonth.parse(billingYearMonth); // YYYY-MM
         String effectiveWorkerId = (partitionWorkerId == null || partitionWorkerId.isBlank())
@@ -118,7 +120,8 @@ public class BillingCalculateAndSnapshotConfig {
                 Duration.ofSeconds(leaseSeconds),
                 effectiveWorkerId,
                 userIdStart,
-                userIdEnd
+                userIdEnd,
+                faultInjector
         );
     }
 
@@ -142,9 +145,10 @@ public class BillingCalculateAndSnapshotConfig {
     @StepScope
     public CalculateAndSnapshotWriter calculateAndSnapshotWriter(
             BillingSnapshotSavePort snapshotSavePort,
-            WorkDocStatusPort statusPort
+            WorkDocStatusPort statusPort,
+            Job1FaultInjector faultInjector
     ) {
-        return new CalculateAndSnapshotWriter(snapshotSavePort, statusPort);
+        return new CalculateAndSnapshotWriter(snapshotSavePort, statusPort, faultInjector);
     }
 
     @Bean(name = "step3TaskExecutor")
