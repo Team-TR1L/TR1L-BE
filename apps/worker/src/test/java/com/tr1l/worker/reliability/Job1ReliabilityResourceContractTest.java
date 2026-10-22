@@ -41,9 +41,9 @@ class Job1ReliabilityResourceContractTest {
         // 불변 조건 리소스 연결 검증
         List<InvariantDefinition> invariants = catalog.loadActiveInvariants();
 
-        assertThat(invariants).hasSize(3);
+        assertThat(invariants).hasSize(4);
         assertThat(invariants).extracting(InvariantDefinition::id)
-                .containsExactly("INV-001", "INV-002", "INV-003");
+                .containsExactly("INV-001", "INV-002", "INV-003", "INV-004");
         assertThat(invariants).allSatisfy(definition -> {
             assertThat(catalog.resourceExists(definition.checkRef()))
                     .as("checkRef exists for %s", definition.id())
@@ -62,8 +62,9 @@ class Job1ReliabilityResourceContractTest {
         Job1ScenarioDefinition rerun = catalog.loadScenario("S-001R");
 
         assertThat(normalRun.datasetId()).isEqualTo("D1-rerun-mvp");
-        assertThat(normalRun.validate().invariants()).containsExactly("INV-001", "INV-002", "INV-003");
+        assertThat(normalRun.validate().invariants()).containsExactly("INV-001", "INV-002", "INV-003", "INV-004");
         assertThat(rerun.datasetId()).isEqualTo("D1-rerun-mvp");
+        assertThat(rerun.validate().invariants()).containsExactly("INV-001", "INV-002", "INV-003", "INV-004");
         assertThat(rerun.compareWithBaseline()).isNotNull();
         assertThat(rerun.compareWithBaseline().baselineScenarioId()).isEqualTo("S-001");
         assertThat(rerun.compareWithBaseline().metrics())
@@ -86,6 +87,8 @@ class Job1ReliabilityResourceContractTest {
         assertThat(rerunAfterPartialFailure.datasetId()).isEqualTo("D1-rerun-mvp");
         assertThat(rerunAfterPartialFailure.rerun().enabled()).isTrue();
         assertThat(rerunAfterPartialFailure.validate().phase()).isEqualTo("after_rerun_complete");
+        assertThat(rerunAfterPartialFailure.validate().invariants())
+                .containsExactly("INV-001", "INV-002", "INV-003", "INV-004");
         assertThat(rerunAfterPartialFailure.compareWithBaseline()).isNotNull();
         assertThat(rerunAfterPartialFailure.compareWithBaseline().baselineScenarioId()).isEqualTo("S-001");
         assertThat(rerunAfterPartialFailure.compareWithBaseline().metrics())

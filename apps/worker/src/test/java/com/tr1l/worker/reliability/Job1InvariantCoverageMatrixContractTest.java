@@ -67,6 +67,9 @@ class Job1InvariantCoverageMatrixContractTest {
         assertThat(row(matrix, "INV-003").coveredScenarioIds())
                 .contains("S-001", "S-001R", "S-003R")
                 .doesNotContain("S-003");
+        assertThat(row(matrix, "INV-004").coveredScenarioIds())
+                .contains("S-001", "S-001R", "S-003R")
+                .doesNotContain("S-003");
 
         assertThat(jsonPath).exists();
         assertThat(markdownPath).exists();
