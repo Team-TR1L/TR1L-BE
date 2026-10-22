@@ -991,6 +991,94 @@
           "rawSql": "SELECT 묶음, 실행, 통과, 결과 FROM (\n  SELECT min(started_at) AS started, chain_id AS 묶음,\n         string_agg(scenario_id || coalesce(' ' || fault_point || '·' || fault_timing || '·' || fault_kind, ''), ' → ' ORDER BY started_at) AS 실행,\n         count(*) FILTER (WHERE verdict = 'PASS') || ' / ' || count(*) AS 통과,\n         CASE WHEN bool_and(verdict = 'PASS') THEN 'PASS' ELSE 'FAIL' END AS 결과\n  FROM reliability.run WHERE chain_id IS NOT NULL AND mutant IS NULL GROUP BY chain_id\n  UNION ALL\n  SELECT r.started_at, r.run_id, 'S-013 마감된 월 재실행 · ' || coalesce(c.detail, ''), CASE WHEN r.verdict = 'PASS' THEN '1 / 1' ELSE '0 / 1' END, r.verdict\n  FROM reliability.run r LEFT JOIN reliability.check_result c ON c.run_id = r.run_id AND c.check_id = 'MONTH_UNCHANGED'\n  WHERE r.scenario_id = 'S-013' AND r.mutant IS NULL\n) t ORDER BY started DESC LIMIT 20"
         }
       ]
+    },
+    {
+      "type": "table",
+      "title": "실행 사이 원천 변경",
+      "description": "장애와 재실행 사이에 main DB 원천(I1 사용량 재집계, I2 탈퇴, I3 옵션 해지)을 바꾼 뒤 재실행. SAME 은 S-001 과 같은 청구서. DECISION 은 구조와 바뀌지 않은 사용자는 맞지만 바뀐 사용자가 cutoff 기준을 지키지 않아 기대 동작을 정해야 하는 칸",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 0,
+        "y": 55,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "판정"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "PASS": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "DECISION": {
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "FAIL": {
+                        "color": "red",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "칸"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 230
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 16,
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "refId": "A",
+          "rawSql": "SELECT r.chain_id AS \"칸\", coalesce(c.detail, '') AS \"바뀐 사용자 결과\", r.verdict AS \"판정\"\nFROM reliability.run r LEFT JOIN reliability.check_result c ON c.run_id = r.run_id AND c.check_id = 'CUTOFF_HOLD'\nWHERE r.scenario_id = 'S-014R' AND r.mutant IS NULL\nORDER BY r.started_at DESC LIMIT 12"
+        }
+      ]
     }
   ]
 }
