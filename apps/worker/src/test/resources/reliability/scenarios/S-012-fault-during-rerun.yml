@@ -1,0 +1,28 @@
+id: S-012
+name: fault-during-rerun
+description: 장애 뒤 재실행 도중 다시 장애를 넣는다. 지점과 시점은 실행할 때 정한다. 앞 실행이 끝낸 CALCULATED 를 잃지 않고, 있는 snapshot 은 S-001 과 같으며, 끝나지 않은 월을 마감하지 않아야 한다
+
+datasetId: D1-rerun-mvp
+
+job:
+  name: calculateJob
+  cutoff: "2026-02-01T00:00:00Z"
+  billingMonthDay: "2026-01-01"
+
+fault:
+  enabled: true
+
+rerun:
+  enabled: true
+  sameCutoff: true
+
+validate:
+  phase: after_rerun_complete
+  invariants:
+    - INV-001
+    - INV-003
+
+allure:
+  epic: "TR1L Job1 Reliability"
+  feature: "Repeated Faults"
+  story: "S-012 fault during rerun"

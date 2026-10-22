@@ -1,0 +1,41 @@
+id: S-012R
+name: rerun-after-repeated-faults
+description: 장애를 두 번 이상 겪은 뒤 같은 cutoff 로 마지막 재실행을 해서 S-001 run 직후 상태와 내용까지 같은지 검증한다
+
+datasetId: D1-rerun-mvp
+
+job:
+  name: calculateJob
+  cutoff: "2026-02-01T00:00:00Z"
+  billingMonthDay: "2026-01-01"
+
+fault:
+  enabled: false
+
+rerun:
+  enabled: true
+  sameCutoff: true
+
+validate:
+  phase: after_rerun_complete
+  invariants:
+    - INV-001
+    - INV-002
+    - INV-003
+    - INV-004
+
+compareWithBaseline:
+  enabled: true
+  baselineScenarioId: S-001
+  metrics:
+    - billingTargetsCount
+    - billingWorkCount
+    - calculatedCount
+    - mongoSnapshotCount
+    - duplicateMongoSnapshotCount
+    - targetWithSnapshotCount
+
+allure:
+  epic: "TR1L Job1 Reliability"
+  feature: "Repeated Faults"
+  story: "S-012R rerun after repeated faults"
