@@ -1,0 +1,792 @@
+{
+  "uid": "job1-reliability",
+  "title": "Job1 Reliability",
+  "tags": [
+    "tr1l",
+    "reliability"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "5s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "annotations": {
+    "list": [
+      {
+        "name": "실행 사건",
+        "enable": true,
+        "iconColor": "#F2CC0C",
+        "datasource": "PostgresTarget",
+        "target": {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT occurred_at AS time, event_type || CASE WHEN detail IS NULL THEN '' ELSE ' · ' || detail END AS text, run_id AS tags FROM reliability.run_event WHERE $__timeFilter(occurred_at) AND event_type IN ('WORKER_START', 'FAULT_INJECTED', 'WORKER_EXIT', 'RERUN_START') ORDER BY 1",
+          "refId": "Anno"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "실행 중 상태",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "id": 1
+    },
+    {
+      "type": "timeseries",
+      "title": "billing_work 상태와 MongoDB snapshot 수",
+      "description": "1초마다 센 값. 노란 세로선은 worker 시작, 장애 주입, 종료, 재실행 시점",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 16,
+        "h": 10
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT sampled_at AS time, target_count AS \"TARGET\", processing_count AS \"PROCESSING\", calculated_count AS \"CALCULATED\", failed_count AS \"FAILED\", snapshot_count AS \"Mongo snapshot\" FROM reliability.state_sample WHERE $__timeFilter(sampled_at) ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TARGET"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "PROCESSING"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CALCULATED"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "FAILED"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mongo snapshot"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "결과만 있는 work",
+      "description": "MongoDB snapshot은 있는데 CALCULATED가 아닌 work 수. 재실행이 끝나면 0이어야 한다",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT snapshot_only_count AS \"결과만 있는 work\" FROM reliability.state_sample WHERE $__timeFilter(sampled_at) ORDER BY sampled_at DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "noValue": "실행 전"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "만료된 PROCESSING",
+      "description": "lease_until이 지난 PROCESSING. 재실행이 끝나면 0이어야 한다 (INV-002)",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT stale_processing AS \"만료된 PROCESSING\" FROM reliability.state_sample WHERE $__timeFilter(sampled_at) ORDER BY sampled_at DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "noValue": "실행 전"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 4
+    },
+    {
+      "type": "timeseries",
+      "title": "결과만 있는 work 추이",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 16,
+        "y": 6,
+        "w": 8,
+        "h": 5
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT sampled_at AS time, snapshot_only_count AS \"결과만 있는 work\", stale_processing AS \"만료된 PROCESSING\" FROM reliability.state_sample WHERE $__timeFilter(sampled_at) ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "결과만 있는 work"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "만료된 PROCESSING"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "id": 5
+    },
+    {
+      "type": "row",
+      "title": "검증 범위와 누적 결과",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 24,
+        "h": 1
+      },
+      "id": 6
+    },
+    {
+      "type": "stat",
+      "title": "장애 행렬 커버리지",
+      "description": "제외 칸을 뺀 칸 중 한 번이라도 실행한 칸의 비율",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT round(100.0 * count(*) FILTER (WHERE status IN ('PASS', 'FAIL')) / NULLIF(count(*) FILTER (WHERE status <> 'EXCLUDED'), 0), 1) AS \"커버리지\" FROM reliability.fault_cell",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 30
+              },
+              {
+                "color": "green",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 7
+    },
+    {
+      "type": "stat",
+      "title": "실행한 칸 / 대상 칸",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 6,
+        "y": 12,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT count(*) FILTER (WHERE status IN ('PASS', 'FAIL')) || ' / ' || count(*) FILTER (WHERE status <> 'EXCLUDED') AS \"칸\" FROM reliability.fault_cell",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/"
+        }
+      },
+      "id": 8
+    },
+    {
+      "type": "stat",
+      "title": "재실행 실패율 95% 상한",
+      "description": "재실행 시나리오가 N번 모두 통과했을 때 rule of three로 구한 실패율 95% 상한(3/N, 최대 100%). N이 작으면 상한도 크다",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT CASE WHEN count(*) = 0 THEN NULL WHEN count(*) FILTER (WHERE verdict = 'FAIL') > 0 THEN '실패 ' || count(*) FILTER (WHERE verdict = 'FAIL') || '회 / ' || count(*) || '회' ELSE count(*) || '회 무실패 · 상한 ' || least(round(300.0 / count(*), 1), 100) || '%' END AS \"재실행\" FROM reliability.run WHERE scenario_id LIKE '%R' AND verdict IS NOT NULL",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "재실행 없음",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/"
+        }
+      },
+      "id": 9
+    },
+    {
+      "type": "stat",
+      "title": "mutation score",
+      "description": "심은 결함 중 검증이 잡아낸 비율 (이슈 7에서 채움)",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 18,
+        "y": 12,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT round(100.0 * count(*) FILTER (WHERE passed) / NULLIF(count(*), 0), 1) AS \"mutation score\" FROM reliability.check_result WHERE check_id LIKE 'M%'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "아직 없음",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 10
+    },
+    {
+      "type": "table",
+      "title": "장애 행렬 (지점 × 시점 × 종류)",
+      "description": "K1 예외, K2 강제 종료, K3 PostgreSQL 연결 끊김, K4 MongoDB 연결 끊김·지연, K5 worker 경합",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 13,
+        "h": 20
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT fault_point AS \"지점\", fault_timing AS \"시점\", max(status) FILTER (WHERE fault_kind = 'K1') AS \"K1 예외\", max(status) FILTER (WHERE fault_kind = 'K2') AS \"K2 kill\", max(status) FILTER (WHERE fault_kind = 'K3') AS \"K3 PG\", max(status) FILTER (WHERE fault_kind = 'K4') AS \"K4 Mongo\", max(status) FILTER (WHERE fault_kind = 'K5') AS \"K5 경합\" FROM reliability.fault_cell GROUP BY fault_point, fault_timing ORDER BY array_position(ARRAY['P0','P1','P2','P3a','P3b','P3c','P3d','P4'], fault_point), array_position(ARRAY['FIRST','MIDDLE','LAST'], fault_timing)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center",
+            "cellOptions": {
+              "type": "color-background",
+              "mode": "basic"
+            },
+            "width": 96
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "PASS": {
+                  "text": "PASS",
+                  "color": "green",
+                  "index": 0
+                },
+                "FAIL": {
+                  "text": "FAIL",
+                  "color": "red",
+                  "index": 1
+                },
+                "NOT_RUN": {
+                  "text": "미실행",
+                  "color": "#3D3D3D",
+                  "index": 2
+                },
+                "EXCLUDED": {
+                  "text": "제외",
+                  "color": "transparent",
+                  "index": 3
+                }
+              }
+            }
+          ]
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "지점"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "시점"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 11
+    },
+    {
+      "type": "table",
+      "title": "실행 목록",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 13,
+        "y": 17,
+        "w": 11,
+        "h": 9
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT r.started_at AS \"시작\", r.scenario_id AS \"시나리오\", coalesce(r.fault_point || '·' || r.fault_timing || '·' || r.fault_kind, '-') AS \"장애\", r.job_exit_code AS \"worker 종료 코드\", round(extract(epoch FROM r.finished_at - r.started_at)) AS \"소요(초)\", (SELECT count(*) FILTER (WHERE c.passed) || '/' || count(*) FROM reliability.check_result c WHERE c.run_id = r.run_id) AS \"검증 통과\", r.verdict AS \"판정\", r.git_commit AS \"commit\" FROM reliability.run r ORDER BY r.started_at DESC LIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "판정"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "PASS": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "FAIL": {
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "시작"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "time:HH:mm:ss"
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 12
+    },
+    {
+      "type": "table",
+      "title": "실행별 검증 결과",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 13,
+        "y": 26,
+        "w": 11,
+        "h": 11
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT r.scenario_id AS \"시나리오\", c.check_id AS \"검증\", c.detail AS \"내용\", c.violation_count AS \"위반\", CASE WHEN c.passed THEN 'PASS' ELSE 'FAIL' END AS \"결과\" FROM reliability.check_result c JOIN reliability.run r USING (run_id) ORDER BY r.started_at DESC, c.check_id LIMIT 40",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "결과"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "PASS": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "FAIL": {
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 13
+    }
+  ]
+}
