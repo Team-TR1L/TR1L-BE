@@ -6,6 +6,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -64,5 +67,36 @@ class Job1FaultInjectorTest {
                 .contains("\"P1\": 1")
                 .contains("\"P4\": 1")
                 .contains("\"P0\": 0");
+    }
+
+    @Test
+    @DisplayName("HALT 는 n 번째에 프로세스 종료를 부르고 예외는 던지지 않는다")
+    void haltCallsHaltAtNthHit() {
+        AtomicInteger halts = new AtomicInteger();
+        Job1FaultInjector injector = new Job1FaultInjector("P3c", 2, "ONCE", "HALT", "", "", halts::incrementAndGet);
+
+        injector.hit(Job1FaultPoint.P3c);
+        assertThat(halts).hasValue(0);
+        injector.hit(Job1FaultPoint.P3c);
+        assertThat(halts).hasValue(1);
+    }
+
+    @Test
+    @DisplayName("PAUSE 는 표시 파일을 남기고 재개 파일이 생길 때까지 기다린다")
+    void pauseWaitsForResumeFile(@TempDir Path dir) throws Exception {
+        Job1FaultInjector injector = new Job1FaultInjector("P2", 1, "ONCE", "PAUSE", dir.toString(), "", () -> { });
+        CompletableFuture<Void> paused = CompletableFuture.runAsync(() -> injector.hit(Job1FaultPoint.P2));
+
+        // 표시 파일이 생기면 아직 멈춰 있어야 한다
+        long deadline = System.currentTimeMillis() + 5_000;
+        while (!Files.exists(dir.resolve("paused")) && System.currentTimeMillis() < deadline) {
+            Thread.sleep(20);
+        }
+        assertThat(Files.readString(dir.resolve("paused"))).contains("P2 #1");
+        assertThat(paused).isNotDone();
+
+        Files.writeString(dir.resolve("resume"), "");
+        paused.get(5, TimeUnit.SECONDS);
+        assertThat(paused).isDone();
     }
 }
