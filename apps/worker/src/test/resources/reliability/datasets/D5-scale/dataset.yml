@@ -1,0 +1,32 @@
+id: D5-scale
+description: D3 와 같은 조합 생성기, 같은 seed 로 사용자를 1,080,000명으로 늘린 규모 데이터셋. chunk 수, partition 크기, lease 시간이 결과를 바꾸는지 본다
+cutoff: "2026-02-01T00:00:00Z"
+billingMonthDay: "2026-01-01"
+billingYearMonth: "2026-01"
+
+generator:
+  script: _generator/combination_seed.sql
+  seed: 3
+  users: 1080000
+
+scale:
+  usersTotal: 1080000
+  # seed 3, 사용자 1,080,000명으로 만들었을 때 청구 대상 수
+  targetEligible: 918473
+  excluded: 161527
+
+# 청구 대상 사용자 기준 비율. 생성기 확률이라 ratioTolerance 안에서 본다
+dimensionRatios:
+  usage: { below: 0.50, exactly: 0.10, over: 0.30, unlimited: 0.10 }
+  contract: { none: 0.60, active: 0.20, ends_in_month: 0.10, expired: 0.10 }
+  soldier: { none: 0.70, active: 0.10, ends_in_month: 0.10, expired: 0.10 }
+  welfare: { none: 0.60, eligible: 0.40 }
+  options: { "0": 0.30, "1": 0.30, "2-3": 0.20, "4-7": 0.10, mid_month: 0.10 }
+ratioTolerance: 0.02
+
+# 차원 두 개씩 묶은 값 쌍을 모두 덮어야 한다
+minPairwiseCoverage: 1.0
+
+expected:
+  failedAfterNormalRun: 0
+  staleProcessingAfterRerun: 0

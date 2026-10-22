@@ -72,3 +72,8 @@ tasks.register('reliabilityMutantJars') {
     description = 'Job1 재실행 안전 장치 mutant jar 를 만든다'
     dependsOn reliabilityMutants.collect { "mutant${it}Jar" }
 }
+
+tasks.named('test') {
+    // D5(108만 명) 검증은 사용자 전원의 분포, snapshot 해시, 금액을 메모리에 올려 비교한다. 기본 512MB 로는 모자란다
+    maxHeapSize = '4g'
+}
