@@ -88,3 +88,8 @@ FROM (VALUES ('P0'), ('P1'), ('P2'), ('P3a'), ('P3b'), ('P3c'), ('P3d'), ('P4'))
 CROSS JOIN (VALUES ('FIRST'), ('MIDDLE'), ('LAST')) AS t(timing)
 CROSS JOIN (VALUES ('K1'), ('K2'), ('K3'), ('K4'), ('K5')) AS k(kind)
 ON CONFLICT DO NOTHING;
+
+-- Step4 는 MongoDB 를 쓰지 않아 MongoDB 연결을 끊어도 장애가 나지 않는다
+UPDATE reliability.fault_cell
+SET status = 'EXCLUDED', note = 'Step4 는 MongoDB 를 쓰지 않음'
+WHERE fault_point = 'P4' AND fault_kind = 'K4' AND status = 'NOT_RUN';
