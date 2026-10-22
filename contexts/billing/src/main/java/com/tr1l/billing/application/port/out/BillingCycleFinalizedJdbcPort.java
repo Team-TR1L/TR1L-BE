@@ -16,4 +16,7 @@ import java.util.Date;
 public interface BillingCycleFinalizedJdbcPort {
     int markFinishedIfRunning(LocalDate billingMonthDay
     );
+
+    // 마감 전에 아직 끝나지 않은 work(TARGET, PROCESSING) 수
+    long countUnfinishedWork(LocalDate billingMonthDay);
 }

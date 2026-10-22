@@ -45,6 +45,13 @@ public class FinalizeBillingCycleTasklet implements Tasklet {
         // 재실행 검증용 장애 지점 P4
         faultInjector.hit(Job1FaultPoint.P4);
 
+        // 끝나지 않은 work 가 남아 있으면 마감하지 않는다
+        // 마감하면 이후 재실행이 NOOP 이 되어 남은 work 를 다시 처리할 수 없다
+        long unfinished = port.countUnfinishedWork(billingMonth.atDay(1));
+        if (unfinished > 0) {
+            throw new UnfinishedBillingWorkException(billingMonth, unfinished);
+        }
+
         // RUNNING 상태일 때만 FINISHED로 전환
         int updated = port.markFinishedIfRunning(billingMonth.atDay(1));
 
@@ -52,5 +59,12 @@ public class FinalizeBillingCycleTasklet implements Tasklet {
         contribution.setExitStatus(updated == 1 ? ExitStatus.COMPLETED : NOOP);
 
         return RepeatStatus.FINISHED;
+    }
+
+    // TARGET 또는 PROCESSING 이 남아 billing_cycle 을 마감할 수 없을 때
+    public static final class UnfinishedBillingWorkException extends IllegalStateException {
+        public UnfinishedBillingWorkException(YearMonth billingMonth, long unfinished) {
+            super("billing_cycle " + billingMonth + " cannot be finished: " + unfinished + " billing_work still TARGET or PROCESSING");
+        }
     }
 }
