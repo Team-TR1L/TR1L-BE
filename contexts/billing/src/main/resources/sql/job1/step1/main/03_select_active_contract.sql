@@ -15,7 +15,8 @@ WITH active_contract AS (
 
     WHERE uc.start_date <= :endDate::date
       AND uc.end_date >= :startDate::date
-    ORDER BY uc.user_id , uc.start_date DESC
+    -- 시작일이 같은 약정이 둘이면 DISTINCT ON 이 아무거나 고른다. 나중에 등록한 약정을 고르게 순서를 끝까지 정한다 (TR1L-178)
+    ORDER BY uc.user_id , uc.start_date DESC, uc.user_contract_id DESC
 )
 
 SELECT ac.user_id, ac.duration_months, COALESCE(cd.discount_percent,0) AS discount_percent
