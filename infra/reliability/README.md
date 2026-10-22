@@ -241,6 +241,46 @@ uv run infra/reliability/scripts/run_random.py --seed 20261022 --datasets 3 --pe
 - 한 번마다 `scenario_id = RANDOM` 인 요약 행이 남고, 대시보드 "재실행 실패율 95% 상한" 과 "무작위 반복 실행" 표가 이 행을 읽는다
 - 실패가 없으면 상한은 rule of three 로 3/N 이다. N=30 이면 10%, N=100 이면 3%, N=300 이면 1%
 
+## 108만 명 규모 (D5)
+
+chunk 수, partition 크기, lease 시간이 커지면 작은 데이터셋에서 보이지 않던 결과가 나올 수 있다.
+D5-scale 은 D3 와 같은 조합 생성기, 같은 seed 3 으로 사용자만 1,080,000명으로 늘린 데이터셋이다. 차원별 비율은 D3 와 같다.
+
+| | D3-pairwise | D5-scale |
+| --- | --- | --- |
+| 사용자 | 30,000 | 1,080,000 |
+| 청구 대상 | 25,539 | 918,473 |
+| 옵션 구독 | | 1,782,468 |
+| Step3 claim 횟수(S-001) | | 460 |
+
+```bash
+infra/reliability/scripts/setup_local.sh D5-scale                       # main DB 적재 2분 반쯤
+REL_SAMPLE_INTERVAL=2 uv run infra/reliability/scripts/run_scale.py     # S-001 과 핵심 칸 4개
+uv run infra/reliability/scripts/run_scale.py --compare D3-pairwise D5-scale
+uv run infra/reliability/scripts/resource_report.py <run_id> ...        # 한 실행의 시간과 자원 사용량
+```
+
+- 핵심 칸은 P3a·MIDDLE·K1, P3c·MIDDLE·K1, P3a·MIDDLE·K2, K5·FIRST 다. 같은 칸을 D3 에서도 돌려 비교한다
+- 검증 JUnit 은 사용자 전원의 분포, snapshot 해시, 금액을 메모리에 올린다. D5 에서는 기본 512MB 로 `OutOfMemoryError` 가 나서 테스트 heap 을 4GB 로 올렸다
+- 상태 표본은 한 번 세는 데 시간이 걸려 `REL_SAMPLE_INTERVAL=2` 로 2초마다 센다
+- `resource_report.py` 는 실행 구간의 Prometheus 지표(JVM heap, 프로세스 CPU, 커넥션 풀, GC)와 batch 메타 테이블의 step 별 시간을 `build/reliability-resources/<run_id>.json` 에 남긴다
+- `run_scale.py` 결과는 `build/reliability-scale/<데이터셋>.json` 이다
+- MongoDB WiredTiger 캐시를 1.5GB 로 묶었다(compose `--wiredTigerCacheSizeGB`). 기본값으로는 D5 재실행 중 Docker VM(8GB) 메모리가 모자라 mongo 가 OOM 으로 죽었다
+- K5 는 worker 가 Step2 끝에서 2분 넘게 멈춰 있으면 실패하게 되어 있다. D5 처럼 Step1 이 5분쯤 걸리면 90초 안에 둘 다 멈추지 않으므로 붙잡지 않고 그대로 진행한다(`WORKER_GATE_SKIPPED`). FIRST 칸은 두 worker 가 모두 계산했는지로 경합을 확인한다
+
+| 칸 | D3 | D5 | D5 장애 실행 + 재실행 시간 | D5 heap 최대 |
+| --- | --- | --- | --- | --- |
+| S-001 | PASS 99초 | PASS 688초 (Step1 354, Step3 185) | | 723MB |
+| P3a·MIDDLE·K1 | PASS | PASS | 570 + 528초 | 1,587MB |
+| P3c·MIDDLE·K1 | PASS | PASS | 549 + 839초 | 1,316MB |
+| P3a·MIDDLE·K2 | PASS | PASS | 477 + 558초 | 1,404MB |
+| K5·FIRST | PASS | **FAIL** C5 1명 다름 (918,472 / 918,473), 나머지 검증 통과 | 1,034초 | 639MB |
+
+K5 의 C5 불일치는 #384(TR1L-178) 결함이다. Step1 옵션 조회에 `ORDER BY` 가 없고, D5 에서는 옵션 구독 테이블(130MB)이 `shared_buffers`(128MB)의 1/4 보다 커서
+PostgreSQL synchronized seqscan 이 테이블 중간에서 시작할 수 있다. 그 시작 블록에 걸친 사용자는 옵션 순서가 달라지고, 금액은 같지만 snapshot 의 옵션 라인 순서와 라인 ID 가 바뀐다.
+D1·D3 는 테이블이 작아서 이 동작이 일어나지 않는다.
+
+
 ## 재실행 안전 장치를 깨뜨려 보기 (mutant)
 
 검증이 전부 통과해도 검증이 약해서 통과했을 수 있다. 그래서 재실행 안전성을 떠받치는 장치를 하나씩 깨뜨린 worker 로
