@@ -453,7 +453,7 @@
     {
       "type": "stat",
       "title": "재실행 실패율 95% 상한",
-      "description": "재실행 시나리오가 N번 모두 통과했을 때 rule of three로 구한 실패율 95% 상한(3/N, 최대 100%). N이 작으면 상한도 크다. 일부러 깨뜨린 mutant 실행은 뺀다",
+      "description": "무작위로 고른 장애 칸(run_random.py)을 N번 돌려 모두 통과했을 때 rule of three 로 구한 실패율 95% 상한(3/N, 최대 100%). 장애가 들어가지 않는 등 전제가 깨진 번(INVALID)은 N 에서 뺀다",
       "datasource": "PostgresTarget",
       "gridPos": {
         "x": 12,
@@ -466,7 +466,7 @@
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
-          "rawSql": "SELECT CASE WHEN count(*) = 0 THEN NULL WHEN count(*) FILTER (WHERE verdict = 'FAIL') > 0 THEN '실패 ' || count(*) FILTER (WHERE verdict = 'FAIL') || '회 / ' || count(*) || '회' ELSE count(*) || '회 무실패 · 상한 ' || least(round(300.0 / count(*), 1), 100) || '%' END AS \"재실행\" FROM reliability.run WHERE scenario_id LIKE '%R' AND verdict IS NOT NULL AND mutant IS NULL",
+          "rawSql": "SELECT CASE WHEN count(*) = 0 THEN NULL WHEN count(*) FILTER (WHERE verdict = 'FAIL') > 0 THEN '실패 ' || count(*) FILTER (WHERE verdict = 'FAIL') || '회 / ' || count(*) || '회' ELSE count(*) || '회 무실패 · 상한 ' || least(round(300.0 / count(*), 1), 100) || '%' END AS \"무작위 반복\" FROM reliability.run WHERE scenario_id = 'RANDOM' AND verdict IN ('PASS', 'FAIL')",
           "refId": "A"
         }
       ],
@@ -1077,6 +1077,106 @@
           "editorMode": "code",
           "refId": "A",
           "rawSql": "SELECT r.chain_id AS \"칸\", coalesce(c.detail, '') AS \"바뀐 사용자 결과\", r.verdict AS \"판정\"\nFROM reliability.run r LEFT JOIN reliability.check_result c ON c.run_id = r.run_id AND c.check_id = 'CUTOFF_HOLD'\nWHERE r.scenario_id = 'S-014R' AND r.mutant IS NULL\nORDER BY r.started_at DESC LIMIT 12"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "무작위 반복 실행",
+      "description": "D4 seed 와 장애 지점·시점·종류를 무작위로 고른 번. 실패하면 build/reliability-random 리포트에 재현 명령이 있다",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 0,
+        "y": 63,
+        "w": 24,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "결과"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "PASS": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "INVALID": {
+                        "color": "text",
+                        "index": 1
+                      },
+                      "FAIL": {
+                        "color": "red",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "번"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 220
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "D4 seed"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 17,
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "refId": "A",
+          "rawSql": "SELECT r.chain_id AS \"번\", r.seed AS \"D4 seed\", c.detail AS \"장애 · 결과\", r.verdict AS \"결과\" FROM reliability.run r LEFT JOIN reliability.check_result c ON c.run_id = r.run_id AND c.check_id = 'RANDOM' WHERE r.scenario_id = 'RANDOM' ORDER BY r.started_at DESC LIMIT 40"
         }
       ]
     }
