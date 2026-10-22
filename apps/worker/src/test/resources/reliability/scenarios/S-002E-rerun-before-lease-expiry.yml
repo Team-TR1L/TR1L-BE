@@ -1,0 +1,30 @@
+id: S-002E
+name: rerun-before-lease-expiry
+description: S-002 뒤 lease 가 끝나기 전에 같은 cutoff 로 다시 실행한다. 남은 PROCESSING 은 그대로 두고 나머지만 끝내며 billing_cycle 은 마감하지 않아야 한다
+
+datasetId: D1-rerun-mvp
+
+job:
+  name: calculateJob
+  cutoff: "2026-02-01T00:00:00Z"
+  billingMonthDay: "2026-01-01"
+
+fault:
+  enabled: false
+
+rerun:
+  enabled: true
+  sameCutoff: true
+
+validate:
+  phase: after_rerun_complete
+  invariants:
+    - INV-001
+    - INV-002
+    - INV-003
+    - INV-004
+
+allure:
+  epic: "TR1L Job1 Reliability"
+  feature: "Lease And Contention"
+  story: "S-002E rerun before lease expiry"

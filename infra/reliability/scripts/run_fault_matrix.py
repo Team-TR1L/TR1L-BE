@@ -1,11 +1,13 @@
-"""장애 행렬 칸을 차례로 돌린다. 장애 종류는 K1(예외) ~ K4(MongoDB 연결 끊김).
+"""장애 행렬 칸을 차례로 돌린다. 장애 종류는 K1(예외) ~ K4(MongoDB 연결 끊김), K5(worker 두 개 동시 실행).
 
 S-001 을 한 번 돌려 기준과 지점별 통과 횟수를 만든 뒤,
-칸마다 S-010(장애) → S-010R(재실행) 을 돌린다. 결과는 reliability.fault_cell 에 남는다.
+칸마다 S-010(장애) → S-010R(재실행) 을 돌린다. K5 는 S-011 하나로 두 worker 를 같이 돌리고 바로 수렴을 본다.
+결과는 reliability.fault_cell 에 남는다.
 
 python3 infra/reliability/scripts/run_fault_matrix.py
 python3 infra/reliability/scripts/run_fault_matrix.py --points P2 P3c --timings FIRST LAST
 python3 infra/reliability/scripts/run_fault_matrix.py --kinds K2 K3 K4 --skip-baseline
+python3 infra/reliability/scripts/run_fault_matrix.py --kinds K5 --skip-baseline
 """
 
 import argparse
@@ -18,9 +20,10 @@ ROOT = Path(__file__).resolve().parents[2].parent
 POINTS = ["P0", "P1", "P2", "P3a", "P3b", "P3c", "P3d", "P4"]
 TIMINGS = ["FIRST", "MIDDLE", "LAST"]
 TASKLET_POINTS = {"P0", "P4"}
-KINDS = ["K1", "K2", "K3", "K4"]
+KINDS = ["K1", "K2", "K3", "K4", "K5"]
 # Step4 는 MongoDB 를 쓰지 않아 K4 장애가 나지 않는다
-EXCLUDED = {("P4", "K4")}
+# worker 경합은 Step3 claim 구간에서만 의미가 있다
+EXCLUDED = {("P4", "K4")} | {(point, "K5") for point in POINTS if point != "P3a"}
 
 
 def run(*args):
@@ -51,8 +54,11 @@ def main():
             timings = ["FIRST"] if point in TASKLET_POINTS else args.timings
             for timing in timings:
                 print(f"{kind} {point} {timing}")
-                fault_code = run("S-010", "--point", point, "--timing", timing, "--kind", kind)
-                rerun_code = run("S-010R")
+                if kind == "K5":
+                    fault_code, rerun_code = run("S-011", "--timing", timing), 0
+                else:
+                    fault_code = run("S-010", "--point", point, "--timing", timing, "--kind", kind)
+                    rerun_code = run("S-010R")
                 if fault_code != 0 or rerun_code != 0:
                     failed.append(f"{kind}·{point}·{timing}")
 

@@ -105,6 +105,7 @@ worker에는 지점 8개에 장애를 넣을 수 있다(`Job1FaultPoint`, `Job1F
 | K2 | 프로세스 즉시 종료 (`Runtime.halt(137)`, shutdown hook 도 돌지 않음) | `kind=HALT` | lease 만료 뒤 |
 | K3 | target DB 연결 끊김 | `kind=PAUSE`, 멈춘 사이 하네스가 `target-pg` proxy 를 끊음 | lease 만료 뒤 |
 | K4 | MongoDB 연결 끊김 | `kind=PAUSE`, 멈춘 사이 하네스가 `mongo` proxy 를 끊음 | lease 만료 뒤 |
+| K5 | worker 두 개 동시 실행 | 준비 실행 뒤 A, B 를 P2 에서 `kind=PAUSE` 로 붙잡았다가 시점에 맞춰 재개 | 없음. 두 worker 가 끝나면 바로 수렴을 본다 |
 
 K2~K4 는 Step3 반환 listener 가 돌지 못할 수 있어 장애 실행에 lease 를 20초로 주고, 재실행은 남은 PROCESSING 의 lease 가 끝난 뒤에 한다.
 P4 × K4 는 Step4 가 MongoDB 를 쓰지 않아 제외 칸이다. K4 × P0~P2 는 Step3 첫 저장에서 실패하므로 장애 직후 예상 상태를 따로 둔다(`expectByKind`).
@@ -112,6 +113,7 @@ P4 × K4 는 Step4 가 MongoDB 를 쓰지 않아 제외 칸이다. K4 × P0~P2 �
 ```bash
 python3 infra/reliability/scripts/run_fault_matrix.py                       # K1 20칸 전부
 python3 infra/reliability/scripts/run_fault_matrix.py --kinds K2 K3 K4 --skip-baseline   # 59칸
+python3 infra/reliability/scripts/run_fault_matrix.py --kinds K5 --skip-baseline          # 3칸
 python3 infra/reliability/scripts/run_fault_matrix.py --points P2 --timings MIDDLE
 uv run infra/reliability/scripts/run_scenario.py S-010 --point P3a --timing LAST   # 한 칸만
 uv run infra/reliability/scripts/run_scenario.py S-010R
@@ -122,6 +124,42 @@ uv run infra/reliability/scripts/run_scenario.py S-010R
 - 장애 직후 예상 상태는 `faults/job1-fault-points.yml`에 있다
 - 칸은 S-010과 S-010R이 모두 통과해야 PASS다. S-010R은 S-003R과 같은 수렴 검증(INV-001~004, S-001 비교, C5, C6)을 한다
 - 기존 `APP_BILLING_RELIABILITY_FAIL_AFTER_SNAPSHOT_SAVE`(S-003)는 그대로 둔다. 모든 partition의 첫 저장 뒤에 던지는 방식이라 P3c·FIRST의 ONCE와는 다르다
+
+## lease 와 worker 경합
+
+Step3 는 work 를 claim 할 때 `PROCESSING` 과 `lease_until` 을 같이 쓴다. 다른 실행은 lease 가 끝난 `PROCESSING` 만 다시 가져간다.
+K1 처럼 예외로 끝나면 반환 listener 가 `TARGET` 으로 돌려놓아서 이 경로가 실행되지 않는다. 그래서 아래 두 시나리오를 따로 둔다.
+
+| 시나리오 | 하는 일 | 통과 조건 |
+| --- | --- | --- |
+| S-002 | P3a LAST 에서 `Runtime.halt`. 장애 실행의 lease 는 180초 | 커밋된 `PROCESSING` 이 남고 모두 lease 안쪽. 목록을 `processing-left.json` 에 남긴다 |
+| S-002E | lease 가 끝나기 전에 같은 cutoff 로 재실행 | 남은 `PROCESSING` 의 상태, `claimed_by`, `attempt_count`, `lease_until` 이 그대로. 나머지는 모두 `CALCULATED`. `billing_cycle` 은 `RUNNING` (`LEASE_HOLD`) |
+| S-002R | lease 가 끝난 뒤 재실행 | 남은 work 는 다른 worker 가 한 번만 더 claim(`attempt_count` +1). 나머지는 1. S-001 과 상태, C5, C6 이 같고 `FINISHED` (`LEASE_RECLAIM`) |
+| S-011 | K5 한 칸. 아래 순서로 두 worker 가 Step3 claim 을 나눠 가진다 | 모든 work 의 `attempt_count` 가 1. S-001 과 상태, C5, C6 이 같고 `FINISHED` (`CLAIM_ONCE`) |
+
+```bash
+uv run infra/reliability/scripts/run_scenario.py S-002     # 기본 시점 LAST
+uv run infra/reliability/scripts/run_scenario.py S-002E    # 바로 이어서. 끝났을 때 lease 가 남아 있어야 한다
+uv run infra/reliability/scripts/run_scenario.py S-002R    # lease 가 끝날 때까지 기다렸다가 돈다
+uv run infra/reliability/scripts/run_scenario.py S-011 --timing MIDDLE
+```
+
+- S-002 는 P3a 의 13번째 claim(D1 기준, 첫 partition 이 두 번째 claim 을 하는 순간)에서 끊는다. 첫 claim 들(FIRST, MIDDLE)에서 끊으면 커밋된 claim 이 없어 `PROCESSING` 이 남지 않고, LAST 는 실행마다 남기도 하고 안 남기도 했다
+- S-002E 는 worker 가 끝난 순간 남은 lease 를 `LEASE_REMAINING` 사건으로 남긴다. 0 이하면 만료 전 재실행을 본 것이 아니므로 실패로 둔다
+S-011 은 이렇게 돈다.
+
+1. 준비 실행. Step3 의 모든 claim 에서 예외를 던져 Step0 ~ Step2 결과만 남긴다 (work 28,500 모두 `TARGET`, `attempt_count` 0)
+2. A 를 띄우고 3초 뒤 B 를 18091 포트로 띄운다. 같은 순간에 띄우면 batch 메타 테이블의 SERIALIZABLE 트랜잭션끼리 부딪혀 한쪽이 시작도 못 한다
+3. 둘 다 Step2 마지막 쓰기 직후(P2)에서 멈춘다. 이미 work 가 있어서 Step2 는 아무 행도 넣지 않으므로 멈춰 있어도 잠그는 행이 없다
+4. A 를 재개하고, CALCULATED 가 FIRST 0%, MIDDLE 50%, LAST 90% 가 되면 B 를 재개한다. lease 는 20초
+
+이렇게 붙잡는 이유는 그냥 같이 띄우면 경합이 일어나지 않아서다. 먼저 Step3 에 들어간 worker 가 claim 을 쥐고 있으면
+다른 worker 의 Step2 `INSERT ... ON CONFLICT DO NOTHING` 이 그 행에서 기다리고, Step3 에 왔을 때는 할 일이 거의 없다.
+FIRST 칸은 두 worker 가 모두 계산하지 않으면 전제가 깨진 것으로 보고 실패로 둔다. MIDDLE, LAST 는 A 가 partition 마다
+2,000건씩 먼저 claim 해 두어서 늦게 들어온 B 가 할 일이 없을 수 있다. 몇 건씩 했는지만 `WORKER_SHARE` 사건으로 남긴다
+
+- `claimed_by` 는 `<pid>@<host>-<partition>` 이라 프로세스별로 몇 건을 계산했는지 `lease-check.json` 에 남는다
+- 결과는 `check_result` 의 `PROCESSING_LEFT`, `LEASE_HOLD`, `LEASE_RECLAIM`, `CLAIM_ONCE` 로 남는다
 
 ## 결과 수집 스키마
 
