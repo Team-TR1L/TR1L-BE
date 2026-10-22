@@ -39,7 +39,9 @@ distribution:
     expiredCount: 285
 
   options:
-    expectedTotalSubscriptions: 54000
+    # 아래 비율대로 2~3개는 반씩, 4~7개는 고르게 나눈 값
+    # 예전 값 54000 은 이 비율로는 나오지 않아 실제 시드 기준으로 바꿨다
+    expectedTotalSubscriptions: 45585
     noOptionRatio: 0.30
     oneOptionRatio: 0.30
     twoOrThreeOptionsRatio: 0.30
