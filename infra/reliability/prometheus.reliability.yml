@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  # 호스트에서 java -jar로 띄운 worker (server.port 18090)
+  - job_name: worker
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:18090"]
