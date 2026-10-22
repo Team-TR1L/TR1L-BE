@@ -29,6 +29,10 @@ infra/reliability/scripts/setup_local.sh
 `setup_local.sh`는 main DB에 스키마, 마스터 데이터, D1 시드를 넣고 target DB에 `billing_work`와 `reliability` 스키마를 만든다.
 main DB 테이블은 지우고 다시 만들기 때문에 다시 실행해도 된다.
 
+마지막에 `Job1DatasetDistributionValidationTest`로 적재한 분포가 `dataset.yml`의 `distribution`과 같은지 확인한다.
+비율 항목(`...Ratio`)은 `targetEligible`을 곱한 건수로 바꿔 비교하고, 하나라도 다르면 실패한다.
+결과는 `apps/worker/build/job1-reliability-results/dataset/D1-rerun-mvp-distribution.json`에 남는다.
+
 ## 시나리오 실행
 
 ```bash
