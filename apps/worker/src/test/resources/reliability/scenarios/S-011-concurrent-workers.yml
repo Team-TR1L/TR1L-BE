@@ -1,6 +1,6 @@
 id: S-011
 name: concurrent-workers
-description: 장애 행렬 K5 한 칸. worker A 가 Step3 claim 직후(P3a) 에 멈춘 사이 같은 cutoff 로 worker B 를 띄워 두 worker 가 Step3 를 같이 돌게 한다. work 마다 한 번만 계산하고 S-001 run 직후 상태와 내용까지 같아야 한다
+description: 장애 행렬 K5 한 칸. Step0 ~ Step2 를 미리 끝내 두고 같은 cutoff 의 worker A, B 를 Step2 끝에서 붙잡았다가, A 의 Step3 가 시점(FIRST 0%, MIDDLE 50%, LAST 90%)만큼 진행되면 B 를 풀어 두 worker 가 Step3 claim 을 나눠 가지게 한다. work 마다 한 번만 계산하고 S-001 run 직후 상태와 내용까지 같아야 한다
 
 datasetId: D1-rerun-mvp
 
