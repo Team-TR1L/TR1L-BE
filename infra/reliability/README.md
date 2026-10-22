@@ -56,8 +56,20 @@ target DB의 `reliability` 스키마에만 쓴다. 운영 테이블과 섞이지
 | `run` | 실행 한 번. 시나리오, 데이터셋, 장애 지점·시점·종류, commit, 종료 코드, 판정 |
 | `run_event` | worker 시작·종료, 장애 관측, 재실행 시작. 대시보드에서 세로선으로 그린다 |
 | `state_sample` | 0.25초마다 센 상태별 work 수, snapshot 수, 결과만 있는 work 수 |
-| `check_result` | 실행별 invariant와 S-001 비교 결과 |
+| `check_result` | 실행별 invariant, S-001 비교, C5, C6 결과 |
 | `fault_cell` | 장애 행렬(지점 8 × 시점 3 × 종류 5) 한 칸의 최신 결과 |
+
+## snapshot 내용 검증
+
+건수만 맞고 금액이 다른 경우를 잡기 위한 두 가지 검증이다.
+
+| 검증 | 시나리오 | 내용 |
+| --- | --- | --- |
+| C5 snapshot 해시 | S-001R, S-003R | S-001이 남긴 사용자별 해시(`snapshot-hashes.json`)와 지금 해시를 비교. `createdAt`, `issuedAt`, `updatedAt`은 빼고 키를 정렬해 SHA-256을 낸다 |
+| C6 참조 금액 | S-001, S-001R, S-003R | `checks/reference/job1-billing-amount.sql`이 `billing_targets`만으로 다시 계산한 금액과 snapshot 금액을 사용자, 항목 단위로 비교 |
+
+C6의 계산 규칙은 운영 계산 코드를 읽고 SQL로 다시 쓴 것이다. 요구사항 문서에 할인 기준 금액과 내림 규칙이 없어서다.
+그래서 Java 계산 경로나 저장 단계에서 생긴 차이는 잡지만, 규칙을 처음부터 잘못 해석한 경우는 두 쪽이 같이 틀릴 수 있다.
 
 ## 캡처
 
