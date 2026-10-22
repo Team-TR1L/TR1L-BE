@@ -1,0 +1,30 @@
+id: S-014R
+name: rerun-after-input-change
+description: 장애와 재실행 사이에 main DB 원천(사용량 재집계, 탈퇴, 옵션 해지)을 바꾼 뒤 같은 cutoff 로 다시 실행한다. 바뀌지 않은 사용자는 S-001 과 같아야 하고, 바뀐 사용자가 cutoff 기준을 지켰는지는 결과로 남긴다
+
+datasetId: D1-rerun-mvp
+
+job:
+  name: calculateJob
+  cutoff: "2026-02-01T00:00:00Z"
+  billingMonthDay: "2026-01-01"
+
+fault:
+  enabled: false
+
+rerun:
+  enabled: true
+  sameCutoff: true
+
+validate:
+  phase: after_rerun_complete
+  invariants:
+    - INV-001
+    - INV-002
+    - INV-003
+    - INV-004
+
+allure:
+  epic: "TR1L Job1 Reliability"
+  feature: "Input Change"
+  story: "S-014R rerun after input change"
