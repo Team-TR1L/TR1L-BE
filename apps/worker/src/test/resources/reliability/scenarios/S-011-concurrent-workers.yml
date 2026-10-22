@@ -1,0 +1,41 @@
+id: S-011
+name: concurrent-workers
+description: 장애 행렬 K5 한 칸. worker A 가 Step3 claim 직후(P3a) 에 멈춘 사이 같은 cutoff 로 worker B 를 띄워 두 worker 가 Step3 를 같이 돌게 한다. work 마다 한 번만 계산하고 S-001 run 직후 상태와 내용까지 같아야 한다
+
+datasetId: D1-rerun-mvp
+
+job:
+  name: calculateJob
+  cutoff: "2026-02-01T00:00:00Z"
+  billingMonthDay: "2026-01-01"
+
+fault:
+  enabled: true
+
+rerun:
+  enabled: false
+  sameCutoff: true
+
+validate:
+  phase: after_rerun_complete
+  invariants:
+    - INV-001
+    - INV-002
+    - INV-003
+    - INV-004
+
+compareWithBaseline:
+  enabled: true
+  baselineScenarioId: S-001
+  metrics:
+    - billingTargetsCount
+    - billingWorkCount
+    - calculatedCount
+    - mongoSnapshotCount
+    - duplicateMongoSnapshotCount
+    - targetWithSnapshotCount
+
+allure:
+  epic: "TR1L Job1 Reliability"
+  feature: "Lease And Contention"
+  story: "S-011 concurrent workers"

@@ -1,0 +1,41 @@
+id: S-002R
+name: rerun-after-lease-expiry
+description: S-002E 뒤 남은 PROCESSING 의 lease 가 끝나면 같은 cutoff 로 다시 실행한다. 남은 work 를 한 번만 다시 가져가 S-001 run 직후 상태와 내용까지 같아져야 한다
+
+datasetId: D1-rerun-mvp
+
+job:
+  name: calculateJob
+  cutoff: "2026-02-01T00:00:00Z"
+  billingMonthDay: "2026-01-01"
+
+fault:
+  enabled: false
+
+rerun:
+  enabled: true
+  sameCutoff: true
+
+validate:
+  phase: after_rerun_complete
+  invariants:
+    - INV-001
+    - INV-002
+    - INV-003
+    - INV-004
+
+compareWithBaseline:
+  enabled: true
+  baselineScenarioId: S-001
+  metrics:
+    - billingTargetsCount
+    - billingWorkCount
+    - calculatedCount
+    - mongoSnapshotCount
+    - duplicateMongoSnapshotCount
+    - targetWithSnapshotCount
+
+allure:
+  epic: "TR1L Job1 Reliability"
+  feature: "Lease And Contention"
+  story: "S-002R rerun after lease expiry"
