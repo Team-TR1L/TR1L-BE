@@ -61,7 +61,9 @@ MONGO_URL = os.getenv("REL_MONGO", "mongodb://localhost:27027")
 MONGO_DB = "tr1l"
 CUTOFF = "2026-02-01T00:00:00Z"
 BILLING_MONTH_DAY = "2026-01-01"
-SAMPLE_INTERVAL = 0.25  # Step3가 몇 초 만에 끝나서 1초로는 변화가 거의 안 보인다
+# Step3가 몇 초 만에 끝나서 1초로는 변화가 거의 안 보인다
+# D5(108만 명)처럼 큰 데이터셋은 한 번 세는 데 시간이 걸려 REL_SAMPLE_INTERVAL 로 늘린다
+SAMPLE_INTERVAL = float(os.getenv("REL_SAMPLE_INTERVAL", "0.25"))
 
 BASELINE_TEST = "com.tr1l.worker.reliability.Job1BaselineValidationTest"
 PARTIAL_TEST = "com.tr1l.worker.reliability.Job1PartialSuccessValidationTest"
