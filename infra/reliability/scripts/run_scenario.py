@@ -79,9 +79,13 @@ FAULT_KINDS = {
 SHORT_LEASE_SECONDS = 20
 # S-002 는 lease 가 끝나기 전에 S-002E 를 한 번 더 돌려야 해서 넉넉히 준다
 S002_LEASE_SECONDS = 180
-# K5 는 worker A 가 B 를 기다리며 claim 을 쥐고 있는 시간(최대 K5_RESUME_TIMEOUT)보다 길게 준다
-K5_LEASE_SECONDS = 60
-K5_RESUME_TIMEOUT = 40
+# K5 는 두 worker 가 Step3 에서 claim 을 나눠 가진다. lease 는 짧게 주되 chunk 하나 처리 시간보다는 길게 준다
+K5_LEASE_SECONDS = 20
+# B 를 다시 진행시키는 시점. A 의 Step3 가 이만큼 CALCULATED 를 만든 뒤에 B 를 재개한다
+K5_RELEASE_RATIO = {"FIRST": 0.0, "MIDDLE": 0.5, "LAST": 0.9}
+# 두 worker 가 같은 순간에 JobExecution 을 만들면 batch 메타 테이블의 SERIALIZABLE 트랜잭션끼리 부딪혀
+# 한쪽이 시작도 못 하고 끝난다. B 는 조금 늦게 띄운다
+K5_SECOND_DELAY_SECONDS = 3
 WORKER_PORT, SECOND_WORKER_PORT = 18090, 18091
 
 SCENARIOS = {
@@ -287,40 +291,81 @@ class PauseWatcher(threading.Thread):
 
 
 class SecondWorker(threading.Thread):
-    """worker A 가 P3a 에서 멈추면 같은 cutoff 로 worker B 를 띄우고,
-    B 가 Step3 claim 까지 오면 A 를 다시 진행시킨다. 그 뒤로는 두 worker 가 Step3 를 같이 돈다."""
+    """K5. 같은 cutoff 로 worker B 를 띄우고, A 와 B 를 Step2 마지막 쓰기 직후(P2)에 붙잡아 둔다.
+    A 를 먼저 재개하고, A 의 Step3 가 K5_RELEASE_RATIO 만큼 진행되면 B 를 재개한다.
 
-    def __init__(self, pause_dir, run_id, label, log_path, extra_env):
+    Step2 끝에서 붙잡는 이유
+    - 준비 실행으로 billing_work 가 이미 있어서 Step2 는 아무 행도 넣지 않는다. 멈춰 있어도 잠그는 행이 없다
+    - 한쪽이 Step3 에서 claim 을 쥐고 있으면 다른 쪽 Step2 INSERT ... ON CONFLICT DO NOTHING 이 그 행에서 기다린다.
+      그래서 그냥 같이 띄우면 늦은 worker 는 Step3 에 왔을 때 할 일이 거의 없다"""
+
+    def __init__(self, run_id, timing, pause_a, pause_b, log_path, extra_env):
         super().__init__(daemon=True)
-        self.pause_dir, self.run_id, self.label = pause_dir, run_id, label
+        self.run_id, self.timing = run_id, timing
+        self.pause_a, self.pause_b = pause_a, pause_b
         self.log_path, self.extra_env = log_path, extra_env
         self.proc = None
-        self.claimed_while_paused = threading.Event()
-        self.stopped = threading.Event()
+        self.released = threading.Event()
 
     def run(self):
-        paused = self.pause_dir / "paused"
-        while not paused.exists():
-            if self.stopped.wait(0.05):
-                return
+        time.sleep(K5_SECOND_DELAY_SECONDS)
         with psycopg.connect(TARGET_PG, autocommit=True) as conn:
-            event(conn, self.run_id, "WORKER_START", f"worker B ({self.label} 에서 A 멈춤)")
-            log = open(self.log_path, "w")
-            self.proc = subprocess.Popen(worker_cmd(SECOND_WORKER_PORT), env=worker_env(False, self.extra_env),
-                                         stdout=log, stderr=subprocess.STDOUT, cwd=ROOT)
-            deadline = time.monotonic() + K5_RESUME_TIMEOUT
-            while time.monotonic() < deadline and self.proc.poll() is None:
-                if "step3.claim" in self.log_path.read_text(errors="ignore"):
-                    self.claimed_while_paused.set()
-                    break
-                time.sleep(0.05)
-            (self.pause_dir / "resume").write_text("")
-            event(conn, self.run_id, "FAULT_INJECTED",
-                  "worker B 가 Step3 claim 시작, A 재개" if self.claimed_while_paused.is_set()
-                  else "worker B 가 Step3 claim 까지 오지 못함, A 재개")
-            self.proc.wait()
-            log.close()
+            event(conn, self.run_id, "WORKER_START", "worker B")
+            with open(self.log_path, "w") as log:
+                self.proc = subprocess.Popen(worker_cmd(SECOND_WORKER_PORT), env=worker_env(False, self.extra_env),
+                                             stdout=log, stderr=subprocess.STDOUT, cwd=ROOT)
+                try:
+                    self.coordinate(conn)
+                finally:
+                    # 어느 쪽도 멈춘 채 남지 않게 항상 재개 파일을 남긴다
+                    for directory in (self.pause_a, self.pause_b):
+                        directory.mkdir(parents=True, exist_ok=True)
+                        (directory / "resume").write_text("")
+                self.proc.wait()
             event(conn, self.run_id, "WORKER_EXIT", f"worker B exit={self.proc.returncode}")
+
+    def coordinate(self, conn):
+        deadline = time.monotonic() + 90
+        while not ((self.pause_a / "paused").exists() and (self.pause_b / "paused").exists()):
+            if self.proc.poll() is not None or time.monotonic() > deadline:
+                return
+            time.sleep(0.05)
+        event(conn, self.run_id, "WORKER_GATE", "A, B 모두 Step2 끝에서 멈춤")
+        (self.pause_a / "resume").write_text("")
+        total = conn.execute("SELECT count(*) FROM billing_work WHERE billing_month_day = %s",
+                             (BILLING_MONTH_DAY,)).fetchone()[0]
+        goal = total * K5_RELEASE_RATIO[self.timing]
+        while conn.execute("""SELECT count(*) FROM billing_work
+                              WHERE billing_month_day = %s AND status = 'CALCULATED'""",
+                           (BILLING_MONTH_DAY,)).fetchone()[0] < goal:
+            time.sleep(0.02)
+        calculated = conn.execute("""SELECT count(*) FROM billing_work
+                                     WHERE billing_month_day = %s AND status = 'CALCULATED'""",
+                                  (BILLING_MONTH_DAY,)).fetchone()[0]
+        (self.pause_b / "resume").write_text("")
+        self.released.set()
+        event(conn, self.run_id, "FAULT_INJECTED", f"worker B 재개, A 진행 {calculated} / {total}")
+
+
+def prepare_step3(conn, run_id):
+    """K5 준비. Step0 ~ Step2 까지만 끝내 두고 work 를 모두 TARGET 으로 남긴다.
+
+    두 worker 를 처음부터 같이 띄우면 Step2 INSERT ... ON CONFLICT DO NOTHING 이 먼저 Step3 에 들어간
+    worker 의 claim 행에서 기다려서, 늦은 worker 는 Step3 에 왔을 때 할 일이 거의 없다.
+    Step3 의 모든 claim 에서 예외를 던지면 claim 이 롤백되어 Step0 ~ Step2 결과만 남는다."""
+    event(conn, run_id, "PREPARE", "Step0 ~ Step2 만 실행")
+    log_path = LOG_DIR / f"{run_id}-prepare.log"
+    with open(log_path, "w") as log:
+        subprocess.run(worker_cmd(), env=worker_env(False, dict(
+            APP_RELIABILITY_FAULT_POINT="P3a", APP_RELIABILITY_FAULT_NTH="1",
+            APP_RELIABILITY_FAULT_REPEAT="FROM_NTH", APP_RELIABILITY_FAULT_KIND="EXCEPTION")),
+            stdout=log, stderr=subprocess.STDOUT, cwd=ROOT)
+    target, others = conn.execute(
+        """SELECT count(*) FILTER (WHERE status = 'TARGET' AND attempt_count = 0), count(*) FILTER (WHERE status <> 'TARGET')
+           FROM billing_work WHERE billing_month_day = %s""", (BILLING_MONTH_DAY,)).fetchone()
+    snapshots = MongoClient(MONGO_URL)[MONGO_DB]["billing_snapshot"].count_documents({"billingMonth": BILLING_MONTH_DAY})
+    event(conn, run_id, "PREPARE", f"TARGET {target}, 그 밖의 상태 {others}, snapshot {snapshots}")
+    return target > 0 and others == 0 and snapshots == 0
 
 
 def lease_remaining(conn):
@@ -438,8 +483,11 @@ def main():
         junit_extra.update(JOB1_FAULT_POINT=args.point, JOB1_FAULT_TIMING=timing, JOB1_FAULT_KIND=args.kind)
         label = f"fault={args.point} {timing} {args.kind} #{nth}"
     elif spec.get("lease_fault"):
-        timing = args.timing or "LAST"
-        nth = nth_for("P3a", timing, dataset_id)
+        # 첫 partition 이 두 번째 claim 을 하는 순간에 죽인다. 다른 partition 은 첫 chunk 를 커밋하고
+        # 둘째 chunk 를 처리하는 중이라, 커밋된 PROCESSING 이 남는다. 첫 claim 들(FIRST, MIDDLE)에서 죽이면
+        # 아직 커밋된 claim 이 없어 남는 것이 없고, LAST 는 실행마다 남기도 하고 안 남기도 한다
+        timing = "MIDDLE"
+        nth = nth_for("P3a", "MIDDLE", dataset_id) + 1
         cell = ("P3a", timing, "K2")
         worker_extra.update(APP_RELIABILITY_FAULT_POINT="P3a", APP_RELIABILITY_FAULT_NTH=str(nth),
                             APP_RELIABILITY_FAULT_REPEAT="ONCE", APP_RELIABILITY_FAULT_KIND="HALT",
@@ -456,16 +504,17 @@ def main():
         cell = row
     elif spec.get("concurrent"):
         timing = args.timing or "FIRST"
-        nth = nth_for("P3a", timing, dataset_id)
         cell = ("P3a", timing, "K5")
-        lease = {"BATCH_JOB1_STEP3_LEASE_SECONDS": str(K5_LEASE_SECONDS)}
-        # A 는 nth 번째 claim 부터 claim 할 때마다 멈춘다. B 가 Step3 에 올 때까지 A 가 앞서 나가지 않게 한다
-        worker_extra.update(lease, APP_RELIABILITY_FAULT_POINT="P3a", APP_RELIABILITY_FAULT_NTH=str(nth),
-                            APP_RELIABILITY_FAULT_REPEAT="FROM_NTH", APP_RELIABILITY_FAULT_KIND="PAUSE",
-                            APP_RELIABILITY_FAULT_PAUSE_DIR=str(pause_dir))
+        pause_b = LOG_DIR / f"{run_id}-pause-b"
+        gate = dict(BATCH_JOB1_STEP3_LEASE_SECONDS=str(K5_LEASE_SECONDS), APP_RELIABILITY_FAULT_POINT="P2",
+                    APP_RELIABILITY_FAULT_NTH="1", APP_RELIABILITY_FAULT_REPEAT="FROM_NTH",
+                    APP_RELIABILITY_FAULT_KIND="PAUSE")
+        worker_extra.update(gate, APP_RELIABILITY_FAULT_PAUSE_DIR=str(pause_dir))
         junit_extra.update(JOB1_FAULT_POINT="P3a", JOB1_FAULT_TIMING=timing, JOB1_FAULT_KIND="K5")
-        label = f"worker A P3a {timing} #{nth} 부터 멈춤, lease={K5_LEASE_SECONDS}s"
-        second = SecondWorker(pause_dir, run_id, f"P3a {timing}", LOG_DIR / f"{run_id}-worker-b.log", lease)
+        ratio = K5_RELEASE_RATIO[timing]
+        label = f"worker A, B Step2 끝에서 대기, A 진행 {ratio:.0%} 에서 B 재개, lease={K5_LEASE_SECONDS}s"
+        second = SecondWorker(run_id, timing, pause_dir, pause_b, LOG_DIR / f"{run_id}-worker-b.log",
+                              dict(gate, APP_RELIABILITY_FAULT_PAUSE_DIR=str(pause_b)))
     elif scenario_id == "S-010R":
         # 바로 앞 S-010 칸을 이어받는다
         with psycopg.connect(TARGET_PG, autocommit=True) as conn:
@@ -492,6 +541,8 @@ def main():
                 wait_lease_expiry(conn, run_id)
             event(conn, run_id, "RERUN_START", f"cutoff={CUTOFF}")
 
+        if second and not prepare_step3(conn, run_id):
+            precondition = "Step0 ~ Step2 준비 실행 뒤 TARGET 만 남지 않음"
         sampler = Sampler(run_id, spec["fault"])
         sampler.start()
         time.sleep(2)
@@ -507,7 +558,6 @@ def main():
             if watcher:
                 watcher.stopped.set()
             if second:
-                second.stopped.set()
                 second.join()
             enable_all_proxies()
         injected = None
@@ -539,8 +589,8 @@ def main():
                 precondition = "재실행이 끝났을 때 lease 안쪽 PROCESSING 이 없음"
         if second:
             second_exit = second.proc.returncode if second.proc else None
-            if not second.claimed_while_paused.is_set():
-                precondition = f"worker B 가 A 가 멈춘 사이 Step3 claim 까지 오지 못함 (B exit={second_exit})"
+            if not second.released.is_set() and not precondition:
+                precondition = f"A, B 가 Step2 끝에서 함께 멈추지 않음 (B exit={second_exit})"
         if precondition:
             event(conn, run_id, "PRECONDITION_FAILED", precondition)
         if scenario_id == "S-001" and hits_file.exists():
@@ -557,6 +607,15 @@ def main():
             tests.append(BOUNDARY_TEST)
         junit_code = run_junit(tests, dataset_id, junit_extra)
         record_checks(conn, run_id, scenario_id, spec, junit_started)
+        if second and not precondition:
+            check_path = RESULT_DIR / f"{scenario_id}-{spec['name']}" / "lease-check.json"
+            workers = json.loads(check_path.read_text())["metrics"]["workers"] if check_path.exists() else {}
+            event(conn, run_id, "WORKER_SHARE", json.dumps(workers))
+            # 같이 출발한 칸에서 한 worker 가 혼자 다 계산했으면 경합을 본 것이 아니다
+            # MIDDLE, LAST 는 늦게 들어온 B 가 할 일이 없을 수 있어 몇 건씩 했는지만 남긴다
+            if cell[1] == "FIRST" and len(workers) < 2:
+                precondition = f"한 worker 가 혼자 계산함 {workers}"
+                event(conn, run_id, "PRECONDITION_FAILED", precondition)
         verdict = "PASS" if junit_code == 0 else "FAIL"
         if injected is False or precondition:
             # 장애가 들어가지 않았으면 그 칸은 검증한 것이 아니다
