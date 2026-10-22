@@ -19,6 +19,7 @@ import secrets
 import subprocess
 import sys
 import threading
+import urllib.request
 import time
 from datetime import datetime
 from pathlib import Path
@@ -56,6 +57,20 @@ BOUNDARY_TEST = "com.tr1l.worker.reliability.Job1BoundaryCaseValidationTest"
 FAULT_TEST = "com.tr1l.worker.reliability.Job1FaultMatrixValidationTest"
 # chunk 가 없는 tasklet 지점은 시점을 FIRST 하나로만 본다
 TASKLET_POINTS = {"P0", "P4"}
+
+TOXIPROXY = os.getenv("REL_TOXIPROXY", "http://localhost:18474")
+PROXY_PORTS = {"target-pg": 25443, "mongo": 27037}
+# 장애 종류별 worker 설정과 끊을 proxy
+#   K1 예외, K2 프로세스 즉시 종료, K3 target DB 연결 끊김, K4 MongoDB 연결 끊김
+FAULT_KINDS = {
+    "K1": dict(kind="EXCEPTION", proxy=None),
+    "K2": dict(kind="HALT", proxy=None),
+    "K3": dict(kind="PAUSE", proxy="target-pg"),
+    "K4": dict(kind="PAUSE", proxy="mongo"),
+}
+# K2 ~ K4 는 반환 listener 가 돌지 못해 PROCESSING 이 lease 끝날 때까지 남는다
+# 장애 실행에는 lease 를 짧게 주고, 재실행은 lease 가 끝난 뒤에 한다
+SHORT_LEASE_SECONDS = 20
 
 SCENARIOS = {
     "S-001": dict(name="normal-run", clean=True, fault=False,
@@ -147,12 +162,13 @@ def worker_env(fault, extra=None):
         SPRING_DATASOURCE_USERNAME="postgres",
         SPRING_DATASOURCE_PASSWORD="postgres",
         SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE="30",
-        PG_SUB_HOST="jdbc:postgresql://localhost:25433/billing_target",
+        # worker 는 Toxiproxy 를 거쳐 target DB, MongoDB 에 붙는다 (K3, K4 에서 끊는다)
+        PG_SUB_HOST=f"jdbc:postgresql://localhost:{PROXY_PORTS['target-pg']}/billing_target",
         PG_SUB_USER="postgres",
         PG_SUB_PASSWORD="postgres",
         APP_DATASOURCE_TARGET_HIKARI_MAXIMUM_POOL_SIZE="30",
-        SPRING_DATA_MONGODB_URI=f"{MONGO_URL}/{MONGO_DB}",
-        MONGODB_URI=f"{MONGO_URL}/{MONGO_DB}",
+        SPRING_DATA_MONGODB_URI=f"mongodb://localhost:{PROXY_PORTS['mongo']}/{MONGO_DB}",
+        MONGODB_URI=f"mongodb://localhost:{PROXY_PORTS['mongo']}/{MONGO_DB}",
         SPRING_BATCH_JDBC_INITIALIZE_SCHEMA="always",
         BATCH_ADD_RUN_ID="true",
         CHANNEL_ORDER="EMAIL,SMS",
@@ -207,6 +223,53 @@ def run_junit(tests, dataset_id, extra_env=None):
     for test in tests:
         cmd += ["--tests", test]
     return subprocess.run(cmd, env=env, cwd=ROOT).returncode
+
+
+def set_proxy(name, enabled):
+    body = json.dumps({"enabled": enabled}).encode()
+    request = urllib.request.Request(f"{TOXIPROXY}/proxies/{name}", data=body, method="POST",
+                                     headers={"Content-Type": "application/json"})
+    urllib.request.urlopen(request, timeout=5).read()
+
+
+def enable_all_proxies():
+    for name in PROXY_PORTS:
+        set_proxy(name, True)
+
+
+class PauseWatcher(threading.Thread):
+    """worker 가 PAUSE 지점에서 멈추면 proxy 를 끊고 다시 진행시킨다."""
+
+    def __init__(self, pause_dir, proxy, run_id, label):
+        super().__init__(daemon=True)
+        self.pause_dir, self.proxy, self.run_id, self.label = pause_dir, proxy, run_id, label
+        self.triggered = threading.Event()
+        self.stopped = threading.Event()
+
+    def run(self):
+        paused = self.pause_dir / "paused"
+        while not self.stopped.is_set():
+            if paused.exists():
+                set_proxy(self.proxy, False)
+                (self.pause_dir / "resume").write_text("")
+                self.triggered.set()
+                with psycopg.connect(TARGET_PG, autocommit=True) as conn:
+                    event(conn, self.run_id, "FAULT_INJECTED", f"{self.label} proxy={self.proxy} 끊음")
+                return
+            self.stopped.wait(0.05)
+
+
+def wait_lease_expiry(conn, run_id):
+    """남은 PROCESSING 의 lease 가 끝날 때까지 기다린다."""
+    lease_until = conn.execute(
+        """SELECT max(lease_until) FROM billing_work
+           WHERE billing_month_day = %s AND status = 'PROCESSING'""", (BILLING_MONTH_DAY,)).fetchone()[0]
+    if lease_until is None:
+        return
+    remaining = (lease_until - datetime.now(lease_until.tzinfo)).total_seconds() + 2
+    if remaining > 0:
+        event(conn, run_id, "LEASE_WAIT", f"{remaining:.0f}초")
+        time.sleep(remaining)
 
 
 def hits_path(dataset_id):
@@ -270,6 +333,7 @@ def main():
     parser.add_argument("scenario", choices=SCENARIOS)
     parser.add_argument("--point", help="S-010 장애 지점 (P0 ~ P4)")
     parser.add_argument("--timing", default="FIRST", choices=["FIRST", "MIDDLE", "LAST"])
+    parser.add_argument("--kind", default="K1", choices=list(FAULT_KINDS))
     args = parser.parse_args()
     scenario_id = args.scenario
     spec = SCENARIOS[scenario_id]
@@ -279,7 +343,8 @@ def main():
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
     cell = spec.get("cell") or (("P3c", "FIRST", "K1") if spec["fault"] else (None, None, None))
     dataset_id, seed = loaded_dataset()
-    worker_extra, junit_extra, label, matrix_cell = {}, {}, None, None
+    worker_extra, junit_extra, label, matrix_cell, watcher = {}, {}, None, None, None
+    pause_dir = LOG_DIR / f"{run_id}-pause"
     hits_file = LOG_DIR / f"{run_id}-hits.json"
     worker_extra["APP_RELIABILITY_FAULT_HITS_FILE"] = str(hits_file)
 
@@ -288,11 +353,15 @@ def main():
             sys.exit("S-010 은 --point 가 필요하다")
         timing = "FIRST" if args.point in TASKLET_POINTS else args.timing
         nth = nth_for(args.point, timing, dataset_id)
-        cell = (args.point, timing, "K1")
+        fault_kind = FAULT_KINDS[args.kind]
+        cell = (args.point, timing, args.kind)
         worker_extra.update(APP_RELIABILITY_FAULT_POINT=args.point, APP_RELIABILITY_FAULT_NTH=str(nth),
-                            APP_RELIABILITY_FAULT_REPEAT="ONCE")
-        junit_extra.update(JOB1_FAULT_POINT=args.point, JOB1_FAULT_TIMING=timing)
-        label = f"fault={args.point} {timing} #{nth}"
+                            APP_RELIABILITY_FAULT_REPEAT="ONCE", APP_RELIABILITY_FAULT_KIND=fault_kind["kind"],
+                            APP_RELIABILITY_FAULT_PAUSE_DIR=str(pause_dir))
+        if args.kind != "K1":
+            worker_extra["BATCH_JOB1_STEP3_LEASE_SECONDS"] = str(SHORT_LEASE_SECONDS)
+        junit_extra.update(JOB1_FAULT_POINT=args.point, JOB1_FAULT_TIMING=timing, JOB1_FAULT_KIND=args.kind)
+        label = f"fault={args.point} {timing} {args.kind} #{nth}"
     elif scenario_id == "S-010R":
         # 바로 앞 S-010 칸을 이어받는다
         with psycopg.connect(TARGET_PG, autocommit=True) as conn:
@@ -303,7 +372,7 @@ def main():
             sys.exit("S-010 을 먼저 돌린다")
         matrix_cell = row
         cell = row[1:4]
-        junit_extra.update(JOB1_FAULT_POINT=row[1], JOB1_FAULT_TIMING=row[2])
+        junit_extra.update(JOB1_FAULT_POINT=row[1], JOB1_FAULT_TIMING=row[2], JOB1_FAULT_KIND=row[3])
 
     with psycopg.connect(TARGET_PG, autocommit=True) as conn:
         conn.execute(
@@ -315,18 +384,39 @@ def main():
             clean_month(conn)
             event(conn, run_id, "CLEAN", "2026-01 정산 결과 비움")
         elif scenario_id.endswith("R"):
+            if matrix_cell and matrix_cell[3] != "K1":
+                wait_lease_expiry(conn, run_id)
             event(conn, run_id, "RERUN_START", f"cutoff={CUTOFF}")
 
         sampler = Sampler(run_id, spec["fault"])
         sampler.start()
         time.sleep(2)
         log_path = LOG_DIR / f"{run_id}.log"
-        exit_code = run_worker(conn, run_id, spec["fault"], log_path, worker_extra, label)
+        if spec.get("matrix") and fault_kind["proxy"]:
+            watcher = PauseWatcher(pause_dir, fault_kind["proxy"], run_id, label)
+            watcher.start()
+        try:
+            exit_code = run_worker(conn, run_id, spec["fault"], log_path, worker_extra, label)
+        finally:
+            if watcher:
+                watcher.stopped.set()
+            enable_all_proxies()
         injected = None
         if spec.get("matrix"):
-            marker = f"Injected Job1 fault at {args.point}"
-            injected = marker in log_path.read_text(errors="ignore")
-            event(conn, run_id, "FAULT_INJECTED" if injected else "FAULT_NOT_TRIGGERED", label)
+            if args.kind == "K1":
+                injected = f"Injected Job1 fault at {args.point}" in log_path.read_text(errors="ignore")
+            elif args.kind == "K2":
+                # Runtime.halt(137)
+                injected = exit_code == 137
+                if injected:
+                    event(conn, run_id, "FAULT_INJECTED", f"{label} halt")
+            else:
+                # 연결을 끊었는데 worker 가 정상 종료했으면 장애가 결과에 닿지 않은 것이다
+                injected = watcher.triggered.is_set() and exit_code != 0
+            if not injected:
+                event(conn, run_id, "FAULT_NOT_TRIGGERED", label)
+            elif args.kind == "K1":
+                event(conn, run_id, "FAULT_INJECTED", label)
         if scenario_id == "S-001" and hits_file.exists():
             # 이 데이터셋의 지점별 통과 횟수를 남겨 둔다
             hits_path(dataset_id).write_text(hits_file.read_text())
