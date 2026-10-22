@@ -2,6 +2,9 @@ package com.tr1l.worker.reliability;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import com.tr1l.worker.reliability.content.ContentValidation;
+import com.tr1l.worker.reliability.content.ReferenceAmountComparison;
+import com.tr1l.worker.reliability.content.SnapshotHashComparison;
 import com.tr1l.worker.reliability.invariant.CrossDbInvariantChecks;
 import com.tr1l.worker.reliability.invariant.InvariantValidationResult;
 import com.tr1l.worker.reliability.invariant.InvariantValidator;
@@ -148,11 +151,22 @@ class Job1PartialSuccessValidationTest {
             evidenceWriter.attachJson("s001-run-state-comparison.json", comparisonResult);
             evidenceWriter.attachJson("invariant-validation.json", validationResult);
 
+            // snapshot 내용 비교 (C5, C6)
+            ContentValidation contentValidation =
+                    new ContentValidation(jdbcTemplate, mongoClient, config, catalog, resultWriter, evidenceWriter);
+            LocalDate billingMonthDay = LocalDate.parse(scenario.job().billingMonthDay());
+            SnapshotHashComparison hashComparison =
+                    contentValidation.compareWithBaselineHashes(scenario, referenceScenario, billingMonthDay);
+            ReferenceAmountComparison amountComparison =
+                    contentValidation.compareReferenceAmounts(scenario, billingMonthDay);
+
             assertThat(validationResult.allPassed()).isTrue();
             assertThat(currentSnapshot.targetWithSnapshotCount()).isZero();
             assertThat(currentSnapshot.processingCount()).isZero();
             assertThat(currentSnapshot.processingWithSnapshotCount()).isZero();
             assertThat(comparisonResult.matched()).isTrue();
+            assertThat(hashComparison.matched()).as("C5 snapshot hash %s", hashComparison).isTrue();
+            assertThat(amountComparison.matched()).as("C6 reference amount %s", amountComparison).isTrue();
         }
     }
 
