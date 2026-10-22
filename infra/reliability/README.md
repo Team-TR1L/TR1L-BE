@@ -161,6 +161,51 @@ FIRST 칸은 두 worker 가 모두 계산하지 않으면 전제가 깨진 것�
 - `claimed_by` 는 `<pid>@<host>-<partition>` 이라 프로세스별로 몇 건을 계산했는지 `lease-check.json` 에 남는다
 - 결과는 `check_result` 의 `PROCESSING_LEFT`, `LEASE_HOLD`, `LEASE_RECLAIM`, `CLAIM_ONCE` 로 남는다
 
+## 재실행 안전 장치를 깨뜨려 보기 (mutant)
+
+검증이 전부 통과해도 검증이 약해서 통과했을 수 있다. 그래서 재실행 안전성을 떠받치는 장치를 하나씩 깨뜨린 worker 로
+장애 칸을 돌려, 검증이 실패하는지 본다.
+
+mutant 는 원본 클래스를 복사해 한 곳만 바꾼 것이다(`apps/worker/src/reliabilityMutant/<ID>`). mutant 마다 jar 를 따로 만들고,
+하네스가 worker 를 `PropertiesLauncher` 로 띄우면서 `loader.path` 에 붙인다. `loader.path` 의 클래스가 jar 안의 같은 이름 클래스보다
+먼저 로드돼서 원본을 가린다. 운영 jar(`worker.jar`)에는 들어가지 않는다. mutant 클래스는 로드될 때 `Job1 mutant <ID> active` 를 남기고,
+하네스는 이 표시가 없으면 판정하지 않는다.
+
+| ID | 깨뜨리는 것 | 바꾼 클래스 | 돌리는 칸 | 잡아야 할 조건 |
+| --- | --- | --- | --- | --- |
+| M1 | Step2 `ON CONFLICT DO NOTHING` 제거 | `BillingWorkJdbcAdapter` | P3c·MIDDLE·K1 | C2 |
+| M2 | snapshot 을 upsert 대신 insert | `MongoBillingSnapshotSaveAdapter` | P3c·MIDDLE·K1 | C4, C5 |
+| M3 | lease 가 끝난 PROCESSING 재선점 제거 | `JdbcWorkDocClaimAdapter` | S-002 → S-002R | C3 |
+| M4 | 상태 갱신을 snapshot 저장보다 먼저 | `CalculateAndSnapshotWriter` | P3c·MIDDLE·K4 | C4 |
+| M5 | 고정된 cutoff 대신 실행 시각 | `CalculateJobContextInitializer` | P3c·MIDDLE·K1 | C1 |
+| M6 | 약정 할인 내림을 올림으로 | `ContractDiscountPolicy` | P3c·MIDDLE·K1 | C6 |
+
+```bash
+./gradlew :apps:worker:reliabilityMutantJars
+uv run infra/reliability/scripts/run_mutants.py          # M1 ~ M6
+uv run infra/reliability/scripts/run_mutants.py M6
+uv run infra/reliability/scripts/run_scenario.py S-010 --point P3c --timing MIDDLE --mutant M6   # 한 칸만
+```
+
+- 칸의 장애 실행과 재실행 중 검증이 하나라도 실패하면 잡은 것이다. 결과는 `check_result` 의 `M1` ~ `M6` 와 대시보드 "재실행 안전 장치 mutant" 표에 남는다
+- mutation score 는 mutant 마다 가장 최근 결과로 낸다
+- mutant 실행은 장애 행렬 칸을 갱신하지 않고, 재실행 실패율 집계에서도 빠진다(`run.mutant`)
+- M5 는 실행 시각 기준 전월(지금이면 2026-09)을 정산해서, 끝나면 그 월의 결과를 지운다
+- M4 는 살아남는다. snapshot 저장과 상태 갱신이 같은 PostgreSQL 트랜잭션 안이고 커밋이 Mongo 저장 뒤라서, 둘의 순서를 바꿔도 결과가 같다. 막고 있는 것은 순서가 아니라 커밋 시점이다
+
+## 계산 코드 mutation (PIT)
+
+청구 금액 계산은 `contexts/billing` 의 `BillingAmountReferenceTest` 가 C6 참조 계산과 항목별로 비교한다.
+입력과 기대 금액은 `make_reference_cases.py` 가 참조 SQL 로 만든다. D1 에서 요금 계산에 영향을 주는 값 조합마다 한 명(400건)과
+기본 제공량 바로 앞뒤, 복지 할인 상한에 정확히 닿는 경우 같은 경계값 행(9건)이다. 이름과 연락처는 테스트용 값으로 바꾼다.
+
+```bash
+uv run infra/reliability/scripts/make_reference_cases.py   # D1 을 적재하고 S-001 을 돌린 뒤
+./gradlew :contexts:billing:test :contexts:billing:pitest
+```
+
+PIT 대상은 `domain.service`, `domain.policy`, `domain.model`, `application.assembler` 이고, 보고서는 `contexts/billing/build/reports/pitest/index.html` 에 남는다.
+
 ## 결과 수집 스키마
 
 target DB의 `reliability` 스키마에만 쓴다. 운영 테이블과 섞이지 않는다.

@@ -33,6 +33,8 @@ from pymongo import MongoClient
 # 다른 worktree의 jar와 JUnit으로 돌리고 싶으면 REL_ROOT로 바꾼다
 ROOT = Path(os.getenv("REL_ROOT", Path(__file__).resolve().parents[3]))
 WORKER_JAR = ROOT / "apps/worker/build/libs/worker.jar"
+# 재실행 안전 장치를 깨뜨린 mutant jar. --mutant 를 주면 loader.path 로 붙여 같은 이름의 원본 클래스를 가린다
+MUTANT_DIR = ROOT / "apps/worker/build/reliability-mutants"
 RESULT_DIR = ROOT / "apps/worker/build/job1-reliability-results"
 LOG_DIR = ROOT / "build/reliability-logs"
 
@@ -210,9 +212,18 @@ def worker_env(fault, extra=None):
     return env
 
 
+MUTANT = None  # main 에서 --mutant 로 정한다
+
+
 def worker_cmd(port=WORKER_PORT):
+    if MUTANT:
+        # PropertiesLauncher 는 loader.path 를 jar 안의 클래스보다 먼저 찾는다
+        launcher = ["-cp", str(WORKER_JAR), f"-Dloader.path={MUTANT_DIR / f'mutant-{MUTANT}.jar'}",
+                    "org.springframework.boot.loader.launch.PropertiesLauncher"]
+    else:
+        launcher = ["-jar", str(WORKER_JAR)]
     return [
-        f"{JAVA_HOME}/bin/java", "-Xmx2g", "-jar", str(WORKER_JAR),
+        f"{JAVA_HOME}/bin/java", "-Xmx2g", *launcher,
         "--spring.batch.job.name=calculateJob",
         f"--batch.job1StartTime={CUTOFF}",
         f"--server.port={port}",
@@ -453,7 +464,15 @@ def main():
     parser.add_argument("--timing", choices=["FIRST", "MIDDLE", "LAST"],
                         help="기본은 FIRST, S-002 는 LAST")
     parser.add_argument("--kind", default="K1", choices=list(FAULT_KINDS))
+    parser.add_argument("--mutant", choices=["M1", "M2", "M3", "M4", "M5", "M6"],
+                        help="재실행 안전 장치를 깨뜨린 mutant 로 worker 를 띄운다. 장애 행렬 칸은 갱신하지 않는다")
     args = parser.parse_args()
+    global MUTANT
+    MUTANT = args.mutant
+    if MUTANT and args.scenario == "S-001":
+        sys.exit("S-001 은 다른 시나리오의 비교 기준이라 mutant 로 돌리지 않는다")
+    if MUTANT and not (MUTANT_DIR / f"mutant-{MUTANT}.jar").exists():
+        sys.exit(f"{MUTANT_DIR}/mutant-{MUTANT}.jar 가 없다. ./gradlew :apps:worker:reliabilityMutantJars 를 먼저 돌린다")
     scenario_id = args.scenario
     spec = SCENARIOS[scenario_id]
 
@@ -498,7 +517,8 @@ def main():
         with psycopg.connect(TARGET_PG, autocommit=True) as conn:
             row = conn.execute(
                 """SELECT fault_point, fault_timing, fault_kind FROM reliability.run
-                   WHERE scenario_id = 'S-002' ORDER BY started_at DESC LIMIT 1""").fetchone()
+                   WHERE scenario_id = 'S-002' AND mutant IS NOT DISTINCT FROM %s ORDER BY started_at DESC LIMIT 1""",
+                (args.mutant,)).fetchone()
         if not row:
             sys.exit("S-002 를 먼저 돌린다")
         cell = row
@@ -520,7 +540,8 @@ def main():
         with psycopg.connect(TARGET_PG, autocommit=True) as conn:
             row = conn.execute(
                 """SELECT run_id, fault_point, fault_timing, fault_kind, verdict FROM reliability.run
-                   WHERE scenario_id = 'S-010' ORDER BY started_at DESC LIMIT 1""").fetchone()
+                   WHERE scenario_id = 'S-010' AND mutant IS NOT DISTINCT FROM %s ORDER BY started_at DESC LIMIT 1""",
+                (args.mutant,)).fetchone()
         if not row:
             sys.exit("S-010 을 먼저 돌린다")
         matrix_cell = row
@@ -529,9 +550,9 @@ def main():
 
     with psycopg.connect(TARGET_PG, autocommit=True) as conn:
         conn.execute(
-            """INSERT INTO reliability.run (run_id, scenario_id, dataset_id, seed, fault_point, fault_timing, fault_kind, git_commit)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-            (run_id, scenario_id, dataset_id, seed, *cell, commit),
+            """INSERT INTO reliability.run (run_id, scenario_id, dataset_id, seed, fault_point, fault_timing, fault_kind, git_commit, mutant)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            (run_id, scenario_id, dataset_id, seed, *cell, commit, MUTANT),
         )
         if spec["clean"]:
             clean_month(conn)
@@ -624,7 +645,10 @@ def main():
             "UPDATE reliability.run SET finished_at = now(), job_exit_code = %s, verdict = %s WHERE run_id = %s",
             (exit_code, verdict, run_id),
         )
-        if matrix_cell:
+        if MUTANT:
+            # mutant 실행은 일부러 깨뜨린 코드라 장애 행렬 칸 결과로 남기지 않는다
+            pass
+        elif matrix_cell:
             previous_run, *previous_cell, previous_verdict = matrix_cell
             status = "PASS" if previous_verdict == "PASS" and verdict == "PASS" else "FAIL"
             conn.execute(

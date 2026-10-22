@@ -453,7 +453,7 @@
     {
       "type": "stat",
       "title": "재실행 실패율 95% 상한",
-      "description": "재실행 시나리오가 N번 모두 통과했을 때 rule of three로 구한 실패율 95% 상한(3/N, 최대 100%). N이 작으면 상한도 크다",
+      "description": "재실행 시나리오가 N번 모두 통과했을 때 rule of three로 구한 실패율 95% 상한(3/N, 최대 100%). N이 작으면 상한도 크다. 일부러 깨뜨린 mutant 실행은 뺀다",
       "datasource": "PostgresTarget",
       "gridPos": {
         "x": 12,
@@ -466,7 +466,7 @@
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
-          "rawSql": "SELECT CASE WHEN count(*) = 0 THEN NULL WHEN count(*) FILTER (WHERE verdict = 'FAIL') > 0 THEN '실패 ' || count(*) FILTER (WHERE verdict = 'FAIL') || '회 / ' || count(*) || '회' ELSE count(*) || '회 무실패 · 상한 ' || least(round(300.0 / count(*), 1), 100) || '%' END AS \"재실행\" FROM reliability.run WHERE scenario_id LIKE '%R' AND verdict IS NOT NULL",
+          "rawSql": "SELECT CASE WHEN count(*) = 0 THEN NULL WHEN count(*) FILTER (WHERE verdict = 'FAIL') > 0 THEN '실패 ' || count(*) FILTER (WHERE verdict = 'FAIL') || '회 / ' || count(*) || '회' ELSE count(*) || '회 무실패 · 상한 ' || least(round(300.0 / count(*), 1), 100) || '%' END AS \"재실행\" FROM reliability.run WHERE scenario_id LIKE '%R' AND verdict IS NOT NULL AND mutant IS NULL",
           "refId": "A"
         }
       ],
@@ -496,7 +496,7 @@
     {
       "type": "stat",
       "title": "mutation score",
-      "description": "심은 결함 중 검증이 잡아낸 비율 (이슈 7에서 채움)",
+      "description": "재실행 안전 장치를 하나씩 깨뜨린 mutant(M1 ~ M6) 중 검증이 잡아낸 비율. mutant 마다 가장 최근 실행만 센다",
       "datasource": "PostgresTarget",
       "gridPos": {
         "x": 18,
@@ -509,7 +509,7 @@
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
-          "rawSql": "SELECT round(100.0 * count(*) FILTER (WHERE passed) / NULLIF(count(*), 0), 1) AS \"mutation score\" FROM reliability.check_result WHERE check_id LIKE 'M%'",
+          "rawSql": "SELECT round(100.0 * count(*) FILTER (WHERE passed) / NULLIF(count(*), 0), 1) AS \"mutation score\" FROM (SELECT DISTINCT ON (c.check_id) c.passed FROM reliability.check_result c JOIN reliability.run r USING (run_id) WHERE r.scenario_id = 'MUTANT' ORDER BY c.check_id, r.started_at DESC) latest",
           "refId": "A"
         }
       ],
@@ -787,6 +787,114 @@
         "cellHeight": "sm"
       },
       "id": 13
+    },
+    {
+      "type": "table",
+      "title": "재실행 안전 장치 mutant",
+      "description": "원본 클래스를 복사해 한 곳만 바꾼 mutant 로 장애 칸을 돌렸을 때 검증이 잡았는지. mutant 마다 가장 최근 실행",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "결과"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "잡음": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "살아남음": {
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mutant"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "깨뜨린 장치"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "잡아야 할 조건"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 14,
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "refId": "A",
+          "rawSql": "SELECT DISTINCT ON (c.check_id) c.check_id AS \"mutant\", split_part(c.detail, ' → ', 1) AS \"깨뜨린 장치\", CASE WHEN c.passed THEN '잡음' ELSE '살아남음' END AS \"결과\", split_part(split_part(c.detail, ' → ', 2), ' (기대', 1) AS \"검증\", substring(c.detail from '기대 ([^,]*(, C[0-9])*)') AS \"잡아야 할 조건\" FROM reliability.check_result c JOIN reliability.run r USING (run_id) WHERE r.scenario_id = 'MUTANT' ORDER BY c.check_id, r.started_at DESC"
+        }
+      ]
     }
   ]
 }
