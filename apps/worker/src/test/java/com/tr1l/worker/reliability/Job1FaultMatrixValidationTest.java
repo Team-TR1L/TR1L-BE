@@ -2,9 +2,6 @@ package com.tr1l.worker.reliability;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
-import com.tr1l.worker.reliability.content.ContentValidation;
-import com.tr1l.worker.reliability.content.ReferenceAmountComparison;
-import com.tr1l.worker.reliability.content.SnapshotHashComparison;
 import com.tr1l.worker.reliability.fault.FaultPointExpectation;
 import com.tr1l.worker.reliability.fault.FaultPoints;
 import com.tr1l.worker.reliability.invariant.CrossDbInvariantChecks;
@@ -13,13 +10,10 @@ import com.tr1l.worker.reliability.invariant.InvariantValidator;
 import com.tr1l.worker.reliability.invariant.Job1StateCollector;
 import com.tr1l.worker.reliability.invariant.Job1StateSnapshot;
 import com.tr1l.worker.reliability.invariant.PostgresInvariantChecks;
-import com.tr1l.worker.reliability.invariant.RunStateComparisonCalculator;
-import com.tr1l.worker.reliability.invariant.RunStateComparisonResult;
 import com.tr1l.worker.reliability.scenario.Job1ScenarioDefinition;
 import com.tr1l.worker.reliability.support.AllureEvidenceWriter;
 import com.tr1l.worker.reliability.support.JsonResultWriter;
 import com.tr1l.worker.reliability.support.ReliabilityDataSourceFactory;
-import com.tr1l.worker.reliability.support.ReliabilityObjectMappers;
 import com.tr1l.worker.reliability.support.ReliabilityResourceCatalog;
 import com.tr1l.worker.reliability.support.ReliabilityRuntimeConfig;
 import io.qameta.allure.Allure;
@@ -32,8 +26,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,7 +40,7 @@ class Job1FaultMatrixValidationTest {
     private final JsonResultWriter resultWriter = new JsonResultWriter();
     private final AllureEvidenceWriter evidenceWriter = new AllureEvidenceWriter();
     private final ReliabilityDataSourceFactory dataSourceFactory = new ReliabilityDataSourceFactory();
-    private final RunStateComparisonCalculator comparisonCalculator = new RunStateComparisonCalculator();
+    private final Job1RerunConvergence convergence = new Job1RerunConvergence(catalog, resultWriter, evidenceWriter);
     private final FaultPointExpectation expectation = new FaultPointExpectation();
 
     @Test
@@ -99,53 +91,13 @@ class Job1FaultMatrixValidationTest {
         assumeLocalReliabilityEnabled();
 
         Job1ScenarioDefinition scenario = catalog.loadScenario("S-010R");
-        Job1ScenarioDefinition referenceScenario = catalog.loadScenario("S-001");
         ReliabilityRuntimeConfig config = ReliabilityRuntimeConfig.fromEnvironment();
         Allure.label("story", scenario.allure().story() + " " + System.getenv("JOB1_FAULT_POINT"));
-
-        Path referenceSnapshotPath = resultWriter.scenarioDirectory(referenceScenario).resolve("state-snapshot.json");
-        assertThat(Files.exists(referenceSnapshotPath))
-                .as("Run S-001 first to produce %s", referenceSnapshotPath)
-                .isTrue();
-        Job1StateSnapshot referenceSnapshot =
-                ReliabilityObjectMappers.json().readValue(Files.readString(referenceSnapshotPath), Job1StateSnapshot.class);
 
         try (MongoClient mongoClient = MongoClients.create(config.mongoUri())) {
             NamedParameterJdbcTemplate jdbcTemplate =
                     new NamedParameterJdbcTemplate(dataSourceFactory.createTargetDataSource(config));
-            LocalDate billingMonthDay = LocalDate.parse(scenario.job().billingMonthDay());
-
-            Job1StateSnapshot currentSnapshot = collector(jdbcTemplate, mongoClient, config).collect(billingMonthDay);
-            InvariantValidationResult validationResult = validator(jdbcTemplate, mongoClient, config)
-                    .validate(scenario, catalog.loadActiveInvariants());
-            RunStateComparisonResult comparisonResult = comparisonCalculator.compare(
-                    scenario.id(),
-                    referenceScenario.id(),
-                    referenceSnapshot,
-                    currentSnapshot,
-                    scenario.compareWithBaseline().metrics()
-            );
-
-            resultWriter.write(scenario, "current-state-snapshot.json", currentSnapshot);
-            resultWriter.write(scenario, "s001-run-state-comparison.json", comparisonResult);
-            resultWriter.write(scenario, "invariant-validation.json", validationResult);
-            evidenceWriter.attachJson("s001-run-state-comparison.json", comparisonResult);
-            evidenceWriter.attachJson("invariant-validation.json", validationResult);
-
-            // snapshot 내용 비교 (C5, C6)
-            ContentValidation contentValidation =
-                    new ContentValidation(jdbcTemplate, mongoClient, config, catalog, resultWriter, evidenceWriter);
-            SnapshotHashComparison hashComparison =
-                    contentValidation.compareWithBaselineHashes(scenario, referenceScenario, billingMonthDay);
-            ReferenceAmountComparison amountComparison =
-                    contentValidation.compareReferenceAmounts(scenario, billingMonthDay);
-
-            assertThat(validationResult.allPassed()).isTrue();
-            assertThat(currentSnapshot.targetWithSnapshotCount()).isZero();
-            assertThat(currentSnapshot.processingCount()).isZero();
-            assertThat(comparisonResult.matched()).isTrue();
-            assertThat(hashComparison.matched()).as("C5 snapshot hash %s", hashComparison).isTrue();
-            assertThat(amountComparison.matched()).as("C6 reference amount %s", amountComparison).isTrue();
+            convergence.verify(scenario, jdbcTemplate, mongoClient, config);
         }
     }
 
