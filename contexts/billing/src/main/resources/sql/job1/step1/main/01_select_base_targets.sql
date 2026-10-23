@@ -30,8 +30,9 @@ JOIN network_type nt ON nt.network_type_code = p.network_type_code
 JOIN data_billing_type dbt ON dbt.data_billing_type_code = p.data_billing_type_code
 LEFT JOIN welfare_discount w ON w.welfare_code = u.welfare_code
 
+-- 지금 상태(user_status)로 거르지 않는다. 청구 대상은 Step0 이 고정한 명단으로 거른다 (TR1L-179)
+-- 그래서 정산 월 첫 실행 뒤 탈퇴한 사용자도 읽힌다
 WHERE u.user_role = 'USER'
-  AND u.user_status = 'ACTIVE'
   AND u.plan_code IS NOT NULL
   AND u.user_id > ?
 
