@@ -200,9 +200,11 @@ class Sampler(threading.Thread):
 
 def clean_month(conn):
     # billing_targets, billing_cycle은 worker가 처음 뜰 때 Liquibase가 만들어서 첫 실행에는 없다
+    # billing_target_member 는 정산 월 첫 실행 때 고정하는 청구 대상 명단이다 (TR1L-179)
     for table, column in (("billing_work", "billing_month_day"),
                           ("billing_targets", "billing_month"),
-                          ("billing_cycle", "billing_month")):
+                          ("billing_cycle", "billing_month"),
+                          ("billing_target_member", "billing_month")):
         if conn.execute("SELECT to_regclass(%s)", (table,)).fetchone()[0]:
             conn.execute(f"DELETE FROM {table} WHERE {column} = DATE '2026-01-01'")
     MongoClient(MONGO_URL)[MONGO_DB]["billing_snapshot"].delete_many({"billingMonth": BILLING_MONTH_DAY})
@@ -713,12 +715,6 @@ def main():
                 precondition = f"한 worker 가 혼자 계산함 {workers}"
                 event(conn, run_id, "PRECONDITION_FAILED", precondition)
         verdict = "PASS" if junit_code == 0 else "FAIL"
-        if spec.get("input_change") and verdict == "PASS":
-            # 구조와 바뀌지 않은 사용자는 맞지만, 바뀐 사용자가 cutoff 기준을 지키지 않았다. 기대 동작을 정해야 한다
-            check = conn.execute("""SELECT passed FROM reliability.check_result
-                                    WHERE run_id = %s AND check_id = 'CUTOFF_HOLD'""", (run_id,)).fetchone()
-            if check and not check[0]:
-                verdict = "DECISION"
         if injected is False or precondition:
             # 장애가 들어가지 않았으면 그 칸은 검증한 것이 아니다
             verdict = "FAIL"

@@ -64,8 +64,9 @@ def clean_other_month(conn):
     if month.isoformat() == rs.BILLING_MONTH_DAY:
         return
     for table, column in (("billing_work", "billing_month_day"), ("billing_targets", "billing_month"),
-                          ("billing_cycle", "billing_month")):
-        conn.execute(f"DELETE FROM {table} WHERE {column} = %s", (month,))
+                          ("billing_cycle", "billing_month"), ("billing_target_member", "billing_month")):
+        if conn.execute("SELECT to_regclass(%s)", (table,)).fetchone()[0]:
+            conn.execute(f"DELETE FROM {table} WHERE {column} = %s", (month,))
     MongoClient(rs.MONGO_URL)[rs.MONGO_DB]["billing_snapshot"].delete_many({"billingMonth": month.isoformat()})
 
 
