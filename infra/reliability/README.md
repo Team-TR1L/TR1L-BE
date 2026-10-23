@@ -125,6 +125,19 @@ uv run infra/reliability/scripts/run_scenario.py S-010R
 - 칸은 S-010과 S-010R이 모두 통과해야 PASS다. S-010R은 S-003R과 같은 수렴 검증(INV-001~004, S-001 비교, C5, C6)을 한다
 - 기존 `APP_BILLING_RELIABILITY_FAIL_AFTER_SNAPSHOT_SAVE`(S-003)는 그대로 둔다. 모든 partition의 첫 저장 뒤에 던지는 방식이라 P3c·FIRST의 ONCE와는 다르다
 
+## 운영 설정으로 재실행 (TR1L-177)
+
+운영 task 정의에는 `BATCH_ADD_RUN_ID` 가 없다. 예전에는 같은 cutoff 재실행이 같은 JobInstance 가 되어, worker 가 강제로 죽은 뒤에는
+`STARTED` 로 남은 실행 때문에 재실행이 `JobExecutionAlreadyRunningException` 으로 시작하지 못하고 종료 코드 0 으로 끝났다.
+지금은 calculateJob 이 실행마다 run.id 를 붙이고, 시작하지 못하면 종료 코드 2 로 끝난다.
+
+`--run-id-off` 를 주면 하네스가 운영처럼 `BATCH_ADD_RUN_ID` 없이 worker 를 띄운다.
+
+```bash
+uv run infra/reliability/scripts/run_scenario.py S-010 --point P3c --timing MIDDLE --kind K2 --run-id-off
+uv run infra/reliability/scripts/run_scenario.py S-010R --run-id-off
+```
+
 ## lease 와 worker 경합
 
 Step3 는 work 를 claim 할 때 `PROCESSING` 과 `lease_until` 을 같이 쓴다. 다른 실행은 lease 가 끝난 `PROCESSING` 만 다시 가져간다.
