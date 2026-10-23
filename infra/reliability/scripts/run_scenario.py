@@ -499,6 +499,8 @@ def main():
                         help="기본은 FIRST, S-002 는 LAST")
     parser.add_argument("--kind", default="K1", choices=list(FAULT_KINDS))
     parser.add_argument("--chain", help="연속 장애를 한 묶음으로 남길 ID (reliability.run.chain_id)")
+    parser.add_argument("--run-id-off", action="store_true",
+                        help="운영 task 정의처럼 BATCH_ADD_RUN_ID 없이 worker 를 띄운다 (TR1L-177)")
     parser.add_argument("--cutoff", help=f"S-013 에서 쓸 cutoff. 기본 {CUTOFF}")
     parser.add_argument("--change", choices=list(input_changes.CHANGES), help="S-014R 에서 재실행 전에 바꿀 원천")
     parser.add_argument("--mutant", choices=["M1", "M2", "M3", "M4", "M5", "M6"],
@@ -528,6 +530,8 @@ def main():
     pause_dir = LOG_DIR / f"{run_id}-pause"
     hits_file = LOG_DIR / f"{run_id}-hits.json"
     worker_extra["APP_RELIABILITY_FAULT_HITS_FILE"] = str(hits_file)
+    if args.run_id_off:
+        worker_extra["BATCH_ADD_RUN_ID"] = "false"
 
     if spec.get("matrix"):
         if not args.point:
