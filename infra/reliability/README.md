@@ -106,14 +106,17 @@ worker에는 지점 8개에 장애를 넣을 수 있다(`Job1FaultPoint`, `Job1F
 | K3 | target DB 연결 끊김 | `kind=PAUSE`, 멈춘 사이 하네스가 `target-pg` proxy 를 끊음 | lease 만료 뒤 |
 | K4 | MongoDB 연결 끊김 | `kind=PAUSE`, 멈춘 사이 하네스가 `mongo` proxy 를 끊음 | lease 만료 뒤 |
 | K5 | worker 두 개 동시 실행 | 준비 실행 뒤 A, B 를 P2 에서 `kind=PAUSE` 로 붙잡았다가 시점에 맞춰 재개 | 없음. 두 worker 가 끝나면 바로 수렴을 본다 |
+| K6 | MongoDB 무응답 (연결은 살아 있음) | `kind=PAUSE`, 멈춘 사이 하네스가 `mongo` proxy 에 응답을 버리는 toxic 을 넣음 | lease 만료 뒤 |
 
-K2~K4 는 Step3 반환 listener 가 돌지 못할 수 있어 장애 실행에 lease 를 20초로 주고, 재실행은 남은 PROCESSING 의 lease 가 끝난 뒤에 한다.
+K2~K4, K6 은 Step3 반환 listener 가 돌지 못할 수 있어 장애 실행에 lease 를 20초로 주고, 재실행은 남은 PROCESSING 의 lease 가 끝난 뒤에 한다.
 P4 × K4 는 Step4 가 MongoDB 를 쓰지 않아 제외 칸이다. K4 × P0~P2 는 Step3 첫 저장에서 실패하므로 장애 직후 예상 상태를 따로 둔다(`expectByKind`).
+K6 은 MongoDB 를 쓰는 Step3 지점(P3a~P3d)만 돌리고 나머지 지점은 제외 칸이다.
 
 ```bash
 python3 infra/reliability/scripts/run_fault_matrix.py                       # K1 20칸 전부
 python3 infra/reliability/scripts/run_fault_matrix.py --kinds K2 K3 K4 --skip-baseline   # 59칸
 python3 infra/reliability/scripts/run_fault_matrix.py --kinds K5 --skip-baseline          # 3칸
+python3 infra/reliability/scripts/run_fault_matrix.py --kinds K6 --skip-baseline          # 12칸
 python3 infra/reliability/scripts/run_fault_matrix.py --points P2 --timings MIDDLE
 uv run infra/reliability/scripts/run_scenario.py S-010 --point P3a --timing LAST   # 한 칸만
 uv run infra/reliability/scripts/run_scenario.py S-010R
@@ -136,6 +139,44 @@ uv run infra/reliability/scripts/run_scenario.py S-010R
 ```bash
 uv run infra/reliability/scripts/run_scenario.py S-010 --point P3c --timing MIDDLE --kind K2 --run-id-off
 uv run infra/reliability/scripts/run_scenario.py S-010R --run-id-off
+```
+
+## MongoDB 무응답 (TR1L-180)
+
+K4 는 연결을 끊어서 드라이버가 바로 오류를 받는다. K6 은 연결을 그대로 두고 MongoDB 에서 오는 응답만 버린다(Toxiproxy `timeout` toxic, `timeout=0`).
+MongoDB 가 멈췄거나 네트워크 중간에서 패킷이 사라진 경우다. 드라이버 기본 읽기 timeout 이 0(무한)이라, 고치기 전에는 worker 가 끝나지 않았다.
+
+지금은 worker 가 `MongoTimeoutConfig` 로 timeout 을 정한다. URI 에 같은 옵션이 있어도 이 값이 이긴다.
+
+| 설정 | 환경 변수 | 기본값 |
+| --- | --- | --- |
+| `app.mongo.timeout.read` | `MONGO_READ_TIMEOUT` | 120s |
+| `app.mongo.timeout.connect` | `MONGO_CONNECT_TIMEOUT` | 10s |
+| `app.mongo.timeout.server-selection` | `MONGO_SERVER_SELECTION_TIMEOUT` | 30s |
+
+읽기 timeout 은 가장 느렸던 `billing_snapshot` bulk upsert 보다 길게 잡았다. Prometheus `mongodb_driver_commands_seconds_max` 기준 장애 없는 실행의 최대는 D1 2.5초, D5 6.1초였고,
+다른 실행과 겹쳤을 때 26초, MongoDB 메모리가 부족했을 때 62초까지 걸린 적이 있다.
+
+하네스는 K6 칸의 worker 를 300초(`WORKER_HANG_SECONDS`) 안에 끝나지 않으면 죽이고 `WORKER_HANG` 으로 남긴다. 그 칸은 전제 실패로 FAIL 이다.
+응답이 멈춘 뒤 worker 가 끝날 때까지 걸린 시간은 `FAULT_TO_EXIT` 이벤트에 남는다.
+
+D1-rerun-mvp 결과 (2026-10-24)
+
+| 칸 | 읽기 timeout 0 (고치기 전) | 읽기 timeout 120초 |
+| --- | --- | --- |
+| P3c·MIDDLE | 300초 안에 끝나지 않음 (`WORKER_HANG`) | 123초 뒤 종료 코드 1, 재실행 수렴. PASS |
+| P3a~P3d × FIRST, MIDDLE, LAST (P3d·LAST 제외 11칸) | (보지 않음) | 121~124초 뒤 종료 코드 1, 재실행 수렴. 모두 PASS |
+| P3d·LAST | job 은 끝났지만 300초 안에 프로세스가 끝나지 않음 | job 정상 완료, 122초 뒤 종료 코드 0. 장애가 결과에 닿지 않아 FAIL (두 번 같음), 재실행 PASS |
+
+P3d·LAST 는 응답을 멈춘 때 남은 MongoDB 쓰기가 이미 끝나 있어서 job 이 정상으로 끝난다. 대신 종료할 때 `MongoClient` 가
+`endSessions` 명령(`ServerSessionPool.endClosedSessions`)의 응답을 기다린다. 읽기 timeout 이 0 이면 이 대기가 끝나지 않아
+job 이 성공해도 프로세스가 남는다. 스레드 덤프에서 `SpringApplicationShutdownHook` 이 이 자리에 멈춰 있는 것을 확인했다.
+
+고치기 전 상태는 `MONGO_READ_TIMEOUT=0s` 로 다시 볼 수 있다.
+
+```bash
+MONGO_READ_TIMEOUT=0s uv run infra/reliability/scripts/run_scenario.py S-010 --point P3c --timing MIDDLE --kind K6
+uv run infra/reliability/scripts/run_scenario.py S-010R
 ```
 
 ## lease 와 worker 경합
