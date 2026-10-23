@@ -44,9 +44,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 // 로컬 환경 전용 검증
 // S-014R 장애와 재실행 사이에 main DB 원천이 바뀐 뒤 재실행
 //   하네스가 바꾼 사용자 목록을 input-change.json 으로 남긴다 (무리: CALCULATED, LOADED, NOT_LOADED)
-//   기준으로 삼는 규칙은 "cutoff 기준 유지". 바뀐 사용자도 S-001 과 같은 청구서를 받아야 한다
-//   이 규칙은 아직 정해진 요구사항이 아니라서 어긴 것은 결과로만 남기고(CUTOFF_HOLD), 단언은 하지 않는다
-//   단언하는 것은 구조(invariant, 남은 work 없음, 마감)와 바뀌지 않은 사용자의 청구서가 S-001 과 같은지다
+//   규칙 (TR1L-179 에서 정함)
+//     - 재실행 사이에 원천이 바뀌어도 처음 적재한 값으로 청구한다. CALCULATED, LOADED 는 S-001 과 같은 청구서여야 한다
+//       NOT_LOADED 는 재실행 때 처음 적재되므로 바뀐 값으로 청구되는 것이 규칙대로다
+//     - 정산 월 첫 실행 때 청구 대상이던 사용자는 그 뒤 탈퇴해도 청구한다. 누구도 NOT_BILLED 이면 안 된다
+//     - 청구서와 billing_targets 가 어긋나면 안 된다 (참조 계산 C6)
+//   그 밖에 구조(invariant, 남은 work 없음, 마감)와 바뀌지 않은 사용자의 청구서가 S-001 과 같은지 본다
 class Job1InputChangeValidationTest {
     static final String INPUT_CHANGE = "input-change.json";
     static final String INPUT_CHANGE_CHECK = "input-change-check.json";
@@ -57,7 +60,7 @@ class Job1InputChangeValidationTest {
     private final ReliabilityDataSourceFactory dataSourceFactory = new ReliabilityDataSourceFactory();
 
     @Test
-    @DisplayName("S-014R 재실행 전에 원천이 바뀌어도 바뀌지 않은 사용자는 그대로이고, 바뀐 사용자가 어느 기준으로 청구됐는지 보기")
+    @DisplayName("S-014R 재실행 전에 원천이 바뀌어도 처음 적재한 값과 처음 명단으로 청구하는지 보기")
     void rerunAfterInputChangeShouldFollowCutoff() throws Exception {
         assumeLocalReliabilityEnabled();
 
@@ -107,11 +110,14 @@ class Job1InputChangeValidationTest {
                     .filter(entry -> !changed.contains(entry.getKey()))
                     .filter(entry -> !Objects.equals(entry.getValue(), current.hashes().get(entry.getKey())))
                     .count();
-            long changedNotSame = byGroup.values().stream()
-                    .flatMap(outcomes -> outcomes.entrySet().stream())
-                    .filter(entry -> entry.getKey() != Outcome.SAME)
+            // 처음 적재된 뒤에는 바뀌면 안 되고(CALCULATED, LOADED), 아무도 빠지면 안 된다
+            long ruleViolations = byGroup.entrySet().stream()
+                    .flatMap(group -> group.getValue().entrySet().stream()
+                            .filter(entry -> entry.getKey() == Outcome.NOT_BILLED
+                                    || (entry.getKey() == Outcome.CHANGED && !"NOT_LOADED".equals(group.getKey()))))
                     .mapToLong(Map.Entry::getValue)
-                    .sum();
+                    .sum()
+                    + amounts.mismatchedUsers();
 
             Map<String, Object> metrics = new LinkedHashMap<>();
             metrics.put("change", change.change());
@@ -119,7 +125,7 @@ class Job1InputChangeValidationTest {
             metrics.put("unchangedDiffs", unchangedDiffs);
             metrics.put("referenceMismatchedUsers", amounts.mismatchedUsers());
             metrics.put("cycleStatus", cycleStatus);
-            Check check = new Check("CUTOFF_HOLD", changedNotSame == 0, changedNotSame,
+            Check check = new Check("CUTOFF_HOLD", ruleViolations == 0, ruleViolations,
                     change.change() + " " + change.title() + " → " + describe(byGroup)
                             + ", 청구서와 billing_targets 불일치 " + amounts.mismatchedUsers() + "명",
                     metrics);
@@ -133,6 +139,7 @@ class Job1InputChangeValidationTest {
                     .as("끝나지 않은 work").isZero();
             assertThat(cycleStatus).isEqualTo("FINISHED");
             assertThat(unchangedDiffs).as("원천이 바뀌지 않은 사용자의 청구서가 S-001 과 다름").isZero();
+            assertThat(ruleViolations).as("처음 적재한 값, 처음 명단으로 청구하지 않음 %s", byGroup).isZero();
         }
     }
 
