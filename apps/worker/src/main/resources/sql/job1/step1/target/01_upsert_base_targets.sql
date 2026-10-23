@@ -37,38 +37,7 @@ INSERT INTO billing_targets (
     CAST(:optionsJson AS jsonb),
 CAST(:sendOptionJson AS jsonb)
 )
-ON CONFLICT (billing_month, user_id)
-DO UPDATE SET
-    user_name = EXCLUDED.user_name,
-    user_birth_date = EXCLUDED.user_birth_date,
-    recipient_email = EXCLUDED.recipient_email,
-    recipient_phone = EXCLUDED.recipient_phone,
-
-    plan_name = EXCLUDED.plan_name,
-    plan_monthly_price = EXCLUDED.plan_monthly_price,
-    network_type_name = EXCLUDED.network_type_name,
-    data_billing_type_code = EXCLUDED.data_billing_type_code,
-    data_billing_type_name = EXCLUDED.data_billing_type_name,
-    included_data_mb = EXCLUDED.included_data_mb,
-    excess_charge_per_mb = EXCLUDED.excess_charge_per_mb,
-    used_data_mb = EXCLUDED.used_data_mb,
-
-    has_contract = EXCLUDED.has_contract,
-    contract_rate = EXCLUDED.contract_rate,
-    contract_duration_months = EXCLUDED.contract_duration_months,
-
-    soldier_eligible = EXCLUDED.soldier_eligible,
-
-    welfare_eligible = EXCLUDED.welfare_eligible,
-    welfare_code = EXCLUDED.welfare_code,
-    welfare_name = EXCLUDED.welfare_name,
-    welfare_rate = EXCLUDED.welfare_rate,
-    welfare_cap_amount = EXCLUDED.welfare_cap_amount,
-
-    from_time = EXCLUDED.from_time,
-    to_time = EXCLUDED.to_time,
-    day_time = EXCLUDED.day_time,
-
-    options_jsonb = EXCLUDED.options_jsonb,
-    send_option_jsonb=EXCLUDED.send_option_jsonb
+-- 이미 적재한 행은 덮어쓰지 않는다. 재실행 사이에 원천이 바뀌어도 처음 적재한 값으로 청구한다 (TR1L-179)
+-- 덮어쓰면 이미 계산한 사용자의 청구서와 billing_targets 가 어긋나고, 같은 달 안에서 청구 기준이 섞인다
+ON CONFLICT (billing_month, user_id) DO NOTHING
 ;
