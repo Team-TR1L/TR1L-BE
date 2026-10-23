@@ -280,6 +280,14 @@ K5 의 C5 불일치는 #384(TR1L-178) 결함이다. Step1 옵션 조회에 `ORDE
 PostgreSQL synchronized seqscan 이 테이블 중간에서 시작할 수 있다. 그 시작 블록에 걸친 사용자는 옵션 순서가 달라지고, 금액은 같지만 snapshot 의 옵션 라인 순서와 라인 ID 가 바뀐다.
 D1·D3 는 테이블이 작아서 이 동작이 일어나지 않는다.
 
+TR1L-178 에서 옵션 조회에 `ORDER BY uos.user_id, uos.user_option_id` 를 넣고, 약정 선택(`DISTINCT ON`)에도 시작일이 같을 때 기준(`user_contract_id DESC`)을 넣었다.
+`check_option_order.py` 는 옵션 조회를 두 세션에서 겹쳐 돌려 사용자별 순서가 같은지 본다. 고치기 전 SQL 은 `--ref` 로 고른다.
+
+```bash
+uv run infra/reliability/scripts/check_option_order.py --ref origin/develop   # 고치기 전 SQL
+uv run infra/reliability/scripts/check_option_order.py                        # 지금 SQL
+```
+
 
 ## 재실행 안전 장치를 깨뜨려 보기 (mutant)
 
