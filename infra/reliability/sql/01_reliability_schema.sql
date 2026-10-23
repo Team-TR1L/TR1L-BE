@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS reliability.run
     seed          bigint       NULL,
     fault_point   varchar(16)  NULL,     -- P0 ~ P4, 장애 없으면 NULL
     fault_timing  varchar(16)  NULL,     -- FIRST, MIDDLE, LAST
-    fault_kind    varchar(16)  NULL,     -- K1 ~ K5
+    fault_kind    varchar(16)  NULL,     -- K1 ~ K6
     git_commit    varchar(40)  NULL,
     started_at    timestamptz  NOT NULL DEFAULT now(),
     finished_at   timestamptz  NULL,
@@ -83,15 +83,17 @@ SELECT p.point, t.timing, k.kind,
        CASE
            WHEN p.point IN ('P0', 'P4') AND t.timing <> 'FIRST' THEN 'EXCLUDED'
            WHEN k.kind = 'K5' AND p.point NOT IN ('P3a') THEN 'EXCLUDED'
+           WHEN k.kind = 'K6' AND p.point NOT IN ('P3a', 'P3b', 'P3c', 'P3d') THEN 'EXCLUDED'
            ELSE 'NOT_RUN'
        END,
        CASE
            WHEN p.point IN ('P0', 'P4') AND t.timing <> 'FIRST' THEN 'chunk가 없는 tasklet 단계'
            WHEN k.kind = 'K5' AND p.point NOT IN ('P3a') THEN 'worker 경합은 Step3 claim 구간에서만 의미가 있음'
+           WHEN k.kind = 'K6' AND p.point NOT IN ('P3a', 'P3b', 'P3c', 'P3d') THEN 'MongoDB 는 Step3 에서만 써서 무응답은 Step3 에서만 걸림'
        END
 FROM (VALUES ('P0'), ('P1'), ('P2'), ('P3a'), ('P3b'), ('P3c'), ('P3d'), ('P4')) AS p(point)
 CROSS JOIN (VALUES ('FIRST'), ('MIDDLE'), ('LAST')) AS t(timing)
-CROSS JOIN (VALUES ('K1'), ('K2'), ('K3'), ('K4'), ('K5')) AS k(kind)
+CROSS JOIN (VALUES ('K1'), ('K2'), ('K3'), ('K4'), ('K5'), ('K6')) AS k(kind)
 ON CONFLICT DO NOTHING;
 
 -- Step4 는 MongoDB 를 쓰지 않아 MongoDB 연결을 끊어도 장애가 나지 않는다
