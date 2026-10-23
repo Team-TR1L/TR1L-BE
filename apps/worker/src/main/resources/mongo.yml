@@ -2,3 +2,11 @@ spring:
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/tr1l}
+
+# MongoDB 가 응답하지 않을 때 기다리는 시간 (TR1L-180, MongoTimeoutConfig)
+app:
+  mongo:
+    timeout:
+      connect: ${MONGO_CONNECT_TIMEOUT:10s}
+      read: ${MONGO_READ_TIMEOUT:120s}
+      server-selection: ${MONGO_SERVER_SELECTION_TIMEOUT:30s}
