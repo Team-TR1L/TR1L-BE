@@ -20,3 +20,14 @@ databaseChangeLog:
             relativeToChangelogFile: false
             splitStatements: true
             stripComments: true
+
+  - changeSet:
+      id: 002-billing-target-member
+      author: tkv00
+      context: prod,dev
+      changes:
+        - sqlFile:
+            path: db/sql/target/billing_target_member.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            stripComments: true
