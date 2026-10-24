@@ -22,6 +22,7 @@ import java.time.YearMonth;
 public class FormatGateTasklet implements Tasklet {
 
     private final JdbcTemplate jdbcTemplate; // ✅ NamedParameterJdbcTemplate -> JdbcTemplate
+    private final long leaseSeconds; // app.format.lease-seconds (TR1L-181)
 
     @Value("#{jobExecutionContext['cutoff']}")
     private String cutoff;
@@ -49,11 +50,11 @@ public class FormatGateTasklet implements Tasklet {
                     ON CONFLICT (billing_month) DO NOTHING
                 """, bm, Timestamp.from(cutoffAt));
 
-        // 2) claim (CAS + Job1 FINISHED + 좀비 회수 + lease 1시간)
+        // 2) claim (CAS + Job1 FINISHED + 좀비 회수 + lease)
         int updated = jdbcTemplate.update("""
                     UPDATE format_cycle fc
                     SET status = 'RUNNING',
-                        lease_until = now() + interval '1 hour'
+                        lease_until = now() + make_interval(secs => ?)
                     WHERE fc.billing_month = ?
                       AND (
                         fc.status IN ('READY','FAILED')
@@ -65,7 +66,7 @@ public class FormatGateTasklet implements Tasklet {
                         WHERE bc.billing_month = ?
                           AND bc.status = 'FINISHED'
                       )
-                """, bm, bm);
+                """, leaseSeconds, bm, bm);
 
         if (updated == 1) {
             log.info("[formatJob][Step0] Gate claim SUCCESS. billingMonth={}, cutoff={}", billingMonth, cutoffAt);

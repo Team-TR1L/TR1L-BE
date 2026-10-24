@@ -1,5 +1,6 @@
 package com.tr1l.worker;
 
+import com.tr1l.worker.batch.formatjob.FormatJobStaleExecutionRecovery;
 import com.tr1l.worker.config.BatchJobConfiguration;
 import com.tr1l.worker.config.TimeProperties;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,21 +16,26 @@ import org.springframework.batch.core.repository.JobExecutionAlreadyRunningExcep
 import org.springframework.context.ApplicationContext;
 
 import java.time.Instant;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// calculateJob 실행 파라미터와 종료 코드 (TR1L-177)
+// calculateJob, formatJob 실행 파라미터와 종료 코드 (TR1L-177, TR1L-181)
 class CalculateJobBatchRunnerTest {
     private final ApplicationContext applicationContext = mock(ApplicationContext.class);
     private final JobLauncher jobLauncher = mock(JobLauncher.class);
     private final BatchJobConfiguration batchConfiguration = mock(BatchJobConfiguration.class);
     private final Job calculateJob = mock(Job.class);
+    private final Job formatJob = mock(Job.class);
+    private final FormatJobStaleExecutionRecovery formatJobRecovery = mock(FormatJobStaleExecutionRecovery.class);
     private final List<Integer> exitCodes = new ArrayList<>();
 
     @BeforeEach
@@ -38,6 +44,9 @@ class CalculateJobBatchRunnerTest {
         when(batchConfiguration.getJob1StartTimeAsInstant()).thenReturn(Instant.parse("2026-02-01T00:00:00Z"));
         when(batchConfiguration.getChannelOrder()).thenReturn("EMAIL,SMS");
         when(applicationContext.getBean("calculateJob", Job.class)).thenReturn(calculateJob);
+        when(batchConfiguration.getJob2StartTimeAsInstant()).thenReturn(Instant.parse("2026-02-05T00:00:00Z"));
+        when(applicationContext.getBean("formatJob", Job.class)).thenReturn(formatJob);
+        when(formatJobRecovery.recover(any(), any())).thenReturn(FormatJobStaleExecutionRecovery.Result.NONE);
     }
 
     @Test
@@ -76,9 +85,50 @@ class CalculateJobBatchRunnerTest {
         assertThat(exitCodes).containsExactly(1);
     }
 
+    @Test
+    @DisplayName("formatJob 은 run.id 없이 같은 JobInstance 로 돌리고 남은 실행을 먼저 정리하는지 보기")
+    void formatJobShouldRestartSameInstanceAfterRecovery() throws Exception {
+        when(batchConfiguration.getJobName()).thenReturn("formatJob");
+        when(formatJobRecovery.recover(any(), any())).thenReturn(FormatJobStaleExecutionRecovery.Result.RECOVERED);
+        when(jobLauncher.run(any(), any())).thenReturn(execution(BatchStatus.COMPLETED));
+
+        runner(false).run();
+
+        ArgumentCaptor<JobParameters> parameters = ArgumentCaptor.forClass(JobParameters.class);
+        verify(formatJobRecovery).recover(parameters.capture(), eq(YearMonth.of(2026, 1)));
+        assertThat(parameters.getValue().getString("cutoff")).isEqualTo("2026-02-05T00:00:00Z");
+        assertThat(parameters.getValue().getLong("run.id")).isNull();
+        verify(jobLauncher).run(eq(formatJob), eq(parameters.getValue()));
+        assertThat(exitCodes).containsExactly(0);
+    }
+
+    @Test
+    @DisplayName("formatJob 남은 실행의 주인이 살아 있을 수 있으면 시작하지 않고 종료 코드 2 인지 보기")
+    void formatJobShouldNotStartWhileOwnerMayBeAlive() throws Exception {
+        when(batchConfiguration.getJobName()).thenReturn("formatJob");
+        when(formatJobRecovery.recover(any(), any())).thenReturn(FormatJobStaleExecutionRecovery.Result.OWNER_MAY_BE_ALIVE);
+
+        runner(false).run();
+
+        verify(jobLauncher, never()).run(any(), any());
+        assertThat(exitCodes).containsExactly(CalculateJobBatchRunner.SKIPPED_EXIT_CODE);
+    }
+
+    @Test
+    @DisplayName("formatJob 이 이미 실행 중이라 시작하지 못하면 종료 코드 2 인지 보기")
+    void formatJobSkippedStartShouldNotExitWithZero() throws Exception {
+        when(batchConfiguration.getJobName()).thenReturn("formatJob");
+        when(jobLauncher.run(any(), any()))
+                .thenThrow(new JobExecutionAlreadyRunningException("A job execution for this job is already running"));
+
+        runner(false).run();
+
+        assertThat(exitCodes).containsExactly(CalculateJobBatchRunner.SKIPPED_EXIT_CODE);
+    }
+
     private CalculateJobBatchRunner runner(boolean addRunId) {
         return new CalculateJobBatchRunner(applicationContext, jobLauncher, batchConfiguration,
-                new TimeProperties(null, null), true, addRunId, exitCodes::add);
+                new TimeProperties(null, null), formatJobRecovery, true, addRunId, exitCodes::add);
     }
 
     private JobExecution execution(BatchStatus status) {

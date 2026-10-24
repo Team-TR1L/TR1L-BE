@@ -1,5 +1,6 @@
 package com.tr1l.worker;
 
+import com.tr1l.worker.batch.formatjob.FormatJobStaleExecutionRecovery;
 import com.tr1l.worker.config.BatchJobConfiguration;
 import com.tr1l.worker.config.TimeProperties;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.function.IntConsumer;
@@ -29,6 +31,7 @@ public class CalculateJobBatchRunner implements CommandLineRunner {
     private final JobLauncher jobLauncher;
     private final BatchJobConfiguration batchConfiguration;
     private final TimeProperties timeProperties;
+    private final FormatJobStaleExecutionRecovery formatJobRecovery;
 
     private final ZoneId zoneId;
     private final DateTimeFormatter formatter;
@@ -42,10 +45,12 @@ public class CalculateJobBatchRunner implements CommandLineRunner {
             JobLauncher jobLauncher,
             BatchJobConfiguration batchConfiguration,
             TimeProperties timeProperties,
+            FormatJobStaleExecutionRecovery formatJobRecovery,
             @Value("${BATCH_EXIT_ON_COMPLETE:true}") boolean exitOnComplete,
             @Value("${BATCH_ADD_RUN_ID:false}") boolean addRunId
     ) {
-        this(applicationContext, jobLauncher, batchConfiguration, timeProperties, exitOnComplete, addRunId, System::exit);
+        this(applicationContext, jobLauncher, batchConfiguration, timeProperties, formatJobRecovery, exitOnComplete, addRunId,
+                System::exit);
     }
 
     CalculateJobBatchRunner(
@@ -53,11 +58,13 @@ public class CalculateJobBatchRunner implements CommandLineRunner {
             JobLauncher jobLauncher,
             BatchJobConfiguration batchConfiguration,
             TimeProperties timeProperties,
+            FormatJobStaleExecutionRecovery formatJobRecovery,
             boolean exitOnComplete,
             boolean addRunId,
             IntConsumer exit
     ) {
         this.exit = exit;
+        this.formatJobRecovery = formatJobRecovery;
         this.applicationContext = applicationContext;
         this.jobLauncher = jobLauncher;
         this.batchConfiguration = batchConfiguration;
@@ -156,13 +163,22 @@ public class CalculateJobBatchRunner implements CommandLineRunner {
         }
         JobParameters jobParameters = paramsBuilder.toJobParameters();
 
+        // formatJob 은 run.id 없이 같은 JobInstance 를 restart 해서 처리한 사용자 다음부터 이어서 읽는다 (TR1L-181)
+        // 강제 종료로 남은 STARTED 실행은 주인이 죽었으면 FAILED 로 바꿔 restart 하고, 살아 있을 수 있으면 시작하지 않는다
+        YearMonth billingMonth = YearMonth.from(cutoffAt.atZone(zoneId).minusMonths(1));
+        if (formatJobRecovery.recover(jobParameters, billingMonth) == FormatJobStaleExecutionRecovery.Result.OWNER_MAY_BE_ALIVE) {
+            exit.accept(SKIPPED_EXIT_CODE);
+            return;
+        }
 
         Job formatJob = applicationContext.getBean("formatJob", Job.class);
         try {
             JobExecution execution=jobLauncher.run(formatJob, jobParameters);
             handleJobCompletion(execution,"FormatJob");
         } catch (JobExecutionAlreadyRunningException e) {
-            log.warn("Job already running, skipping start. job=formatJob err={}", e.getMessage());
+            // root 로그 수준이 ERROR 라 WARN 이면 남지 않는다. 시작하지 않았으면 성공으로 끝내지 않는다
+            log.error("Job already running, skipping start. job=formatJob err={}", e.getMessage());
+            exit.accept(SKIPPED_EXIT_CODE);
         }
     }
 

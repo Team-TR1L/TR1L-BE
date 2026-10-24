@@ -96,9 +96,10 @@ public class BillingSnapShotStepConfig {
     @Bean
     @StepScope
     public FormatGateTasklet formatGateTasklet(
-            @Qualifier("targetJdbcTemplate") JdbcTemplate jdbcTemplate
+            @Qualifier("targetJdbcTemplate") JdbcTemplate jdbcTemplate,
+            @Value("${app.format.lease-seconds:3600}") long leaseSeconds
     ) {
-        return new FormatGateTasklet(jdbcTemplate);
+        return new FormatGateTasklet(jdbcTemplate, leaseSeconds);
     }
 
     @Bean
