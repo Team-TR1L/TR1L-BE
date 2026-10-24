@@ -100,3 +100,14 @@ ON CONFLICT DO NOTHING;
 UPDATE reliability.fault_cell
 SET status = 'EXCLUDED', note = 'Step4 는 MongoDB 를 쓰지 않음'
 WHERE fault_point = 'P4' AND fault_kind = 'K4' AND status = 'NOT_RUN';
+
+-- formatJob(Job2) 진행 표본 (TR1L-181). run_format_scenario.py 가 worker 를 돌리는 동안 센다
+CREATE TABLE IF NOT EXISTS reliability.format_sample
+(
+    run_id        varchar(64) NOT NULL REFERENCES reliability.run (run_id),
+    sampled_at    timestamptz NOT NULL DEFAULT now(),
+    init_count    bigint      NOT NULL, -- 청구서를 아직 만들지 않은 사용자
+    ready_count   bigint      NOT NULL, -- 청구서를 올리고 발송 대상이 된 사용자
+    format_status varchar(10) NULL,     -- format_cycle 상태
+    PRIMARY KEY (run_id, sampled_at)
+);
