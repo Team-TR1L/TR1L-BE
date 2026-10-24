@@ -14,6 +14,7 @@ Job1 재실행 검증 시나리오를 로컬에서 돌리고, 장애를 넣은 �
 | Prometheus | 19091 | 호스트에서 띄운 worker(18090) 지표 |
 | Grafana | 13000 | `Job1 Reliability` 대시보드. 익명 Viewer로 볼 수 있음 |
 | Toxiproxy | 18474 (API), 25443, 27037 | worker 가 target DB, MongoDB 에 붙는 길. K3, K4 에서 끊는다 |
+| S3 (LocalStack) | 14566 | formatJob(Job2) 청구서 업로드. 버킷 `tr1l-rel-bills` |
 
 worker는 컨테이너가 아니라 호스트에서 `java -jar`로 띄운다. 프로세스 강제 종료 같은 장애를 넣기 쉽게 하려는 것이다.
 
@@ -140,6 +141,56 @@ uv run infra/reliability/scripts/run_scenario.py S-010R
 uv run infra/reliability/scripts/run_scenario.py S-010 --point P3c --timing MIDDLE --kind K2 --run-id-off
 uv run infra/reliability/scripts/run_scenario.py S-010R --run-id-off
 ```
+
+## formatJob(Job2) 강제 종료 뒤 재실행 (TR1L-181)
+
+Job2 는 `billing_snapshot` 을 읽어 청구서를 만들고 S3 에 올린 뒤 `billing_targets.send_status` 를 `READY` 로 바꾼다.
+reader(`BillingSnapshotKeysetReader`)가 처리한 마지막 userId 를 ExecutionContext 에 남겨서, 같은 JobInstance 를 restart 하면 이어서 읽는다.
+그래서 calculateJob 과 달리 run.id 를 붙이지 않는다. 새 JobInstance 는 처음부터 다시 읽고 이미 발송된 행까지 `READY` 로 되돌린다.
+
+예전에는 worker 가 강제로 죽으면 그 JobExecution 이 `STARTED` 로 남아 같은 JobInstance 재실행이 `JobExecutionAlreadyRunningException` 으로 막혔다.
+`CalculateJobBatchRunner` 가 WARN 만 남기고 종료 코드 0 으로 끝나서, 아무것도 처리하지 않았는데 성공으로 보였다.
+지금은 `FormatJobStaleExecutionRecovery` 가 시작 전에 남은 실행을 본다.
+
+| `format_cycle` | 판단 | 동작 |
+| --- | --- | --- |
+| RUNNING, lease 지남 | 주인이 죽음 | lease 를 새로 잡고(CAS, 동시에 와도 하나만) 남은 실행과 step 을 FAILED 로 바꾼 뒤 restart |
+| RUNNING, lease 남음 | 다른 worker 가 돌고 있을 수 있음 | 시작하지 않고 ERROR, 종료 코드 2 |
+| FINISHED | 마감 뒤에 죽음 | FAILED 로 바꾸고 restart. 남은 step 만 마무리 |
+| 없음, READY | gate claim 전에 죽었거나 지금 Step0 | 실행이 lease 시간 넘게 갱신되지 않았을 때만 FAILED 로 바꾸고 restart |
+
+lease 는 `app.format.lease-seconds`(`BATCH_JOB2_LEASE_SECONDS`, 기본 3600초)다. `format_cycle` 테이블은 운영 DB 에 먼저 만들어져 있었고 저장소에 정의가 없어서,
+Liquibase changeset `003-format-cycle` 이 없을 때만 만든다.
+
+`run_format_scenario.py` 가 Job2 시나리오를 돌린다. Job1 이 2026-01 을 마감한 뒤(S-001, S-010R 다음)에 돌린다.
+worker 는 운영 task 정의처럼 `BATCH_ADD_RUN_ID=false` 로 띄우고, S3 는 LocalStack 으로 받는다(`AWS_ENDPOINT_URL_S3`).
+
+| 시나리오 | 하는 일 | 기대 |
+| --- | --- | --- |
+| F-001 | 정상 실행 | 종료 코드 0, `format_cycle` FINISHED, READY = 대상 수, READY 마다 S3 주소 2개, 쓰기 합 = 대상 수 |
+| F-002 | READY 가 절반을 넘으면 SIGKILL. lease 180초 | 실행 하나가 STARTED, `format_cycle` RUNNING, READY 일부 |
+| F-002E | lease 안쪽 재실행 | 종료 코드 2, 상태와 실행 기록 그대로 |
+| F-002R | lease 가 끝난 뒤 재실행 | F-001 과 같고, 같은 JobInstance 의 실행이 하나 늘며, 모든 실행의 쓰기 합이 대상 수(처음부터 다시 하지 않음) |
+
+```bash
+uv run infra/reliability/scripts/run_format_scenario.py F-001
+uv run infra/reliability/scripts/run_format_scenario.py F-002 --chain J2-KILL
+uv run infra/reliability/scripts/run_format_scenario.py F-002E --chain J2-KILL
+uv run infra/reliability/scripts/run_format_scenario.py F-002R --chain J2-KILL
+# 고치기 전 jar 는 lease 가 1시간 고정이라 lease 를 지난 시각으로 당겨서 본다
+uv run infra/reliability/scripts/run_format_scenario.py F-002R --jar build/worker-before-181.jar --expire-lease
+```
+
+D1-rerun-mvp 결과 (2026-10-24, 대상 28,500명, chunk 3,000)
+
+| 시나리오 | 고치기 전 (develop `42022eb`) | 고친 뒤 |
+| --- | --- | --- |
+| F-001 | PASS, 1분 45초 | PASS |
+| F-002 | READY 15,000 에서 SIGKILL. PASS | 같음. PASS |
+| F-002E | 종료 코드 0, 아무것도 처리하지 않음. **FAIL** | 종료 코드 2, 상태 그대로. PASS |
+| F-002R | 종료 코드 0, READY 15,000 그대로, 실행 STARTED 로 남음. **FAIL** | READY 15,000 에서 이어서 28,500, 쓰기 합 28,500. PASS |
+
+고치기 전 jar 가 남긴 `STARTED` 실행도 고친 jar 의 F-002R 이 같은 방식으로 이어받아 끝냈다. 배포 전에 남아 있던 실행도 배포 뒤 첫 실행 때 정리된다.
 
 ## MongoDB 무응답 (TR1L-180)
 
@@ -423,7 +474,7 @@ PANEL=2 SIZE=1600,635 infra/reliability/scripts/capture.sh graph now-5m now
 ```
 
 `build/reliability-screenshots/`에 2배 해상도 PNG로 저장한다. 로컬 Chrome의 headless 모드를 쓴다.
-패널 번호는 2 상태 그래프, 5 결과만 있는 work 추이, 11 장애 행렬, 13 검증 결과다.
+패널 번호는 2 상태 그래프, 5 결과만 있는 work 추이, 11 장애 행렬, 13 검증 결과, 18 Job2 청구서 생성 진행이다.
 
 ## 알아 둘 것
 
