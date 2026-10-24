@@ -26,6 +26,7 @@ import secrets
 import subprocess
 import sys
 import threading
+import urllib.error
 import urllib.request
 import time
 from datetime import datetime
@@ -86,7 +87,11 @@ FAULT_KINDS = {
     "K4": dict(kind="PAUSE", proxy="mongo"),
     # K5 는 worker A 를 P3a 에서 멈춘 사이 worker B 를 띄운다 (S-011)
     "K5": dict(kind="PAUSE", proxy=None),
+    # K6 는 연결은 그대로 두고 MongoDB 응답이 오지 않게 한다 (TR1L-180)
+    "K6": dict(kind="PAUSE", proxy="mongo", delay=True),
 }
+# K6 에서 worker 가 이 시간 안에 끝나지 않으면 무한 대기로 보고 죽인다
+WORKER_HANG_SECONDS = 300
 # K2 ~ K4 는 반환 listener 가 돌지 못해 PROCESSING 이 lease 끝날 때까지 남는다
 # 장애 실행에는 lease 를 짧게 주고, 재실행은 lease 가 끝난 뒤에 한다
 SHORT_LEASE_SECONDS = 20
@@ -256,10 +261,19 @@ def worker_cmd(port=WORKER_PORT):
     ]
 
 
-def run_worker(conn, run_id, fault, log_path, extra_env=None, label=None):
+HANG_EXIT_CODE = -9  # 하네스가 시간 안에 끝나지 않은 worker 를 죽였을 때
+
+
+def run_worker(conn, run_id, fault, log_path, extra_env=None, label=None, timeout=None):
     event(conn, run_id, "WORKER_START", label or ("fault=on" if fault else "fault=off"))
     with open(log_path, "w") as log:
-        proc = subprocess.run(worker_cmd(), env=worker_env(fault, extra_env), stdout=log, stderr=subprocess.STDOUT, cwd=ROOT)
+        try:
+            proc = subprocess.run(worker_cmd(), env=worker_env(fault, extra_env), stdout=log, stderr=subprocess.STDOUT,
+                                  cwd=ROOT, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            # subprocess.run 이 worker 를 죽이고 올린다
+            event(conn, run_id, "WORKER_HANG", f"{timeout}초 안에 끝나지 않아 종료")
+            return HANG_EXIT_CODE
     event(conn, run_id, "WORKER_EXIT", f"exit={proc.returncode}")
     return proc.returncode
 
@@ -300,29 +314,54 @@ def set_proxy(name, enabled):
     urllib.request.urlopen(request, timeout=5).read()
 
 
+def toxiproxy(method, path, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(f"{TOXIPROXY}{path}", data=data, method=method,
+                                     headers={"Content-Type": "application/json"})
+    urllib.request.urlopen(request, timeout=5).read()
+
+
+def stall(name):
+    """연결은 끊지 않고 MongoDB 에서 오는 응답을 모두 버린다. 서버가 멈춘 것처럼 보인다
+    (Toxiproxy timeout toxic, timeout=0 이면 연결을 닫지 않고 toxic 을 뺄 때까지 데이터를 버린다)
+    처음에는 120초 latency 로 넣었는데, 늦게라도 응답이 오면 worker 가 그때 진행해서 무한 대기를 보지 못했다"""
+    toxiproxy("POST", f"/proxies/{name}/toxics", {"name": "stall", "type": "timeout", "stream": "downstream",
+                                                  "attributes": {"timeout": 0}})
+
+
 def enable_all_proxies():
     for name in PROXY_PORTS:
         set_proxy(name, True)
+        try:
+            toxiproxy("DELETE", f"/proxies/{name}/toxics/stall")
+        except urllib.error.HTTPError:
+            pass  # 응답 멈춤을 넣지 않았으면 없다
 
 
 class PauseWatcher(threading.Thread):
-    """worker 가 PAUSE 지점에서 멈추면 proxy 를 끊고 다시 진행시킨다."""
+    """worker 가 PAUSE 지점에서 멈추면 proxy 를 끊거나(K3, K4) 응답을 늦추고(K6) 다시 진행시킨다."""
 
-    def __init__(self, pause_dir, proxy, run_id, label):
+    def __init__(self, pause_dir, proxy, run_id, label, delay=False):
         super().__init__(daemon=True)
-        self.pause_dir, self.proxy, self.run_id, self.label = pause_dir, proxy, run_id, label
+        self.pause_dir, self.proxy, self.run_id, self.label, self.delay = pause_dir, proxy, run_id, label, delay
         self.triggered = threading.Event()
+        self.injected_at = None
         self.stopped = threading.Event()
 
     def run(self):
         paused = self.pause_dir / "paused"
         while not self.stopped.is_set():
             if paused.exists():
-                set_proxy(self.proxy, False)
+                if self.delay:
+                    stall(self.proxy)
+                else:
+                    set_proxy(self.proxy, False)
                 (self.pause_dir / "resume").write_text("")
+                self.injected_at = time.monotonic()
                 self.triggered.set()
                 with psycopg.connect(TARGET_PG, autocommit=True) as conn:
-                    event(conn, self.run_id, "FAULT_INJECTED", f"{self.label} proxy={self.proxy} 끊음")
+                    event(conn, self.run_id, "FAULT_INJECTED",
+                          f"{self.label} proxy={self.proxy} " + ("응답 멈춤 (연결 유지)" if self.delay else "끊음"))
                 return
             self.stopped.wait(0.05)
 
@@ -499,7 +538,7 @@ def main():
     parser.add_argument("--point", help="S-010 장애 지점 (P0 ~ P4)")
     parser.add_argument("--timing", choices=["FIRST", "MIDDLE", "LAST"],
                         help="기본은 FIRST, S-002 는 LAST")
-    parser.add_argument("--kind", default="K1", choices=list(FAULT_KINDS))
+    parser.add_argument("--kind", default="K1", choices=list(FAULT_KINDS))  # K6 는 MongoDB 응답 지연
     parser.add_argument("--chain", help="연속 장애를 한 묶음으로 남길 ID (reliability.run.chain_id)")
     parser.add_argument("--run-id-off", action="store_true",
                         help="운영 task 정의처럼 BATCH_ADD_RUN_ID 없이 worker 를 띄운다 (TR1L-177)")
@@ -643,12 +682,13 @@ def main():
         time.sleep(2)
         log_path = LOG_DIR / f"{run_id}.log"
         if spec.get("matrix") and fault_kind["proxy"]:
-            watcher = PauseWatcher(pause_dir, fault_kind["proxy"], run_id, label)
+            watcher = PauseWatcher(pause_dir, fault_kind["proxy"], run_id, label, fault_kind.get("delay", False))
             watcher.start()
         if second:
             second.start()
         try:
-            exit_code = run_worker(conn, run_id, spec["fault"], log_path, worker_extra, label)
+            exit_code = run_worker(conn, run_id, spec["fault"], log_path, worker_extra, label,
+                                   timeout=WORKER_HANG_SECONDS if spec.get("matrix") and fault_kind.get("delay") else None)
         finally:
             if watcher:
                 watcher.stopped.set()
@@ -667,6 +707,12 @@ def main():
             else:
                 # 연결을 끊었는데 worker 가 정상 종료했으면 장애가 결과에 닿지 않은 것이다
                 injected = watcher.triggered.is_set() and exit_code != 0
+                if fault_kind.get("delay") and watcher.injected_at:
+                    # 응답이 멈춘 뒤 worker 가 끝나기까지 걸린 시간. 무한 대기면 하네스가 죽인다
+                    waited = time.monotonic() - watcher.injected_at
+                    event(conn, run_id, "FAULT_TO_EXIT", f"{waited:.0f}초")
+                    if exit_code == HANG_EXIT_CODE:
+                        precondition = f"MongoDB 응답이 멈춘 뒤 {WORKER_HANG_SECONDS}초 안에 실패하지 않음 (무한 대기)"
             if not injected:
                 event(conn, run_id, "FAULT_NOT_TRIGGERED", label)
             elif args.kind == "K1":

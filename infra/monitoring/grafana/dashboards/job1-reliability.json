@@ -551,7 +551,7 @@
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
-          "rawSql": "SELECT fault_point AS \"지점\", fault_timing AS \"시점\", max(status) FILTER (WHERE fault_kind = 'K1') AS \"K1 예외\", max(status) FILTER (WHERE fault_kind = 'K2') AS \"K2 kill\", max(status) FILTER (WHERE fault_kind = 'K3') AS \"K3 PG\", max(status) FILTER (WHERE fault_kind = 'K4') AS \"K4 Mongo\", max(status) FILTER (WHERE fault_kind = 'K5') AS \"K5 경합\" FROM reliability.fault_cell GROUP BY fault_point, fault_timing ORDER BY array_position(ARRAY['P0','P1','P2','P3a','P3b','P3c','P3d','P4'], fault_point), array_position(ARRAY['FIRST','MIDDLE','LAST'], fault_timing)",
+          "rawSql": "SELECT fault_point AS \"지점\", fault_timing AS \"시점\", max(status) FILTER (WHERE fault_kind = 'K1') AS \"K1 예외\", max(status) FILTER (WHERE fault_kind = 'K2') AS \"K2 kill\", max(status) FILTER (WHERE fault_kind = 'K3') AS \"K3 PG\", max(status) FILTER (WHERE fault_kind = 'K4') AS \"K4 Mongo\", max(status) FILTER (WHERE fault_kind = 'K5') AS \"K5 경합\", max(status) FILTER (WHERE fault_kind = 'K6') AS \"K6 무응답\" FROM reliability.fault_cell GROUP BY fault_point, fault_timing ORDER BY array_position(ARRAY['P0','P1','P2','P3a','P3b','P3c','P3d','P4'], fault_point), array_position(ARRAY['FIRST','MIDDLE','LAST'], fault_timing)",
           "refId": "A"
         }
       ],

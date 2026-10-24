@@ -36,7 +36,7 @@ class Job1FaultPointContractTest {
         });
         points.points().forEach((name, point) -> {
             if (point.expectByKind() != null) {
-                assertThat(point.expectByKind().keySet()).as("%s expectByKind", name).isSubsetOf("K1", "K2", "K3", "K4", "K5");
+                assertThat(point.expectByKind().keySet()).as("%s expectByKind", name).isSubsetOf("K1", "K2", "K3", "K4", "K5", "K6");
             }
         });
         // K4 는 Step0 ~ 2 에서 MongoDB 를 쓰지 않아 Step3 첫 저장에서 실패한다
