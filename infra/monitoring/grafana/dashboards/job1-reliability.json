@@ -1179,6 +1179,80 @@
           "rawSql": "SELECT r.chain_id AS \"번\", r.seed AS \"D4 seed\", c.detail AS \"장애 · 결과\", r.verdict AS \"결과\" FROM reliability.run r LEFT JOIN reliability.check_result c ON c.run_id = r.run_id AND c.check_id = 'RANDOM' WHERE r.scenario_id = 'RANDOM' ORDER BY r.started_at DESC LIMIT 40"
         }
       ]
+    },
+    {
+      "type": "timeseries",
+      "title": "formatJob(Job2) 청구서 생성 진행",
+      "description": "run_format_scenario.py 가 0.25초마다 센 값 (TR1L-181). READY 는 청구서를 S3 에 올리고 발송 대상이 된 사용자, INIT 은 아직 만들지 않은 사용자",
+      "datasource": "PostgresTarget",
+      "gridPos": {
+        "x": 0,
+        "y": 81,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT sampled_at AS time, ready_count AS \"READY\", init_count AS \"INIT\" FROM reliability.format_sample WHERE $__timeFilter(sampled_at) ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "READY"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "INIT"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 18
     }
   ]
 }

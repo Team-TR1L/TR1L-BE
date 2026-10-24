@@ -2,6 +2,7 @@
 # 다른 로컬 스택과 포트가 겹치지 않게 2xxxx, 1xxxx 대역을 쓴다
 #   main DB 25432, target DB 25433, mongo 27027, grafana 13000, prometheus 19091
 #   toxiproxy API 18474, target DB proxy 25443, mongo proxy 27037
+#   S3 대체(LocalStack) 14566
 # 실행: docker compose -p tr1l-rel -f infra/reliability/docker-compose.reliability.yml up -d
 name: tr1l-rel
 
@@ -70,6 +71,15 @@ services:
     depends_on:
       - pg-target
       - mongo
+
+  # formatJob(Job2) 의 청구서 S3 업로드를 받는다 (TR1L-181)
+  # worker 는 AWS_ENDPOINT_URL_S3 로 여기에 붙는다. 버킷은 run_format_scenario.py 가 만든다
+  s3:
+    image: localstack/localstack:3.8
+    environment:
+      SERVICES: s3
+    ports:
+      - "14566:4566"
 
   prometheus:
     image: prom/prometheus:v2.55.1

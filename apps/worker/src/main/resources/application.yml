@@ -94,6 +94,10 @@ app:
       batch-size: 5000
       chunk-size: 3000
 
+  #Job2 format_cycle 을 가진 실행이 살아 있다고 보는 시간. 지나면 다른 실행이 이어받는다 (TR1L-181)
+  format:
+    lease-seconds: ${BATCH_JOB2_LEASE_SECONDS:3600}
+
   liquibase:
     target:
       enabled: true
