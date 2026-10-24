@@ -31,3 +31,14 @@ databaseChangeLog:
             relativeToChangelogFile: false
             splitStatements: true
             stripComments: true
+
+  - changeSet:
+      id: 003-format-cycle
+      author: tkv00
+      context: prod,dev
+      changes:
+        - sqlFile:
+            path: db/sql/target/format_cycle.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            stripComments: true
